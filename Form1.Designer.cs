@@ -283,7 +283,7 @@
             // 
             // btnNext
             // 
-            btnNext.Location = new Point(840, 468);
+            btnNext.Location = new Point(840, 469);
             btnNext.Name = "btnNext";
             btnNext.Size = new Size(75, 30);
             btnNext.TabIndex = 16;
@@ -292,7 +292,7 @@
             // 
             // btnLast
             // 
-            btnLast.Location = new Point(921, 468);
+            btnLast.Location = new Point(921, 469);
             btnLast.Name = "btnLast";
             btnLast.Size = new Size(75, 30);
             btnLast.TabIndex = 17;
