@@ -30,8 +30,14 @@
         {
             menuStrip1 = new MenuStrip();
             파일ToolStripMenuItem = new ToolStripMenuItem();
+            데이터폴더열기ToolStripMenuItem = new ToolStripMenuItem();
+            다시불러오기ToolStripMenuItem = new ToolStripMenuItem();
+            종료ToolStripMenuItem = new ToolStripMenuItem();
             보기ToolStripMenuItem = new ToolStripMenuItem();
+            테마전환ToolStripMenuItem = new ToolStripMenuItem();
+            그래프테ToolStripMenuItem = new ToolStripMenuItem();
             도움말ToolStripMenuItem = new ToolStripMenuItem();
+            단계별가이드ToolStripMenuItem = new ToolStripMenuItem();
             tabControl1 = new TabControl();
             tabPage1 = new TabPage();
             btnClearFilter = new Button();
@@ -70,17 +76,12 @@
             myCarPathBox = new TextBox();
             pythonPathBox = new TextBox();
             tabPage3 = new TabPage();
+            panel1 = new Panel();
             lblDescription = new Label();
             statusStrip1 = new StatusStrip();
             toolStripStatusLabelPath = new ToolStripStatusLabel();
             toolStripStatusLabelFrames = new ToolStripStatusLabel();
-            panel1 = new Panel();
-            단계별가이드ToolStripMenuItem = new ToolStripMenuItem();
-            테마전환ToolStripMenuItem = new ToolStripMenuItem();
-            그래프테ToolStripMenuItem = new ToolStripMenuItem();
-            데이터폴더열기ToolStripMenuItem = new ToolStripMenuItem();
-            다시불러오기ToolStripMenuItem = new ToolStripMenuItem();
-            종료ToolStripMenuItem = new ToolStripMenuItem();
+            btnAutoPlay = new Button();
             menuStrip1.SuspendLayout();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
@@ -109,12 +110,43 @@
             파일ToolStripMenuItem.Size = new Size(53, 24);
             파일ToolStripMenuItem.Text = "파일";
             // 
+            // 데이터폴더열기ToolStripMenuItem
+            // 
+            데이터폴더열기ToolStripMenuItem.Name = "데이터폴더열기ToolStripMenuItem";
+            데이터폴더열기ToolStripMenuItem.Size = new Size(207, 26);
+            데이터폴더열기ToolStripMenuItem.Text = "데이터 폴더 열기";
+            // 
+            // 다시불러오기ToolStripMenuItem
+            // 
+            다시불러오기ToolStripMenuItem.Name = "다시불러오기ToolStripMenuItem";
+            다시불러오기ToolStripMenuItem.Size = new Size(207, 26);
+            다시불러오기ToolStripMenuItem.Text = "다시 불러오기";
+            // 
+            // 종료ToolStripMenuItem
+            // 
+            종료ToolStripMenuItem.Name = "종료ToolStripMenuItem";
+            종료ToolStripMenuItem.Size = new Size(207, 26);
+            종료ToolStripMenuItem.Text = "종료";
+            // 
             // 보기ToolStripMenuItem
             // 
             보기ToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { 테마전환ToolStripMenuItem, 그래프테ToolStripMenuItem });
             보기ToolStripMenuItem.Name = "보기ToolStripMenuItem";
             보기ToolStripMenuItem.Size = new Size(53, 24);
             보기ToolStripMenuItem.Text = "보기";
+            // 
+            // 테마전환ToolStripMenuItem
+            // 
+            테마전환ToolStripMenuItem.Name = "테마전환ToolStripMenuItem";
+            테마전환ToolStripMenuItem.Size = new Size(258, 26);
+            테마전환ToolStripMenuItem.Text = "테마 전환";
+            // 
+            // 그래프테ToolStripMenuItem
+            // 
+            그래프테ToolStripMenuItem.Name = "그래프테ToolStripMenuItem";
+            그래프테ToolStripMenuItem.Size = new Size(258, 26);
+            그래프테ToolStripMenuItem.Text = "그래프/통계 탭으로 이동";
+            그래프테ToolStripMenuItem.Click += 그래프테ToolStripMenuItem_Click;
             // 
             // 도움말ToolStripMenuItem
             // 
@@ -123,6 +155,12 @@
             도움말ToolStripMenuItem.Size = new Size(68, 24);
             도움말ToolStripMenuItem.Text = "도움말";
             도움말ToolStripMenuItem.Click += 도움말ToolStripMenuItem_Click;
+            // 
+            // 단계별가이드ToolStripMenuItem
+            // 
+            단계별가이드ToolStripMenuItem.Name = "단계별가이드ToolStripMenuItem";
+            단계별가이드ToolStripMenuItem.Size = new Size(187, 26);
+            단계별가이드ToolStripMenuItem.Text = "단계별 가이드";
             // 
             // tabControl1
             // 
@@ -137,6 +175,7 @@
             // 
             // tabPage1
             // 
+            tabPage1.Controls.Add(btnAutoPlay);
             tabPage1.Controls.Add(btnClearFilter);
             tabPage1.Controls.Add(btnOpenFolder);
             tabPage1.Controls.Add(btnReload);
@@ -503,6 +542,13 @@
             tabPage3.Text = "그래프/통계";
             tabPage3.UseVisualStyleBackColor = true;
             // 
+            // panel1
+            // 
+            panel1.Location = new Point(73, 75);
+            panel1.Name = "panel1";
+            panel1.Size = new Size(921, 408);
+            panel1.TabIndex = 1;
+            // 
             // lblDescription
             // 
             lblDescription.AutoSize = true;
@@ -533,49 +579,15 @@
             toolStripStatusLabelFrames.Size = new Size(72, 16);
             toolStripStatusLabelFrames.Text = "Frames: 0";
             // 
-            // panel1
+            // btnAutoPlay
             // 
-            panel1.Location = new Point(73, 75);
-            panel1.Name = "panel1";
-            panel1.Size = new Size(921, 408);
-            panel1.TabIndex = 1;
-            // 
-            // 단계별가이드ToolStripMenuItem
-            // 
-            단계별가이드ToolStripMenuItem.Name = "단계별가이드ToolStripMenuItem";
-            단계별가이드ToolStripMenuItem.Size = new Size(224, 26);
-            단계별가이드ToolStripMenuItem.Text = "단계별 가이드";
-            // 
-            // 테마전환ToolStripMenuItem
-            // 
-            테마전환ToolStripMenuItem.Name = "테마전환ToolStripMenuItem";
-            테마전환ToolStripMenuItem.Size = new Size(224, 26);
-            테마전환ToolStripMenuItem.Text = "테마 전환";
-            // 
-            // 그래프테ToolStripMenuItem
-            // 
-            그래프테ToolStripMenuItem.Name = "그래프테ToolStripMenuItem";
-            그래프테ToolStripMenuItem.Size = new Size(258, 26);
-            그래프테ToolStripMenuItem.Text = "그래프/통계 탭으로 이동";
-            그래프테ToolStripMenuItem.Click += 그래프테ToolStripMenuItem_Click;
-            // 
-            // 데이터폴더열기ToolStripMenuItem
-            // 
-            데이터폴더열기ToolStripMenuItem.Name = "데이터폴더열기ToolStripMenuItem";
-            데이터폴더열기ToolStripMenuItem.Size = new Size(224, 26);
-            데이터폴더열기ToolStripMenuItem.Text = "데이터 폴더 열기";
-            // 
-            // 다시불러오기ToolStripMenuItem
-            // 
-            다시불러오기ToolStripMenuItem.Name = "다시불러오기ToolStripMenuItem";
-            다시불러오기ToolStripMenuItem.Size = new Size(224, 26);
-            다시불러오기ToolStripMenuItem.Text = "다시 불러오기";
-            // 
-            // 종료ToolStripMenuItem
-            // 
-            종료ToolStripMenuItem.Name = "종료ToolStripMenuItem";
-            종료ToolStripMenuItem.Size = new Size(224, 26);
-            종료ToolStripMenuItem.Text = "종료";
+            btnAutoPlay.Location = new Point(846, 405);
+            btnAutoPlay.Name = "btnAutoPlay";
+            btnAutoPlay.Size = new Size(150, 27);
+            btnAutoPlay.TabIndex = 20;
+            btnAutoPlay.Text = "자동 재생";
+            btnAutoPlay.UseVisualStyleBackColor = true;
+            btnAutoPlay.Click += button3_Click;
             // 
             // Form1
             // 
@@ -669,5 +681,6 @@
         private ToolStripMenuItem 데이터폴더열기ToolStripMenuItem;
         private ToolStripMenuItem 다시불러오기ToolStripMenuItem;
         private ToolStripMenuItem 종료ToolStripMenuItem;
+        private Button btnAutoPlay;
     }
 }
