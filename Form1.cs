@@ -377,5 +377,35 @@ namespace TeamApp
             public string Mode { get; set; } = "-";
             public string Name { get; set; } = string.Empty;
         }
+
+        private void comboBoxFilter_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void tabPage2_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label2_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void 도움말ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void 그래프테ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }
