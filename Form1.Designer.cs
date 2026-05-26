@@ -49,7 +49,6 @@
             btnToggleTheme = new Button();
             numericUpDownInterval = new NumericUpDown();
             btnGuide = new Button();
-            txtFilter = new TextBox();
             lblAngleValue = new Label();
             comboBoxFilter = new ComboBox();
             lblThrottleValue = new Label();
@@ -68,6 +67,11 @@
             statusStrip1 = new StatusStrip();
             toolStripStatusLabelPath = new ToolStripStatusLabel();
             toolStripStatusLabelFrames = new ToolStripStatusLabel();
+            label1 = new Label();
+            groupBox1 = new GroupBox();
+            groupBox2 = new GroupBox();
+            numFilterMin = new NumericUpDown();
+            numFilterMax = new NumericUpDown();
             menuStrip1.SuspendLayout();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
@@ -76,6 +80,9 @@
             ((System.ComponentModel.ISupportInitialize)trackBarMain).BeginInit();
             tabPage3.SuspendLayout();
             statusStrip1.SuspendLayout();
+            groupBox1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)numFilterMin).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numFilterMax).BeginInit();
             SuspendLayout();
             // 
             // menuStrip1
@@ -160,27 +167,10 @@
             // 
             // tabPage1
             // 
-            tabPage1.Controls.Add(btnAutoPlay);
-            tabPage1.Controls.Add(btnClearFilter);
-            tabPage1.Controls.Add(listBoxData);
-            tabPage1.Controls.Add(btnOpenFolder);
-            tabPage1.Controls.Add(btnReload);
-            tabPage1.Controls.Add(btnApplyFilter);
-            tabPage1.Controls.Add(btnToggleTheme);
-            tabPage1.Controls.Add(numericUpDownInterval);
-            tabPage1.Controls.Add(btnGuide);
-            tabPage1.Controls.Add(txtFilter);
-            tabPage1.Controls.Add(lblAngleValue);
-            tabPage1.Controls.Add(comboBoxFilter);
-            tabPage1.Controls.Add(lblThrottleValue);
-            tabPage1.Controls.Add(lblModeValue);
-            tabPage1.Controls.Add(lblFrameValue);
-            tabPage1.Controls.Add(pbMainPreview);
-            tabPage1.Controls.Add(btnFirst);
-            tabPage1.Controls.Add(btnPrev);
-            tabPage1.Controls.Add(btnNext);
-            tabPage1.Controls.Add(btnLast);
-            tabPage1.Controls.Add(trackBarMain);
+            tabPage1.Controls.Add(numFilterMax);
+            tabPage1.Controls.Add(numFilterMin);
+            tabPage1.Controls.Add(groupBox2);
+            tabPage1.Controls.Add(groupBox1);
             tabPage1.Location = new Point(4, 29);
             tabPage1.Name = "tabPage1";
             tabPage1.Padding = new Padding(3);
@@ -191,9 +181,9 @@
             // 
             // btnAutoPlay
             // 
-            btnAutoPlay.Location = new Point(473, 832);
+            btnAutoPlay.Location = new Point(1287, 176);
             btnAutoPlay.Name = "btnAutoPlay";
-            btnAutoPlay.Size = new Size(150, 27);
+            btnAutoPlay.Size = new Size(270, 27);
             btnAutoPlay.TabIndex = 20;
             btnAutoPlay.Text = "자동 재생";
             btnAutoPlay.UseVisualStyleBackColor = true;
@@ -201,7 +191,7 @@
             // 
             // btnClearFilter
             // 
-            btnClearFilter.Location = new Point(230, 793);
+            btnClearFilter.Location = new Point(1382, 586);
             btnClearFilter.Name = "btnClearFilter";
             btnClearFilter.Size = new Size(150, 27);
             btnClearFilter.TabIndex = 19;
@@ -210,16 +200,16 @@
             // 
             // listBoxData
             // 
-            listBoxData.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right;
-            listBoxData.Location = new Point(7, 42);
+            listBoxData.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            listBoxData.Location = new Point(0, 102);
             listBoxData.Name = "listBoxData";
-            listBoxData.Size = new Size(281, 604);
+            listBoxData.Size = new Size(281, 564);
             listBoxData.TabIndex = 13;
             listBoxData.SelectedIndexChanged += listBoxData_SelectedIndexChanged;
             // 
             // btnOpenFolder
             // 
-            btnOpenFolder.Location = new Point(215, 6);
+            btnOpenFolder.Location = new Point(0, 26);
             btnOpenFolder.Name = "btnOpenFolder";
             btnOpenFolder.Size = new Size(140, 30);
             btnOpenFolder.TabIndex = 0;
@@ -229,7 +219,7 @@
             // 
             // btnReload
             // 
-            btnReload.Location = new Point(361, 6);
+            btnReload.Location = new Point(146, 26);
             btnReload.Name = "btnReload";
             btnReload.Size = new Size(140, 30);
             btnReload.TabIndex = 1;
@@ -239,7 +229,7 @@
             // 
             // btnApplyFilter
             // 
-            btnApplyFilter.Location = new Point(76, 793);
+            btnApplyFilter.Location = new Point(1285, 470);
             btnApplyFilter.Name = "btnApplyFilter";
             btnApplyFilter.Size = new Size(150, 27);
             btnApplyFilter.TabIndex = 12;
@@ -249,7 +239,7 @@
             // 
             // btnToggleTheme
             // 
-            btnToggleTheme.Location = new Point(507, 6);
+            btnToggleTheme.Location = new Point(292, 26);
             btnToggleTheme.Name = "btnToggleTheme";
             btnToggleTheme.Size = new Size(140, 30);
             btnToggleTheme.TabIndex = 2;
@@ -259,17 +249,17 @@
             // 
             // numericUpDownInterval
             // 
-            numericUpDownInterval.Location = new Point(230, 759);
+            numericUpDownInterval.Location = new Point(1403, 329);
             numericUpDownInterval.Maximum = new decimal(new int[] { 5000, 0, 0, 0 });
             numericUpDownInterval.Minimum = new decimal(new int[] { 10, 0, 0, 0 });
             numericUpDownInterval.Name = "numericUpDownInterval";
-            numericUpDownInterval.Size = new Size(150, 27);
+            numericUpDownInterval.Size = new Size(156, 27);
             numericUpDownInterval.TabIndex = 11;
             numericUpDownInterval.Value = new decimal(new int[] { 200, 0, 0, 0 });
             // 
             // btnGuide
             // 
-            btnGuide.Location = new Point(653, 6);
+            btnGuide.Location = new Point(438, 26);
             btnGuide.Name = "btnGuide";
             btnGuide.Size = new Size(140, 30);
             btnGuide.TabIndex = 3;
@@ -277,52 +267,50 @@
             btnGuide.UseVisualStyleBackColor = true;
             btnGuide.Click += btnGuide_Click;
             // 
-            // txtFilter
-            // 
-            txtFilter.Location = new Point(78, 759);
-            txtFilter.Name = "txtFilter";
-            txtFilter.Size = new Size(148, 27);
-            txtFilter.TabIndex = 10;
-            txtFilter.Text = "min,max";
-            // 
             // lblAngleValue
             // 
-            lblAngleValue.Location = new Point(1292, 436);
+            lblAngleValue.Font = new Font("맑은 고딕", 13.8F);
+            lblAngleValue.Location = new Point(1287, 211);
             lblAngleValue.Name = "lblAngleValue";
-            lblAngleValue.Size = new Size(164, 20);
+            lblAngleValue.Size = new Size(272, 39);
             lblAngleValue.TabIndex = 6;
-            lblAngleValue.Text = "Angle: 0.000";
+            lblAngleValue.Text = "조향값: 0.000";
+            lblAngleValue.Click += lblAngleValue_Click;
             // 
             // comboBoxFilter
             // 
             comboBoxFilter.DropDownStyle = ComboBoxStyle.DropDownList;
             comboBoxFilter.Items.AddRange(new object[] { "전체 보기", "스로틀 최소값", "조향 범위", "모드 = 사용자", "이미지 없는 프레임" });
-            comboBoxFilter.Location = new Point(76, 726);
+            comboBoxFilter.Location = new Point(0, 62);
             comboBoxFilter.Name = "comboBoxFilter";
-            comboBoxFilter.Size = new Size(154, 28);
+            comboBoxFilter.Size = new Size(281, 28);
             comboBoxFilter.TabIndex = 9;
             comboBoxFilter.SelectedIndexChanged += comboBoxFilter_SelectedIndexChanged;
             // 
             // lblThrottleValue
             // 
-            lblThrottleValue.Location = new Point(1292, 456);
+            lblThrottleValue.Font = new Font("맑은 고딕", 13.8F);
+            lblThrottleValue.Location = new Point(1287, 250);
             lblThrottleValue.Name = "lblThrottleValue";
-            lblThrottleValue.Size = new Size(158, 20);
+            lblThrottleValue.Size = new Size(272, 37);
             lblThrottleValue.TabIndex = 7;
-            lblThrottleValue.Text = "Throttle: 0.000";
+            lblThrottleValue.Text = "스로틀값: 0.000";
+            lblThrottleValue.Click += lblThrottleValue_Click;
             // 
             // lblModeValue
             // 
-            lblModeValue.Location = new Point(1294, 479);
+            lblModeValue.Font = new Font("맑은 고딕", 13.8F);
+            lblModeValue.Location = new Point(1287, 287);
             lblModeValue.Name = "lblModeValue";
-            lblModeValue.Size = new Size(156, 20);
+            lblModeValue.Size = new Size(272, 112);
             lblModeValue.TabIndex = 8;
-            lblModeValue.Text = "Mode: -";
+            lblModeValue.Text = "모드: -";
+            lblModeValue.Click += lblModeValue_Click;
             // 
             // lblFrameValue
             // 
             lblFrameValue.Font = new Font("맑은 고딕", 13.8F, FontStyle.Regular, GraphicsUnit.Point, 129);
-            lblFrameValue.Location = new Point(1292, 42);
+            lblFrameValue.Location = new Point(1285, 62);
             lblFrameValue.Name = "lblFrameValue";
             lblFrameValue.Size = new Size(277, 39);
             lblFrameValue.TabIndex = 5;
@@ -331,7 +319,7 @@
             // pbMainPreview
             // 
             pbMainPreview.BorderStyle = BorderStyle.FixedSingle;
-            pbMainPreview.Location = new Point(294, 42);
+            pbMainPreview.Location = new Point(287, 62);
             pbMainPreview.Name = "pbMainPreview";
             pbMainPreview.Size = new Size(992, 605);
             pbMainPreview.SizeMode = PictureBoxSizeMode.StretchImage;
@@ -340,43 +328,43 @@
             // 
             // btnFirst
             // 
-            btnFirst.Location = new Point(1292, 120);
+            btnFirst.Location = new Point(1285, 140);
             btnFirst.Name = "btnFirst";
-            btnFirst.Size = new Size(124, 30);
+            btnFirst.Size = new Size(134, 30);
             btnFirst.TabIndex = 14;
-            btnFirst.Text = "처음";
+            btnFirst.Text = "<<";
             btnFirst.Click += btnFirst_Click;
             // 
             // btnPrev
             // 
-            btnPrev.Location = new Point(1292, 84);
+            btnPrev.Location = new Point(1285, 104);
             btnPrev.Name = "btnPrev";
-            btnPrev.Size = new Size(124, 30);
+            btnPrev.Size = new Size(134, 30);
             btnPrev.TabIndex = 15;
-            btnPrev.Text = "이전";
+            btnPrev.Text = "<";
             btnPrev.Click += btnPrev_Click;
             // 
             // btnNext
             // 
-            btnNext.Location = new Point(1427, 84);
+            btnNext.Location = new Point(1423, 104);
             btnNext.Name = "btnNext";
-            btnNext.Size = new Size(124, 30);
+            btnNext.Size = new Size(134, 30);
             btnNext.TabIndex = 16;
-            btnNext.Text = "다음";
+            btnNext.Text = ">";
             btnNext.Click += btnNext_Click;
             // 
             // btnLast
             // 
-            btnLast.Location = new Point(1427, 120);
+            btnLast.Location = new Point(1423, 140);
             btnLast.Name = "btnLast";
-            btnLast.Size = new Size(124, 30);
+            btnLast.Size = new Size(134, 30);
             btnLast.TabIndex = 17;
-            btnLast.Text = "끝";
+            btnLast.Text = ">>";
             btnLast.Click += btnLast_Click;
             // 
             // trackBarMain
             // 
-            trackBarMain.Location = new Point(3, 653);
+            trackBarMain.Location = new Point(0, 672);
             trackBarMain.Maximum = 0;
             trackBarMain.Name = "trackBarMain";
             trackBarMain.Size = new Size(1563, 56);
@@ -443,6 +431,69 @@
             toolStripStatusLabelFrames.Size = new Size(72, 16);
             toolStripStatusLabelFrames.Text = "Frames: 0";
             // 
+            // label1
+            // 
+            label1.Font = new Font("맑은 고딕", 10.2F, FontStyle.Bold, GraphicsUnit.Point, 129);
+            label1.Location = new Point(1285, 328);
+            label1.Name = "label1";
+            label1.Size = new Size(127, 31);
+            label1.TabIndex = 21;
+            label1.Text = "재생간격(ms)";
+            label1.Click += label1_Click;
+            // 
+            // groupBox1
+            // 
+            groupBox1.Controls.Add(trackBarMain);
+            groupBox1.Controls.Add(numericUpDownInterval);
+            groupBox1.Controls.Add(btnOpenFolder);
+            groupBox1.Controls.Add(label1);
+            groupBox1.Controls.Add(btnLast);
+            groupBox1.Controls.Add(btnAutoPlay);
+            groupBox1.Controls.Add(btnNext);
+            groupBox1.Controls.Add(btnClearFilter);
+            groupBox1.Controls.Add(btnPrev);
+            groupBox1.Controls.Add(listBoxData);
+            groupBox1.Controls.Add(btnFirst);
+            groupBox1.Controls.Add(pbMainPreview);
+            groupBox1.Controls.Add(btnReload);
+            groupBox1.Controls.Add(lblFrameValue);
+            groupBox1.Controls.Add(btnApplyFilter);
+            groupBox1.Controls.Add(lblModeValue);
+            groupBox1.Controls.Add(btnToggleTheme);
+            groupBox1.Controls.Add(lblThrottleValue);
+            groupBox1.Controls.Add(btnGuide);
+            groupBox1.Controls.Add(comboBoxFilter);
+            groupBox1.Controls.Add(lblAngleValue);
+            groupBox1.Location = new Point(0, 0);
+            groupBox1.Name = "groupBox1";
+            groupBox1.Size = new Size(1569, 736);
+            groupBox1.TabIndex = 22;
+            groupBox1.TabStop = false;
+            groupBox1.Text = "터브 탐색기";
+            // 
+            // groupBox2
+            // 
+            groupBox2.Location = new Point(3, 742);
+            groupBox2.Name = "groupBox2";
+            groupBox2.Size = new Size(1563, 68);
+            groupBox2.TabIndex = 23;
+            groupBox2.TabStop = false;
+            groupBox2.Text = "터브 정리기";
+            // 
+            // numFilterMin
+            // 
+            numFilterMin.Location = new Point(40, 816);
+            numFilterMin.Name = "numFilterMin";
+            numFilterMin.Size = new Size(150, 27);
+            numFilterMin.TabIndex = 24;
+            // 
+            // numFilterMax
+            // 
+            numFilterMax.Location = new Point(192, 816);
+            numFilterMax.Name = "numFilterMax";
+            numFilterMax.Size = new Size(150, 27);
+            numFilterMax.TabIndex = 25;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(9F, 20F);
@@ -459,7 +510,6 @@
             menuStrip1.PerformLayout();
             tabControl1.ResumeLayout(false);
             tabPage1.ResumeLayout(false);
-            tabPage1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)numericUpDownInterval).EndInit();
             ((System.ComponentModel.ISupportInitialize)pbMainPreview).EndInit();
             ((System.ComponentModel.ISupportInitialize)trackBarMain).EndInit();
@@ -467,6 +517,10 @@
             tabPage3.PerformLayout();
             statusStrip1.ResumeLayout(false);
             statusStrip1.PerformLayout();
+            groupBox1.ResumeLayout(false);
+            groupBox1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)numFilterMin).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numFilterMax).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -498,7 +552,6 @@
         private Label lblThrottleValue;
         private Label lblModeValue;
         private ComboBox comboBoxFilter;
-        private TextBox txtFilter;
         private NumericUpDown numericUpDownInterval;
         private Button btnApplyFilter;
         private ListBox listBoxData;
@@ -520,5 +573,10 @@
         private ToolStripMenuItem 다시불러오기ToolStripMenuItem;
         private ToolStripMenuItem 종료ToolStripMenuItem;
         private Button btnAutoPlay;
+        private Label label1;
+        private GroupBox groupBox1;
+        private GroupBox groupBox2;
+        private NumericUpDown numFilterMax;
+        private NumericUpDown numFilterMin;
     }
 }
