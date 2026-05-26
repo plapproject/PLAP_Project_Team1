@@ -60,7 +60,6 @@
             btnNext = new Button();
             btnLast = new Button();
             trackBarMain = new TrackBar();
-            tabPage2 = new TabPage();
             tabPage3 = new TabPage();
             panel1 = new Panel();
             lblDescription = new Label();
@@ -72,6 +71,14 @@
             groupBox2 = new GroupBox();
             numFilterMin = new NumericUpDown();
             numFilterMax = new NumericUpDown();
+            label2 = new Label();
+            label3 = new Label();
+            textBox1 = new TextBox();
+            btnRepair = new Button();
+            btnReloadTub = new Button();
+            tabPage4 = new TabPage();
+            tabPage2 = new TabPage();
+            groupBox3 = new GroupBox();
             menuStrip1.SuspendLayout();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
@@ -81,8 +88,10 @@
             tabPage3.SuspendLayout();
             statusStrip1.SuspendLayout();
             groupBox1.SuspendLayout();
+            groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numFilterMin).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numFilterMax).BeginInit();
+            tabPage2.SuspendLayout();
             SuspendLayout();
             // 
             // menuStrip1
@@ -159,6 +168,7 @@
             tabControl1.Controls.Add(tabPage1);
             tabControl1.Controls.Add(tabPage2);
             tabControl1.Controls.Add(tabPage3);
+            tabControl1.Controls.Add(tabPage4);
             tabControl1.Location = new Point(2, 31);
             tabControl1.Name = "tabControl1";
             tabControl1.SelectedIndex = 0;
@@ -167,8 +177,6 @@
             // 
             // tabPage1
             // 
-            tabPage1.Controls.Add(numFilterMax);
-            tabPage1.Controls.Add(numFilterMin);
             tabPage1.Controls.Add(groupBox2);
             tabPage1.Controls.Add(groupBox1);
             tabPage1.Location = new Point(4, 29);
@@ -191,9 +199,9 @@
             // 
             // btnClearFilter
             // 
-            btnClearFilter.Location = new Point(1382, 586);
+            btnClearFilter.Location = new Point(1182, 24);
             btnClearFilter.Name = "btnClearFilter";
-            btnClearFilter.Size = new Size(150, 27);
+            btnClearFilter.Size = new Size(120, 30);
             btnClearFilter.TabIndex = 19;
             btnClearFilter.Text = "필터 해제";
             btnClearFilter.UseVisualStyleBackColor = true;
@@ -229,9 +237,9 @@
             // 
             // btnApplyFilter
             // 
-            btnApplyFilter.Location = new Point(1285, 470);
+            btnApplyFilter.Location = new Point(1056, 24);
             btnApplyFilter.Name = "btnApplyFilter";
-            btnApplyFilter.Size = new Size(150, 27);
+            btnApplyFilter.Size = new Size(120, 30);
             btnApplyFilter.TabIndex = 12;
             btnApplyFilter.Text = "필터 적용";
             btnApplyFilter.UseVisualStyleBackColor = true;
@@ -371,17 +379,6 @@
             trackBarMain.TabIndex = 18;
             trackBarMain.Scroll += trackBarMain_Scroll;
             // 
-            // tabPage2
-            // 
-            tabPage2.Location = new Point(4, 29);
-            tabPage2.Name = "tabPage2";
-            tabPage2.Padding = new Padding(3);
-            tabPage2.Size = new Size(1572, 887);
-            tabPage2.TabIndex = 1;
-            tabPage2.Text = "학습 실행";
-            tabPage2.UseVisualStyleBackColor = true;
-            tabPage2.Click += tabPage2_Click;
-            // 
             // tabPage3
             // 
             tabPage3.Controls.Add(panel1);
@@ -450,14 +447,12 @@
             groupBox1.Controls.Add(btnLast);
             groupBox1.Controls.Add(btnAutoPlay);
             groupBox1.Controls.Add(btnNext);
-            groupBox1.Controls.Add(btnClearFilter);
             groupBox1.Controls.Add(btnPrev);
             groupBox1.Controls.Add(listBoxData);
             groupBox1.Controls.Add(btnFirst);
             groupBox1.Controls.Add(pbMainPreview);
             groupBox1.Controls.Add(btnReload);
             groupBox1.Controls.Add(lblFrameValue);
-            groupBox1.Controls.Add(btnApplyFilter);
             groupBox1.Controls.Add(lblModeValue);
             groupBox1.Controls.Add(btnToggleTheme);
             groupBox1.Controls.Add(lblThrottleValue);
@@ -473,6 +468,15 @@
             // 
             // groupBox2
             // 
+            groupBox2.Controls.Add(btnRepair);
+            groupBox2.Controls.Add(btnReloadTub);
+            groupBox2.Controls.Add(textBox1);
+            groupBox2.Controls.Add(numFilterMax);
+            groupBox2.Controls.Add(label3);
+            groupBox2.Controls.Add(label2);
+            groupBox2.Controls.Add(numFilterMin);
+            groupBox2.Controls.Add(btnApplyFilter);
+            groupBox2.Controls.Add(btnClearFilter);
             groupBox2.Location = new Point(3, 742);
             groupBox2.Name = "groupBox2";
             groupBox2.Size = new Size(1563, 68);
@@ -482,17 +486,92 @@
             // 
             // numFilterMin
             // 
-            numFilterMin.Location = new Point(40, 816);
+            numFilterMin.Location = new Point(82, 26);
             numFilterMin.Name = "numFilterMin";
             numFilterMin.Size = new Size(150, 27);
             numFilterMin.TabIndex = 24;
             // 
             // numFilterMax
             // 
-            numFilterMax.Location = new Point(192, 816);
+            numFilterMax.Location = new Point(320, 25);
             numFilterMax.Name = "numFilterMax";
             numFilterMax.Size = new Size(150, 27);
             numFilterMax.TabIndex = 25;
+            // 
+            // label2
+            // 
+            label2.AutoSize = true;
+            label2.Font = new Font("맑은 고딕", 10F);
+            label2.Location = new Point(15, 27);
+            label2.Name = "label2";
+            label2.Size = new Size(61, 23);
+            label2.TabIndex = 25;
+            label2.Text = "최솟값";
+            // 
+            // label3
+            // 
+            label3.AutoSize = true;
+            label3.Font = new Font("맑은 고딕", 10F);
+            label3.Location = new Point(253, 26);
+            label3.Name = "label3";
+            label3.Size = new Size(61, 23);
+            label3.TabIndex = 26;
+            label3.Text = "최댓값";
+            // 
+            // textBox1
+            // 
+            textBox1.Location = new Point(476, 25);
+            textBox1.Name = "textBox1";
+            textBox1.Size = new Size(574, 27);
+            textBox1.TabIndex = 27;
+            // 
+            // btnRepair
+            // 
+            btnRepair.Location = new Point(1308, 25);
+            btnRepair.Name = "btnRepair";
+            btnRepair.Size = new Size(120, 30);
+            btnRepair.TabIndex = 28;
+            btnRepair.Text = "복원";
+            btnRepair.UseVisualStyleBackColor = true;
+            // 
+            // btnReloadTub
+            // 
+            btnReloadTub.Location = new Point(1434, 25);
+            btnReloadTub.Name = "btnReloadTub";
+            btnReloadTub.Size = new Size(120, 30);
+            btnReloadTub.TabIndex = 29;
+            btnReloadTub.Text = "터브 다시 로드";
+            btnReloadTub.UseVisualStyleBackColor = true;
+            // 
+            // tabPage4
+            // 
+            tabPage4.Location = new Point(4, 29);
+            tabPage4.Name = "tabPage4";
+            tabPage4.Size = new Size(1572, 887);
+            tabPage4.TabIndex = 3;
+            tabPage4.Text = "tabPage4";
+            tabPage4.UseVisualStyleBackColor = true;
+            // 
+            // tabPage2
+            // 
+            tabPage2.Controls.Add(groupBox3);
+            tabPage2.Location = new Point(4, 29);
+            tabPage2.Name = "tabPage2";
+            tabPage2.Padding = new Padding(3);
+            tabPage2.Size = new Size(1572, 887);
+            tabPage2.TabIndex = 1;
+            tabPage2.Text = "학습 실행";
+            tabPage2.UseVisualStyleBackColor = true;
+            tabPage2.Click += tabPage2_Click;
+            // 
+            // groupBox3
+            // 
+            groupBox3.Location = new Point(16, 19);
+            groupBox3.Name = "groupBox3";
+            groupBox3.Size = new Size(1550, 79);
+            groupBox3.TabIndex = 0;
+            groupBox3.TabStop = false;
+            groupBox3.Text = "groupBox3";
             // 
             // Form1
             // 
@@ -519,8 +598,11 @@
             statusStrip1.PerformLayout();
             groupBox1.ResumeLayout(false);
             groupBox1.PerformLayout();
+            groupBox2.ResumeLayout(false);
+            groupBox2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)numFilterMin).EndInit();
             ((System.ComponentModel.ISupportInitialize)numFilterMax).EndInit();
+            tabPage2.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -533,7 +615,6 @@
         private ToolStripMenuItem 도움말ToolStripMenuItem;
         private TabControl tabControl1;
         private TabPage tabPage1;
-        private TabPage tabPage2;
         private TabPage tabPage3;
         private PictureBox pictureBox1;
         private ListBox listBox1;
@@ -578,5 +659,13 @@
         private GroupBox groupBox2;
         private NumericUpDown numFilterMax;
         private NumericUpDown numFilterMin;
+        private TextBox textBox1;
+        private Label label3;
+        private Label label2;
+        private Button btnRepair;
+        private Button btnReloadTub;
+        private TabPage tabPage4;
+        private TabPage tabPage2;
+        private GroupBox groupBox3;
     }
 }
