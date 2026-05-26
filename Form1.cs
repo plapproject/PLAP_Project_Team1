@@ -342,7 +342,7 @@ namespace TeamApp
         {
             if (originalFrames == null || originalFrames.Count == 0) return;
             var sel = comboBoxFilter.SelectedItem?.ToString() ?? "Angle";
-            var txt = txtFilter.Text?.Trim() ?? "";
+            var txt = txtFilterMin.Text?.Trim() ?? "";
             double min = double.MinValue, max = double.MaxValue;
             if (!string.IsNullOrEmpty(txt))
             {
@@ -404,6 +404,26 @@ namespace TeamApp
         }
 
         private void button3_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lblModeValue_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lblAngleValue_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lblThrottleValue_Click(object sender, EventArgs e)
         {
 
         }
