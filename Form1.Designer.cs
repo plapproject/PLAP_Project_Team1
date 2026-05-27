@@ -1,4 +1,4 @@
-ï»¿namespace TeamApp
+namespace TeamApp
 {
     partial class Form1
     {
@@ -28,161 +28,860 @@
         /// </summary>
         private void InitializeComponent()
         {
-            label1 = new Label();
-            label2 = new Label();
+            menuStrip1 = new MenuStrip();
+            ÆÄÀÏToolStripMenuItem = new ToolStripMenuItem();
+            µ¥ÀÌÅÍÆú´õ¿­±âToolStripMenuItem = new ToolStripMenuItem();
+            ´Ù½ÃºÒ·¯¿À±âToolStripMenuItem = new ToolStripMenuItem();
+            Á¾·áToolStripMenuItem = new ToolStripMenuItem();
+            º¸±âToolStripMenuItem = new ToolStripMenuItem();
+            Å×¸¶ÀüÈ¯ToolStripMenuItem = new ToolStripMenuItem();
+            ±×·¡ÇÁÅ×ToolStripMenuItem = new ToolStripMenuItem();
+            µµ¿ò¸»ToolStripMenuItem = new ToolStripMenuItem();
+            ´Ü°èº°°¡ÀÌµåToolStripMenuItem = new ToolStripMenuItem();
+            tabControl1 = new TabControl();
+            tabPage1 = new TabPage();
+            groupBox2 = new GroupBox();
+            btnRepair = new Button();
+            btnReloadTub = new Button();
+            textBox1 = new TextBox();
+            numFilterMax = new NumericUpDown();
             label3 = new Label();
+            label2 = new Label();
+            numFilterMin = new NumericUpDown();
+            btnApplyFilter = new Button();
+            btnClearFilter = new Button();
+            groupBox1 = new GroupBox();
+            trackBarMain = new TrackBar();
+            numericUpDownInterval = new NumericUpDown();
+            btnOpenFolder = new Button();
+            label1 = new Label();
+            btnLast = new Button();
+            btnAutoPlay = new Button();
+            btnNext = new Button();
+            btnPrev = new Button();
+            listBoxData = new ListBox();
+            btnFirst = new Button();
+            pbMainPreview = new PictureBox();
+            btnReload = new Button();
+            lblFrameValue = new Label();
+            lblModeValue = new Label();
+            btnToggleTheme = new Button();
+            lblThrottleValue = new Label();
+            btnGuide = new Button();
+            comboBoxFilter = new ComboBox();
+            lblAngleValue = new Label();
+            tabPage2 = new TabPage();
+            groupBox3 = new GroupBox();
+            tabPage3 = new TabPage();
+            panel1 = new Panel();
+            lblDescription = new Label();
+            tabPage4 = new TabPage();
+            statusStrip1 = new StatusStrip();
+            toolStripStatusLabelPath = new ToolStripStatusLabel();
+            toolStripStatusLabelFrames = new ToolStripStatusLabel();
+            groupBox4 = new GroupBox();
+            button1 = new Button();
+            button2 = new Button();
+            button3 = new Button();
+            button4 = new Button();
+            button5 = new Button();
+            button6 = new Button();
             label4 = new Label();
-            btnMember1 = new Button();
-            btnMember2 = new Button();
-            btnMember3 = new Button();
-            btnMember4 = new Button();
-            txtName = new TextBox();
-            txtSchool = new TextBox();
-            txtClass = new TextBox();
+            label5 = new Label();
+            label6 = new Label();
+            label7 = new Label();
+            label8 = new Label();
+            label9 = new Label();
+            textBox2 = new TextBox();
+            textBox3 = new TextBox();
+            textBox4 = new TextBox();
+            textBox6 = new TextBox();
+            menuStrip1.SuspendLayout();
+            tabControl1.SuspendLayout();
+            tabPage1.SuspendLayout();
+            groupBox2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)numFilterMax).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numFilterMin).BeginInit();
+            groupBox1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)trackBarMain).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numericUpDownInterval).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)pbMainPreview).BeginInit();
+            tabPage2.SuspendLayout();
+            groupBox3.SuspendLayout();
+            tabPage3.SuspendLayout();
+            statusStrip1.SuspendLayout();
             SuspendLayout();
-            // 
-            // label1
-            // 
-            label1.AutoSize = true;
-            label1.Font = new Font("ë§‘ì€ ê³ ë”•", 36F, FontStyle.Bold, GraphicsUnit.Point, 129);
-            label1.Location = new Point(24, 15);
-            label1.Name = "label1";
-            label1.Size = new Size(263, 65);
-            label1.TabIndex = 0;
-            label1.Text = "Team App";
-            // 
-            // label2
-            // 
-            label2.AutoSize = true;
-            label2.Font = new Font("ë§‘ì€ ê³ ë”•", 27.75F, FontStyle.Regular, GraphicsUnit.Point, 129);
-            label2.ForeColor = Color.Blue;
-            label2.Location = new Point(33, 116);
-            label2.Name = "label2";
-            label2.Size = new Size(96, 50);
-            label2.TabIndex = 1;
-            label2.Text = "ì´ë¦„";
-            // 
+            //
+            // menuStrip1
+            //
+            menuStrip1.ImageScalingSize = new Size(20, 20);
+            menuStrip1.Items.AddRange(new ToolStripItem[] { ÆÄÀÏToolStripMenuItem, º¸±âToolStripMenuItem, µµ¿ò¸»ToolStripMenuItem });
+            menuStrip1.Location = new Point(0, 0);
+            menuStrip1.Name = "menuStrip1";
+            menuStrip1.Padding = new Padding(6, 3, 0, 3);
+            menuStrip1.Size = new Size(1581, 30);
+            menuStrip1.TabIndex = 0;
+            menuStrip1.Text = "menuStrip1";
+            //
+            // ÆÄÀÏToolStripMenuItem
+            //
+            ÆÄÀÏToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { µ¥ÀÌÅÍÆú´õ¿­±âToolStripMenuItem, ´Ù½ÃºÒ·¯¿À±âToolStripMenuItem, Á¾·áToolStripMenuItem });
+            ÆÄÀÏToolStripMenuItem.Name = "ÆÄÀÏToolStripMenuItem";
+            ÆÄÀÏToolStripMenuItem.Size = new Size(53, 24);
+            ÆÄÀÏToolStripMenuItem.Text = "ÆÄÀÏ";
+            //
+            // µ¥ÀÌÅÍÆú´õ¿­±âToolStripMenuItem
+            //
+            µ¥ÀÌÅÍÆú´õ¿­±âToolStripMenuItem.Name = "µ¥ÀÌÅÍÆú´õ¿­±âToolStripMenuItem";
+            µ¥ÀÌÅÍÆú´õ¿­±âToolStripMenuItem.Size = new Size(207, 26);
+            µ¥ÀÌÅÍÆú´õ¿­±âToolStripMenuItem.Text = "µ¥ÀÌÅÍ Æú´õ ¿­±â";
+            //
+            // ´Ù½ÃºÒ·¯¿À±âToolStripMenuItem
+            //
+            ´Ù½ÃºÒ·¯¿À±âToolStripMenuItem.Name = "´Ù½ÃºÒ·¯¿À±âToolStripMenuItem";
+            ´Ù½ÃºÒ·¯¿À±âToolStripMenuItem.Size = new Size(207, 26);
+            ´Ù½ÃºÒ·¯¿À±âToolStripMenuItem.Text = "´Ù½Ã ºÒ·¯¿À±â";
+            //
+            // Á¾·áToolStripMenuItem
+            //
+            Á¾·áToolStripMenuItem.Name = "Á¾·áToolStripMenuItem";
+            Á¾·áToolStripMenuItem.Size = new Size(207, 26);
+            Á¾·áToolStripMenuItem.Text = "Á¾·á";
+            //
+            // º¸±âToolStripMenuItem
+            //
+            º¸±âToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { Å×¸¶ÀüÈ¯ToolStripMenuItem, ±×·¡ÇÁÅ×ToolStripMenuItem });
+            º¸±âToolStripMenuItem.Name = "º¸±âToolStripMenuItem";
+            º¸±âToolStripMenuItem.Size = new Size(53, 24);
+            º¸±âToolStripMenuItem.Text = "º¸±â";
+            //
+            // Å×¸¶ÀüÈ¯ToolStripMenuItem
+            //
+            Å×¸¶ÀüÈ¯ToolStripMenuItem.Name = "Å×¸¶ÀüÈ¯ToolStripMenuItem";
+            Å×¸¶ÀüÈ¯ToolStripMenuItem.Size = new Size(258, 26);
+            Å×¸¶ÀüÈ¯ToolStripMenuItem.Text = "Å×¸¶ ÀüÈ¯";
+            //
+            // ±×·¡ÇÁÅ×ToolStripMenuItem
+            //
+            ±×·¡ÇÁÅ×ToolStripMenuItem.Name = "±×·¡ÇÁÅ×ToolStripMenuItem";
+            ±×·¡ÇÁÅ×ToolStripMenuItem.Size = new Size(258, 26);
+            ±×·¡ÇÁÅ×ToolStripMenuItem.Text = "±×·¡ÇÁ/Åë°è ÅÇÀ¸·Î ÀÌµ¿";
+            ±×·¡ÇÁÅ×ToolStripMenuItem.Click += ±×·¡ÇÁÅ×ToolStripMenuItem_Click;
+            //
+            // µµ¿ò¸»ToolStripMenuItem
+            //
+            µµ¿ò¸»ToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { ´Ü°èº°°¡ÀÌµåToolStripMenuItem });
+            µµ¿ò¸»ToolStripMenuItem.Name = "µµ¿ò¸»ToolStripMenuItem";
+            µµ¿ò¸»ToolStripMenuItem.Size = new Size(68, 24);
+            µµ¿ò¸»ToolStripMenuItem.Text = "µµ¿ò¸»";
+            µµ¿ò¸»ToolStripMenuItem.Click += µµ¿ò¸»ToolStripMenuItem_Click;
+            //
+            // ´Ü°èº°°¡ÀÌµåToolStripMenuItem
+            //
+            ´Ü°èº°°¡ÀÌµåToolStripMenuItem.Name = "´Ü°èº°°¡ÀÌµåToolStripMenuItem";
+            ´Ü°èº°°¡ÀÌµåToolStripMenuItem.Size = new Size(187, 26);
+            ´Ü°èº°°¡ÀÌµåToolStripMenuItem.Text = "´Ü°èº° °¡ÀÌµå";
+            //
+            // tabControl1
+            //
+            tabControl1.Controls.Add(tabPage1);
+            tabControl1.Controls.Add(tabPage2);
+            tabControl1.Controls.Add(tabPage3);
+            tabControl1.Controls.Add(tabPage4);
+            tabControl1.Location = new Point(3, 31);
+            tabControl1.Name = "tabControl1";
+            tabControl1.SelectedIndex = 0;
+            tabControl1.Size = new Size(1580, 920);
+            tabControl1.TabIndex = 1;
+            //
+            // tabPage1
+            //
+            tabPage1.Controls.Add(groupBox2);
+            tabPage1.Controls.Add(groupBox1);
+            tabPage1.Location = new Point(4, 29);
+            tabPage1.Name = "tabPage1";
+            tabPage1.Padding = new Padding(3, 3, 3, 3);
+            tabPage1.Size = new Size(1572, 887);
+            tabPage1.TabIndex = 0;
+            tabPage1.Text = "µ¥ÀÌÅÍ ºä¾î";
+            tabPage1.UseVisualStyleBackColor = true;
+            //
+            // groupBox2
+            //
+            groupBox2.Controls.Add(btnRepair);
+            groupBox2.Controls.Add(btnReloadTub);
+            groupBox2.Controls.Add(textBox1);
+            groupBox2.Controls.Add(numFilterMax);
+            groupBox2.Controls.Add(label3);
+            groupBox2.Controls.Add(label2);
+            groupBox2.Controls.Add(numFilterMin);
+            groupBox2.Controls.Add(btnApplyFilter);
+            groupBox2.Controls.Add(btnClearFilter);
+            groupBox2.Location = new Point(3, 741);
+            groupBox2.Name = "groupBox2";
+            groupBox2.Size = new Size(1563, 68);
+            groupBox2.TabIndex = 23;
+            groupBox2.TabStop = false;
+            groupBox2.Text = "ÅÍºê Á¤¸®±â";
+            //
+            // btnRepair
+            //
+            btnRepair.Location = new Point(1308, 25);
+            btnRepair.Name = "btnRepair";
+            btnRepair.Size = new Size(120, 29);
+            btnRepair.TabIndex = 28;
+            btnRepair.Text = "º¹¿ø";
+            btnRepair.UseVisualStyleBackColor = true;
+            //
+            // btnReloadTub
+            //
+            btnReloadTub.Location = new Point(1435, 25);
+            btnReloadTub.Name = "btnReloadTub";
+            btnReloadTub.Size = new Size(120, 29);
+            btnReloadTub.TabIndex = 29;
+            btnReloadTub.Text = "ÅÍºê ´Ù½Ã ·Îµå";
+            btnReloadTub.UseVisualStyleBackColor = true;
+            //
+            // textBox1
+            //
+            textBox1.Location = new Point(476, 25);
+            textBox1.Name = "textBox1";
+            textBox1.Size = new Size(574, 27);
+            textBox1.TabIndex = 27;
+            //
+            // numFilterMax
+            //
+            numFilterMax.Location = new Point(320, 25);
+            numFilterMax.Name = "numFilterMax";
+            numFilterMax.Size = new Size(150, 27);
+            numFilterMax.TabIndex = 25;
+            //
             // label3
-            // 
+            //
             label3.AutoSize = true;
-            label3.Font = new Font("ë§‘ì€ ê³ ë”•", 27.75F, FontStyle.Regular, GraphicsUnit.Point, 129);
-            label3.ForeColor = Color.Blue;
-            label3.Location = new Point(33, 197);
+            label3.Font = new Font("¸¼Àº °íµñ", 10F);
+            label3.Location = new Point(253, 27);
             label3.Name = "label3";
-            label3.Size = new Size(96, 50);
-            label3.TabIndex = 2;
-            label3.Text = "í•™êµ";
-            label3.Click += label3_Click;
-            // 
+            label3.Size = new Size(61, 23);
+            label3.TabIndex = 26;
+            label3.Text = "ÃÖ´ñ°ª";
+            //
+            // label2
+            //
+            label2.AutoSize = true;
+            label2.Font = new Font("¸¼Àº °íµñ", 10F);
+            label2.Location = new Point(15, 27);
+            label2.Name = "label2";
+            label2.Size = new Size(61, 23);
+            label2.TabIndex = 25;
+            label2.Text = "ÃÖ¼Ú°ª";
+            //
+            // numFilterMin
+            //
+            numFilterMin.Location = new Point(82, 27);
+            numFilterMin.Name = "numFilterMin";
+            numFilterMin.Size = new Size(150, 27);
+            numFilterMin.TabIndex = 24;
+            //
+            // btnApplyFilter
+            //
+            btnApplyFilter.Location = new Point(1056, 24);
+            btnApplyFilter.Name = "btnApplyFilter";
+            btnApplyFilter.Size = new Size(120, 29);
+            btnApplyFilter.TabIndex = 12;
+            btnApplyFilter.Text = "ÇÊÅÍ Àû¿ë";
+            btnApplyFilter.UseVisualStyleBackColor = true;
+            btnApplyFilter.Click += btnApplyFilter_Click;
+            //
+            // btnClearFilter
+            //
+            btnClearFilter.Location = new Point(1182, 24);
+            btnClearFilter.Name = "btnClearFilter";
+            btnClearFilter.Size = new Size(120, 29);
+            btnClearFilter.TabIndex = 19;
+            btnClearFilter.Text = "ÇÊÅÍ ÇØÁ¦";
+            btnClearFilter.UseVisualStyleBackColor = true;
+            //
+            // groupBox1
+            //
+            groupBox1.Controls.Add(trackBarMain);
+            groupBox1.Controls.Add(numericUpDownInterval);
+            groupBox1.Controls.Add(btnOpenFolder);
+            groupBox1.Controls.Add(label1);
+            groupBox1.Controls.Add(btnLast);
+            groupBox1.Controls.Add(btnAutoPlay);
+            groupBox1.Controls.Add(btnNext);
+            groupBox1.Controls.Add(btnPrev);
+            groupBox1.Controls.Add(listBoxData);
+            groupBox1.Controls.Add(btnFirst);
+            groupBox1.Controls.Add(pbMainPreview);
+            groupBox1.Controls.Add(btnReload);
+            groupBox1.Controls.Add(lblFrameValue);
+            groupBox1.Controls.Add(lblModeValue);
+            groupBox1.Controls.Add(btnToggleTheme);
+            groupBox1.Controls.Add(lblThrottleValue);
+            groupBox1.Controls.Add(btnGuide);
+            groupBox1.Controls.Add(comboBoxFilter);
+            groupBox1.Controls.Add(lblAngleValue);
+            groupBox1.Location = new Point(0, 0);
+            groupBox1.Name = "groupBox1";
+            groupBox1.Size = new Size(1569, 736);
+            groupBox1.TabIndex = 22;
+            groupBox1.TabStop = false;
+            groupBox1.Text = "ÅÍºê Å½»ö±â";
+            //
+            // trackBarMain
+            //
+            trackBarMain.Location = new Point(0, 672);
+            trackBarMain.Maximum = 0;
+            trackBarMain.Name = "trackBarMain";
+            trackBarMain.Size = new Size(1563, 56);
+            trackBarMain.TabIndex = 18;
+            trackBarMain.Scroll += trackBarMain_Scroll;
+            //
+            // numericUpDownInterval
+            //
+            numericUpDownInterval.Location = new Point(1403, 329);
+            numericUpDownInterval.Maximum = new decimal(new int[] { 5000, 0, 0, 0 });
+            numericUpDownInterval.Minimum = new decimal(new int[] { 10, 0, 0, 0 });
+            numericUpDownInterval.Name = "numericUpDownInterval";
+            numericUpDownInterval.Size = new Size(156, 27);
+            numericUpDownInterval.TabIndex = 11;
+            numericUpDownInterval.Value = new decimal(new int[] { 200, 0, 0, 0 });
+            //
+            // btnOpenFolder
+            //
+            btnOpenFolder.Location = new Point(0, 27);
+            btnOpenFolder.Name = "btnOpenFolder";
+            btnOpenFolder.Size = new Size(140, 29);
+            btnOpenFolder.TabIndex = 0;
+            btnOpenFolder.Text = "µ¥ÀÌÅÍ Æú´õ ¿­±â";
+            btnOpenFolder.UseVisualStyleBackColor = true;
+            btnOpenFolder.Click += btnOpenFolder_Click;
+            //
+            // label1
+            //
+            label1.Font = new Font("¸¼Àº °íµñ", 10.2F, FontStyle.Bold, GraphicsUnit.Point, 129);
+            label1.Location = new Point(1284, 328);
+            label1.Name = "label1";
+            label1.Size = new Size(127, 31);
+            label1.TabIndex = 21;
+            label1.Text = "Àç»ý°£°Ý(ms)";
+            label1.Click += label1_Click;
+            //
+            // btnLast
+            //
+            btnLast.Location = new Point(1423, 140);
+            btnLast.Name = "btnLast";
+            btnLast.Size = new Size(134, 29);
+            btnLast.TabIndex = 17;
+            btnLast.Text = ">>";
+            btnLast.Click += btnLast_Click;
+            //
+            // btnAutoPlay
+            //
+            btnAutoPlay.Location = new Point(1287, 176);
+            btnAutoPlay.Name = "btnAutoPlay";
+            btnAutoPlay.Size = new Size(270, 27);
+            btnAutoPlay.TabIndex = 20;
+            btnAutoPlay.Text = "ÀÚµ¿ Àç»ý";
+            btnAutoPlay.UseVisualStyleBackColor = true;
+            btnAutoPlay.Click += button3_Click;
+            //
+            // btnNext
+            //
+            btnNext.Location = new Point(1423, 104);
+            btnNext.Name = "btnNext";
+            btnNext.Size = new Size(134, 29);
+            btnNext.TabIndex = 16;
+            btnNext.Text = ">";
+            btnNext.Click += btnNext_Click;
+            //
+            // btnPrev
+            //
+            btnPrev.Location = new Point(1284, 104);
+            btnPrev.Name = "btnPrev";
+            btnPrev.Size = new Size(134, 29);
+            btnPrev.TabIndex = 15;
+            btnPrev.Text = "<";
+            btnPrev.Click += btnPrev_Click;
+            //
+            // listBoxData
+            //
+            listBoxData.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            listBoxData.Location = new Point(0, 101);
+            listBoxData.Name = "listBoxData";
+            listBoxData.Size = new Size(280, 564);
+            listBoxData.TabIndex = 13;
+            listBoxData.SelectedIndexChanged += listBoxData_SelectedIndexChanged;
+            //
+            // btnFirst
+            //
+            btnFirst.Location = new Point(1284, 140);
+            btnFirst.Name = "btnFirst";
+            btnFirst.Size = new Size(134, 29);
+            btnFirst.TabIndex = 14;
+            btnFirst.Text = "<<";
+            btnFirst.Click += btnFirst_Click;
+            //
+            // pbMainPreview
+            //
+            pbMainPreview.BorderStyle = BorderStyle.FixedSingle;
+            pbMainPreview.Location = new Point(287, 61);
+            pbMainPreview.Name = "pbMainPreview";
+            pbMainPreview.Size = new Size(992, 605);
+            pbMainPreview.SizeMode = PictureBoxSizeMode.StretchImage;
+            pbMainPreview.TabIndex = 4;
+            pbMainPreview.TabStop = false;
+            //
+            // btnReload
+            //
+            btnReload.Location = new Point(147, 27);
+            btnReload.Name = "btnReload";
+            btnReload.Size = new Size(140, 29);
+            btnReload.TabIndex = 1;
+            btnReload.Text = "´Ù½Ã ºÒ·¯¿À±â";
+            btnReload.UseVisualStyleBackColor = true;
+            btnReload.Click += btnReload_Click;
+            //
+            // lblFrameValue
+            //
+            lblFrameValue.Font = new Font("¸¼Àº °íµñ", 13.8F, FontStyle.Regular, GraphicsUnit.Point, 129);
+            lblFrameValue.Location = new Point(1284, 61);
+            lblFrameValue.Name = "lblFrameValue";
+            lblFrameValue.Size = new Size(276, 39);
+            lblFrameValue.TabIndex = 5;
+            lblFrameValue.Text = "Frame: 0/0";
+            //
+            // lblModeValue
+            //
+            lblModeValue.Font = new Font("¸¼Àº °íµñ", 13.8F);
+            lblModeValue.Location = new Point(1287, 287);
+            lblModeValue.Name = "lblModeValue";
+            lblModeValue.Size = new Size(273, 112);
+            lblModeValue.TabIndex = 8;
+            lblModeValue.Text = "¸ðµå: -";
+            lblModeValue.Click += lblModeValue_Click;
+            //
+            // btnToggleTheme
+            //
+            btnToggleTheme.Location = new Point(292, 27);
+            btnToggleTheme.Name = "btnToggleTheme";
+            btnToggleTheme.Size = new Size(140, 29);
+            btnToggleTheme.TabIndex = 2;
+            btnToggleTheme.Text = "Å×¸¶ ÀüÈ¯";
+            btnToggleTheme.UseVisualStyleBackColor = true;
+            btnToggleTheme.Click += btnToggleTheme_Click;
+            //
+            // lblThrottleValue
+            //
+            lblThrottleValue.Font = new Font("¸¼Àº °íµñ", 13.8F);
+            lblThrottleValue.Location = new Point(1287, 251);
+            lblThrottleValue.Name = "lblThrottleValue";
+            lblThrottleValue.Size = new Size(273, 37);
+            lblThrottleValue.TabIndex = 7;
+            lblThrottleValue.Text = "½º·ÎÆ²°ª: 0.000";
+            lblThrottleValue.Click += lblThrottleValue_Click;
+            //
+            // btnGuide
+            //
+            btnGuide.Location = new Point(438, 27);
+            btnGuide.Name = "btnGuide";
+            btnGuide.Size = new Size(140, 29);
+            btnGuide.TabIndex = 3;
+            btnGuide.Text = "´Ü°èº° °¡ÀÌµå";
+            btnGuide.UseVisualStyleBackColor = true;
+            btnGuide.Click += btnGuide_Click;
+            //
+            // comboBoxFilter
+            //
+            comboBoxFilter.DropDownStyle = ComboBoxStyle.DropDownList;
+            comboBoxFilter.Items.AddRange(new object[] { "ÀüÃ¼ º¸±â", "½º·ÎÆ² ÃÖ¼Ò°ª", "Á¶Çâ ¹üÀ§", "¸ðµå = »ç¿ëÀÚ", "ÀÌ¹ÌÁö ¾ø´Â ÇÁ·¹ÀÓ" });
+            comboBoxFilter.Location = new Point(0, 61);
+            comboBoxFilter.Name = "comboBoxFilter";
+            comboBoxFilter.Size = new Size(280, 28);
+            comboBoxFilter.TabIndex = 9;
+            comboBoxFilter.SelectedIndexChanged += comboBoxFilter_SelectedIndexChanged;
+            //
+            // lblAngleValue
+            //
+            lblAngleValue.Font = new Font("¸¼Àº °íµñ", 13.8F);
+            lblAngleValue.Location = new Point(1287, 211);
+            lblAngleValue.Name = "lblAngleValue";
+            lblAngleValue.Size = new Size(273, 39);
+            lblAngleValue.TabIndex = 6;
+            lblAngleValue.Text = "Á¶Çâ°ª: 0.000";
+            lblAngleValue.Click += lblAngleValue_Click;
+            //
+            // tabPage2
+            //
+            tabPage2.Controls.Add(groupBox4);
+            tabPage2.Controls.Add(groupBox3);
+            tabPage2.Location = new Point(4, 29);
+            tabPage2.Name = "tabPage2";
+            tabPage2.Padding = new Padding(3, 3, 3, 3);
+            tabPage2.Size = new Size(1572, 887);
+            tabPage2.TabIndex = 1;
+            tabPage2.Text = "ÇÐ½À ½ÇÇà";
+            tabPage2.UseVisualStyleBackColor = true;
+            tabPage2.Click += tabPage2_Click;
+            //
+            // groupBox3
+            //
+            groupBox3.Controls.Add(textBox6);
+            groupBox3.Controls.Add(textBox4);
+            groupBox3.Controls.Add(textBox3);
+            groupBox3.Controls.Add(textBox2);
+            groupBox3.Controls.Add(label9);
+            groupBox3.Controls.Add(label8);
+            groupBox3.Controls.Add(label7);
+            groupBox3.Controls.Add(label6);
+            groupBox3.Controls.Add(label5);
+            groupBox3.Controls.Add(label4);
+            groupBox3.Controls.Add(button6);
+            groupBox3.Controls.Add(button5);
+            groupBox3.Controls.Add(button4);
+            groupBox3.Controls.Add(button3);
+            groupBox3.Controls.Add(button2);
+            groupBox3.Controls.Add(button1);
+            groupBox3.Location = new Point(15, 19);
+            groupBox3.Name = "groupBox3";
+            groupBox3.Size = new Size(1547, 501);
+            groupBox3.TabIndex = 0;
+            groupBox3.TabStop = false;
+            groupBox3.Text = "ÇÐ½À ¼³Á¤";
+            //
+            // tabPage3
+            //
+            tabPage3.Controls.Add(panel1);
+            tabPage3.Controls.Add(lblDescription);
+            tabPage3.Location = new Point(4, 29);
+            tabPage3.Name = "tabPage3";
+            tabPage3.Padding = new Padding(3, 3, 3, 3);
+            tabPage3.Size = new Size(1572, 887);
+            tabPage3.TabIndex = 2;
+            tabPage3.Text = "±×·¡ÇÁ/Åë°è";
+            tabPage3.UseVisualStyleBackColor = true;
+            //
+            // panel1
+            //
+            panel1.Location = new Point(73, 75);
+            panel1.Name = "panel1";
+            panel1.Size = new Size(921, 408);
+            panel1.TabIndex = 1;
+            //
+            // lblDescription
+            //
+            lblDescription.AutoSize = true;
+            lblDescription.Location = new Point(73, 27);
+            lblDescription.Name = "lblDescription";
+            lblDescription.Size = new Size(921, 20);
+            lblDescription.TabIndex = 0;
+            lblDescription.Text = "Á¶Çâ°ª°ú ½º·ÎÆ²°ª º¯È­ ÃßÀÌ¸¦ ½Ã°¢È­ÇÕ´Ï´Ù. ÆÄ¶õ»öÀº Á¶Çâ, ÃÊ·Ï»öÀº ½º·ÎÆ²ÀÔ´Ï´Ù. ÇÊÅÍ Àû¿ë ÈÄ º¸ÀÌ´Â µ¥ÀÌÅÍ ±âÁØÀ¸·Î °»½ÅµË´Ï´Ù.";
+            //
+            // tabPage4
+            //
+            tabPage4.Location = new Point(4, 29);
+            tabPage4.Name = "tabPage4";
+            tabPage4.Size = new Size(1572, 887);
+            tabPage4.TabIndex = 3;
+            tabPage4.Text = "tabPage4";
+            tabPage4.UseVisualStyleBackColor = true;
+            //
+            // statusStrip1
+            //
+            statusStrip1.ImageScalingSize = new Size(20, 20);
+            statusStrip1.Items.AddRange(new ToolStripItem[] { toolStripStatusLabelPath, toolStripStatusLabelFrames });
+            statusStrip1.Location = new Point(0, 0);
+            statusStrip1.Name = "statusStrip1";
+            statusStrip1.Size = new Size(200, 22);
+            statusStrip1.TabIndex = 0;
+            //
+            // toolStripStatusLabelPath
+            //
+            toolStripStatusLabelPath.Name = "toolStripStatusLabelPath";
+            toolStripStatusLabelPath.Size = new Size(53, 16);
+            toolStripStatusLabelPath.Text = "°æ·Î: -";
+            //
+            // toolStripStatusLabelFrames
+            //
+            toolStripStatusLabelFrames.Name = "toolStripStatusLabelFrames";
+            toolStripStatusLabelFrames.Size = new Size(72, 16);
+            toolStripStatusLabelFrames.Text = "Frames: 0";
+            //
+            // groupBox4
+            //
+            groupBox4.Location = new Point(15, 526);
+            groupBox4.Name = "groupBox4";
+            groupBox4.Size = new Size(1547, 355);
+            groupBox4.TabIndex = 1;
+            groupBox4.TabStop = false;
+            groupBox4.Text = "ÇÐ½À ·Î±×";
+            //
+            // button1
+            //
+            button1.Font = new Font("¸¼Àº °íµñ", 12F);
+            button1.Location = new Point(1334, 39);
+            button1.Name = "button1";
+            button1.Size = new Size(123, 42);
+            button1.TabIndex = 0;
+            button1.Text = "button1";
+            button1.UseVisualStyleBackColor = true;
+            //
+            // button2
+            //
+            button2.Font = new Font("¸¼Àº °íµñ", 12F);
+            button2.Location = new Point(1334, 87);
+            button2.Name = "button2";
+            button2.Size = new Size(123, 42);
+            button2.TabIndex = 1;
+            button2.Text = "button2";
+            button2.UseVisualStyleBackColor = true;
+            //
+            // button3
+            //
+            button3.Font = new Font("¸¼Àº °íµñ", 12F);
+            button3.Location = new Point(1334, 135);
+            button3.Name = "button3";
+            button3.Size = new Size(123, 42);
+            button3.TabIndex = 2;
+            button3.Text = "button3";
+            button3.UseVisualStyleBackColor = true;
+            //
+            // button4
+            //
+            button4.Font = new Font("¸¼Àº °íµñ", 12F);
+            button4.Location = new Point(553, 416);
+            button4.Name = "button4";
+            button4.Size = new Size(123, 42);
+            button4.TabIndex = 3;
+            button4.Text = "button4";
+            button4.UseVisualStyleBackColor = true;
+            //
+            // button5
+            //
+            button5.Font = new Font("¸¼Àº °íµñ", 12F);
+            button5.Location = new Point(682, 416);
+            button5.Name = "button5";
+            button5.Size = new Size(123, 42);
+            button5.TabIndex = 4;
+            button5.Text = "button5";
+            button5.UseVisualStyleBackColor = true;
+            //
+            // button6
+            //
+            button6.Font = new Font("¸¼Àº °íµñ", 12F);
+            button6.Location = new Point(811, 416);
+            button6.Name = "button6";
+            button6.Size = new Size(123, 42);
+            button6.TabIndex = 5;
+            button6.Text = "button6";
+            button6.UseVisualStyleBackColor = true;
+            //
             // label4
-            // 
+            //
             label4.AutoSize = true;
-            label4.Font = new Font("ë§‘ì€ ê³ ë”•", 27.75F, FontStyle.Regular, GraphicsUnit.Point, 129);
-            label4.ForeColor = Color.Blue;
-            label4.Location = new Point(33, 275);
+            label4.Font = new Font("¸¼Àº °íµñ", 12F);
+            label4.Location = new Point(45, 46);
             label4.Name = "label4";
-            label4.Size = new Size(96, 50);
-            label4.TabIndex = 3;
-            label4.Text = "í•™ë…„";
-            // 
-            // btnMember1
-            // 
-            btnMember1.Font = new Font("ë§‘ì€ ê³ ë”•", 20.25F, FontStyle.Regular, GraphicsUnit.Point, 129);
-            btnMember1.Location = new Point(466, 99);
-            btnMember1.Name = "btnMember1";
-            btnMember1.Size = new Size(118, 47);
-            btnMember1.TabIndex = 4;
-            btnMember1.Text = "ë©¤ë²„1";
-            btnMember1.UseVisualStyleBackColor = true;
-            // 
-            // btnMember2
-            // 
-            btnMember2.Font = new Font("ë§‘ì€ ê³ ë”•", 20.25F, FontStyle.Regular, GraphicsUnit.Point, 129);
-            btnMember2.Location = new Point(466, 163);
-            btnMember2.Name = "btnMember2";
-            btnMember2.Size = new Size(118, 47);
-            btnMember2.TabIndex = 5;
-            btnMember2.Text = "ë©¤ë²„2";
-            btnMember2.UseVisualStyleBackColor = true;
-            // 
-            // btnMember3
-            // 
-            btnMember3.Font = new Font("ë§‘ì€ ê³ ë”•", 20.25F, FontStyle.Regular, GraphicsUnit.Point, 129);
-            btnMember3.Location = new Point(466, 229);
-            btnMember3.Name = "btnMember3";
-            btnMember3.Size = new Size(118, 47);
-            btnMember3.TabIndex = 6;
-            btnMember3.Text = "ë©¤ë²„3";
-            btnMember3.UseVisualStyleBackColor = true;
-            // 
-            // btnMember4
-            // 
-            btnMember4.Font = new Font("ë§‘ì€ ê³ ë”•", 20.25F, FontStyle.Regular, GraphicsUnit.Point, 129);
-            btnMember4.Location = new Point(466, 295);
-            btnMember4.Name = "btnMember4";
-            btnMember4.Size = new Size(118, 47);
-            btnMember4.TabIndex = 7;
-            btnMember4.Text = "ë©¤ë²„4";
-            btnMember4.UseVisualStyleBackColor = true;
-            // 
-            // txtName
-            // 
-            txtName.Font = new Font("ë§‘ì€ ê³ ë”•", 24F, FontStyle.Regular, GraphicsUnit.Point, 129);
-            txtName.Location = new Point(142, 118);
-            txtName.Name = "txtName";
-            txtName.Size = new Size(280, 50);
-            txtName.TabIndex = 8;
-            // 
-            // txtSchool
-            // 
-            txtSchool.Font = new Font("ë§‘ì€ ê³ ë”•", 24F, FontStyle.Regular, GraphicsUnit.Point, 129);
-            txtSchool.Location = new Point(142, 197);
-            txtSchool.Name = "txtSchool";
-            txtSchool.Size = new Size(280, 50);
-            txtSchool.TabIndex = 9;
-            // 
-            // txtClass
-            // 
-            txtClass.Font = new Font("ë§‘ì€ ê³ ë”•", 24F, FontStyle.Regular, GraphicsUnit.Point, 129);
-            txtClass.Location = new Point(142, 275);
-            txtClass.Name = "txtClass";
-            txtClass.Size = new Size(280, 50);
-            txtClass.TabIndex = 10;
-            // 
+            label4.Size = new Size(119, 28);
+            label4.TabIndex = 6;
+            label4.Text = "ÆÄÀÌ½ã °æ·Î";
+            //
+            // label5
+            //
+            label5.AutoSize = true;
+            label5.Font = new Font("¸¼Àº °íµñ", 12F);
+            label5.Location = new Point(45, 98);
+            label5.Name = "label5";
+            label5.Size = new Size(113, 28);
+            label5.TabIndex = 7;
+            label5.Text = "mycar °æ·Î";
+            //
+            // label6
+            //
+            label6.AutoSize = true;
+            label6.Font = new Font("¸¼Àº °íµñ", 12F);
+            label6.Location = new Point(45, 151);
+            label6.Name = "label6";
+            label6.Size = new Size(94, 28);
+            label6.TabIndex = 8;
+            label6.Text = "Tub °æ·Î";
+            //
+            // label7
+            //
+            label7.AutoSize = true;
+            label7.Font = new Font("¸¼Àº °íµñ", 12F);
+            label7.Location = new Point(45, 202);
+            label7.Name = "label7";
+            label7.Size = new Size(146, 28);
+            label7.TabIndex = 9;
+            label7.Text = "¸ðµ¨ ÀúÀå °æ·Î";
+            //
+            // label8
+            //
+            label8.AutoSize = true;
+            label8.Font = new Font("¸¼Àº °íµñ", 12F);
+            label8.Location = new Point(45, 254);
+            label8.Name = "label8";
+            label8.Size = new Size(99, 28);
+            label8.TabIndex = 10;
+            label8.Text = "¸ðµ¨ Á¾·ù";
+            //
+            // label9
+            //
+            label9.AutoSize = true;
+            label9.Font = new Font("¸¼Àº °íµñ", 12F);
+            label9.Location = new Point(45, 308);
+            label9.Name = "label9";
+            label9.Size = new Size(67, 28);
+            label9.TabIndex = 11;
+            label9.Text = "Epoch";
+            //
+            // textBox2
+            //
+            textBox2.Font = new Font("¸¼Àº °íµñ", 12F);
+            textBox2.Location = new Point(218, 43);
+            textBox2.Name = "textBox2";
+            textBox2.Size = new Size(1092, 34);
+            textBox2.TabIndex = 12;
+            //
+            // textBox3
+            //
+            textBox3.Font = new Font("¸¼Àº °íµñ", 12F);
+            textBox3.Location = new Point(218, 95);
+            textBox3.Name = "textBox3";
+            textBox3.Size = new Size(1092, 34);
+            textBox3.TabIndex = 13;
+            //
+            // textBox4
+            //
+            textBox4.Font = new Font("¸¼Àº °íµñ", 12F);
+            textBox4.Location = new Point(218, 199);
+            textBox4.Name = "textBox4";
+            textBox4.Size = new Size(1092, 34);
+            textBox4.TabIndex = 14;
+            //
+            // textBox6
+            //
+            textBox6.Font = new Font("¸¼Àº °íµñ", 12F);
+            textBox6.Location = new Point(218, 148);
+            textBox6.Name = "textBox6";
+            textBox6.Size = new Size(1092, 34);
+            textBox6.TabIndex = 16;
+            //
             // Form1
-            // 
-            AutoScaleDimensions = new SizeF(7F, 15F);
+            //
+            AutoScaleDimensions = new SizeF(9F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(611, 383);
-            Controls.Add(txtClass);
-            Controls.Add(txtSchool);
-            Controls.Add(txtName);
-            Controls.Add(btnMember4);
-            Controls.Add(btnMember3);
-            Controls.Add(btnMember2);
-            Controls.Add(btnMember1);
-            Controls.Add(label4);
-            Controls.Add(label3);
-            Controls.Add(label2);
-            Controls.Add(label1);
+            ClientSize = new Size(1581, 953);
+            Controls.Add(tabControl1);
+            Controls.Add(menuStrip1);
+            MainMenuStrip = menuStrip1;
+            Margin = new Padding(4, 4, 4, 4);
             Name = "Form1";
-            Text = "Form1";
+            Text = "Data Manager";
+            Load += Form1_Load;
+            menuStrip1.ResumeLayout(false);
+            menuStrip1.PerformLayout();
+            tabControl1.ResumeLayout(false);
+            tabPage1.ResumeLayout(false);
+            groupBox2.ResumeLayout(false);
+            groupBox2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)numFilterMax).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numFilterMin).EndInit();
+            groupBox1.ResumeLayout(false);
+            groupBox1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)trackBarMain).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numericUpDownInterval).EndInit();
+            ((System.ComponentModel.ISupportInitialize)pbMainPreview).EndInit();
+            tabPage2.ResumeLayout(false);
+            groupBox3.ResumeLayout(false);
+            groupBox3.PerformLayout();
+            tabPage3.ResumeLayout(false);
+            tabPage3.PerformLayout();
+            statusStrip1.ResumeLayout(false);
+            statusStrip1.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
 
         #endregion
 
+        private MenuStrip menuStrip1;
+        private ToolStripMenuItem ÆÄÀÏToolStripMenuItem;
+        private ToolStripMenuItem º¸±âToolStripMenuItem;
+        private ToolStripMenuItem µµ¿ò¸»ToolStripMenuItem;
+        private TabControl tabControl1;
+        private TabPage tabPage1;
+        private TabPage tabPage3;
+        private PictureBox pictureBox1;
+        private ListBox listBox1;
+        private Label lblStatus;
+        private TrackBar trackBar1;
+        private Button btnStart;
+        private Button btnStop;
+        private CheckBox chkShowImage;
+        private Button btnOpenFolder;
+        private Button btnReload;
+        private Button btnToggleTheme;
+        private Button btnGuide;
+        private PictureBox pbMainPreview;
+        private Label lblFrameValue;
+        private Label lblAngleValue;
+        private Label lblThrottleValue;
+        private Label lblModeValue;
+        private ComboBox comboBoxFilter;
+        private NumericUpDown numericUpDownInterval;
+        private Button btnApplyFilter;
+        private ListBox listBoxData;
+        private Button btnFirst;
+        private Button btnPrev;
+        private Button btnNext;
+        private Button btnLast;
+        private TrackBar trackBarMain;
+        private StatusStrip statusStrip1;
+        private ToolStripStatusLabel toolStripStatusLabelPath;
+        private ToolStripStatusLabel toolStripStatusLabelFrames;
+        private Button btnClearFilter;
+        private Label lblDescription;
+        private Panel panel1;
+        private ToolStripMenuItem Å×¸¶ÀüÈ¯ToolStripMenuItem;
+        private ToolStripMenuItem ±×·¡ÇÁÅ×ToolStripMenuItem;
+        private ToolStripMenuItem ´Ü°èº°°¡ÀÌµåToolStripMenuItem;
+        private ToolStripMenuItem µ¥ÀÌÅÍÆú´õ¿­±âToolStripMenuItem;
+        private ToolStripMenuItem ´Ù½ÃºÒ·¯¿À±âToolStripMenuItem;
+        private ToolStripMenuItem Á¾·áToolStripMenuItem;
+        private Button btnAutoPlay;
         private Label label1;
-        private Label label2;
+        private GroupBox groupBox1;
+        private GroupBox groupBox2;
+        private NumericUpDown numFilterMax;
+        private NumericUpDown numFilterMin;
+        private TextBox textBox1;
         private Label label3;
+        private Label label2;
+        private Button btnRepair;
+        private Button btnReloadTub;
+        private TabPage tabPage2;
+        private TabPage tabPage4;
+        private GroupBox groupBox3;
+        private GroupBox groupBox4;
+        private Label label9;
+        private Label label8;
+        private Label label7;
+        private Label label6;
+        private Label label5;
         private Label label4;
-        private Button btnMember1;
-        private Button btnMember2;
-        private Button btnMember3;
-        private Button btnMember4;
-        private TextBox txtName;
-        private TextBox txtSchool;
-        private TextBox txtClass;
+        private Button button6;
+        private Button button5;
+        private Button button4;
+        private Button button3;
+        private Button button2;
+        private Button button1;
+        private TextBox textBox6;
+        private TextBox textBox4;
+        private TextBox textBox3;
+        private TextBox textBox2;
     }
 }
