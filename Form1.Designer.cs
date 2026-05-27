@@ -193,6 +193,7 @@ namespace TeamApp
             tabControlMain.Controls.Add(tabPageDataViewer);
             tabControlMain.Controls.Add(tabPageTraining);
             tabControlMain.Controls.Add(tabPageGraphStats);
+            tabControlMain.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             tabControlMain.Location = new Point(3, 31);
             tabControlMain.Name = "tabControlMain";
             tabControlMain.SelectedIndex = 0;
@@ -222,6 +223,7 @@ namespace TeamApp
             grpTubCleaner.Controls.Add(numFilterMin);
             grpTubCleaner.Controls.Add(btnApplyFilter);
             grpTubCleaner.Controls.Add(btnClearFilter);
+            grpTubCleaner.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             grpTubCleaner.Location = new Point(3, 741);
             grpTubCleaner.Name = "grpTubCleaner";
             grpTubCleaner.Size = new Size(1563, 68);
@@ -231,6 +233,7 @@ namespace TeamApp
             //
             // btnRepair
             //
+            btnRepair.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnRepair.Location = new Point(1308, 25);
             btnRepair.Name = "btnRepair";
             btnRepair.Size = new Size(120, 29);
@@ -240,6 +243,7 @@ namespace TeamApp
             //
             // btnReloadTub
             //
+            btnReloadTub.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnReloadTub.Location = new Point(1435, 25);
             btnReloadTub.Name = "btnReloadTub";
             btnReloadTub.Size = new Size(120, 29);
@@ -249,6 +253,7 @@ namespace TeamApp
             //
             // txtTubCleanerPath
             //
+            txtTubCleanerPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             txtTubCleanerPath.Location = new Point(476, 25);
             txtTubCleanerPath.Name = "txtTubCleanerPath";
             txtTubCleanerPath.Size = new Size(574, 27);
@@ -290,6 +295,7 @@ namespace TeamApp
             //
             // btnApplyFilter
             //
+            btnApplyFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnApplyFilter.Location = new Point(1056, 24);
             btnApplyFilter.Name = "btnApplyFilter";
             btnApplyFilter.Size = new Size(120, 29);
@@ -300,6 +306,7 @@ namespace TeamApp
             //
             // btnClearFilter
             //
+            btnClearFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnClearFilter.Location = new Point(1182, 24);
             btnClearFilter.Name = "btnClearFilter";
             btnClearFilter.Size = new Size(120, 29);
@@ -327,6 +334,7 @@ namespace TeamApp
             grpTubExplorer.Controls.Add(lblThrottleValue);
             grpTubExplorer.Controls.Add(btnGuide);
             grpTubExplorer.Controls.Add(lblAngleValue);
+            grpTubExplorer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             grpTubExplorer.Location = new Point(0, 0);
             grpTubExplorer.Name = "grpTubExplorer";
             grpTubExplorer.Size = new Size(1569, 736);
@@ -336,6 +344,7 @@ namespace TeamApp
             //
             // trkFramePosition
             //
+            trkFramePosition.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             trkFramePosition.Location = new Point(0, 672);
             trkFramePosition.Maximum = 0;
             trkFramePosition.Name = "trkFramePosition";
@@ -345,6 +354,7 @@ namespace TeamApp
             //
             // numPlaybackInterval
             //
+            numPlaybackInterval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             numPlaybackInterval.Location = new Point(1403, 329);
             numPlaybackInterval.Maximum = new decimal(new int[] { 5000, 0, 0, 0 });
             numPlaybackInterval.Minimum = new decimal(new int[] { 10, 0, 0, 0 });
@@ -366,6 +376,7 @@ namespace TeamApp
             // lblPlayInterval
             //
             lblPlayInterval.Font = new Font("¸¼Àº °íµñ", 10.2F, FontStyle.Bold, GraphicsUnit.Point, 129);
+            lblPlayInterval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblPlayInterval.Location = new Point(1284, 328);
             lblPlayInterval.Name = "lblPlayInterval";
             lblPlayInterval.Size = new Size(127, 31);
@@ -375,6 +386,7 @@ namespace TeamApp
             //
             // btnLast
             //
+            btnLast.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnLast.Location = new Point(1423, 140);
             btnLast.Name = "btnLast";
             btnLast.Size = new Size(134, 29);
@@ -384,6 +396,7 @@ namespace TeamApp
             //
             // btnAutoPlay
             //
+            btnAutoPlay.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnAutoPlay.Location = new Point(1287, 176);
             btnAutoPlay.Name = "btnAutoPlay";
             btnAutoPlay.Size = new Size(270, 27);
@@ -394,6 +407,7 @@ namespace TeamApp
             //
             // btnNext
             //
+            btnNext.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnNext.Location = new Point(1423, 104);
             btnNext.Name = "btnNext";
             btnNext.Size = new Size(134, 29);
@@ -403,6 +417,7 @@ namespace TeamApp
             //
             // btnPrev
             //
+            btnPrev.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnPrev.Location = new Point(1284, 104);
             btnPrev.Name = "btnPrev";
             btnPrev.Size = new Size(134, 29);
@@ -412,7 +427,7 @@ namespace TeamApp
             //
             // lstFrameData
             //
-            lstFrameData.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            lstFrameData.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             lstFrameData.Location = new Point(0, 61);
             lstFrameData.Name = "lstFrameData";
             lstFrameData.Size = new Size(280, 604);
@@ -421,6 +436,7 @@ namespace TeamApp
             //
             // btnFirst
             //
+            btnFirst.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnFirst.Location = new Point(1284, 140);
             btnFirst.Name = "btnFirst";
             btnFirst.Size = new Size(134, 29);
@@ -431,6 +447,7 @@ namespace TeamApp
             // picMainPreview
             //
             picMainPreview.BorderStyle = BorderStyle.FixedSingle;
+            picMainPreview.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             picMainPreview.Location = new Point(287, 61);
             picMainPreview.Name = "picMainPreview";
             picMainPreview.Size = new Size(992, 605);
@@ -451,6 +468,7 @@ namespace TeamApp
             // lblFrameValue
             //
             lblFrameValue.Font = new Font("¸¼Àº °íµñ", 13.8F, FontStyle.Regular, GraphicsUnit.Point, 129);
+            lblFrameValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblFrameValue.Location = new Point(1284, 61);
             lblFrameValue.Name = "lblFrameValue";
             lblFrameValue.Size = new Size(276, 39);
@@ -460,6 +478,7 @@ namespace TeamApp
             // lblModeValue
             //
             lblModeValue.Font = new Font("¸¼Àº °íµñ", 13.8F);
+            lblModeValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblModeValue.Location = new Point(1287, 287);
             lblModeValue.Name = "lblModeValue";
             lblModeValue.Size = new Size(273, 112);
@@ -480,6 +499,7 @@ namespace TeamApp
             // lblThrottleValue
             //
             lblThrottleValue.Font = new Font("¸¼Àº °íµñ", 13.8F);
+            lblThrottleValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblThrottleValue.Location = new Point(1287, 251);
             lblThrottleValue.Name = "lblThrottleValue";
             lblThrottleValue.Size = new Size(273, 37);
@@ -500,6 +520,7 @@ namespace TeamApp
             // lblAngleValue
             //
             lblAngleValue.Font = new Font("¸¼Àº °íµñ", 13.8F);
+            lblAngleValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblAngleValue.Location = new Point(1287, 211);
             lblAngleValue.Name = "lblAngleValue";
             lblAngleValue.Size = new Size(273, 39);
@@ -524,10 +545,11 @@ namespace TeamApp
             // grpTrainingLog
             //
             grpTrainingLog.Controls.Add(rtbTrainingLog);
+            grpTrainingLog.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             grpTrainingLog.Location = new Point(15, 462);
             grpTrainingLog.Margin = new Padding(10);
             grpTrainingLog.Name = "grpTrainingLog";
-            grpTrainingLog.Size = new Size(1547, 397);
+            grpTrainingLog.Size = new Size(1547, 390);
             grpTrainingLog.TabIndex = 1;
             grpTrainingLog.TabStop = false;
             grpTrainingLog.Text = "ÇÐ½À ·Î±×";
@@ -552,6 +574,7 @@ namespace TeamApp
             grpTrainingSettings.Controls.Add(btnTubPath);
             grpTrainingSettings.Controls.Add(btnMycarPath);
             grpTrainingSettings.Controls.Add(btnPythonPath);
+            grpTrainingSettings.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             grpTrainingSettings.Location = new Point(15, 19);
             grpTrainingSettings.Name = "grpTrainingSettings";
             grpTrainingSettings.Size = new Size(1547, 437);
@@ -562,6 +585,7 @@ namespace TeamApp
             // tbxTubPath
             //
             tbxTubPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            tbxTubPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             tbxTubPath.Location = new Point(218, 148);
             tbxTubPath.Name = "tbxTubPath";
             tbxTubPath.Size = new Size(1092, 34);
@@ -570,6 +594,7 @@ namespace TeamApp
             // tbxModelPath
             //
             tbxModelPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            tbxModelPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             tbxModelPath.Location = new Point(218, 199);
             tbxModelPath.Name = "tbxModelPath";
             tbxModelPath.Size = new Size(1092, 34);
@@ -578,6 +603,7 @@ namespace TeamApp
             // tbxMycarPath
             //
             tbxMycarPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            tbxMycarPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             tbxMycarPath.Location = new Point(218, 95);
             tbxMycarPath.Name = "tbxMycarPath";
             tbxMycarPath.Size = new Size(1092, 34);
@@ -586,6 +612,7 @@ namespace TeamApp
             // tbxPythonPath
             //
             tbxPythonPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            tbxPythonPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             tbxPythonPath.Location = new Point(218, 43);
             tbxPythonPath.Name = "tbxPythonPath";
             tbxPythonPath.Size = new Size(1092, 34);
@@ -684,6 +711,7 @@ namespace TeamApp
             // btnTubPath
             //
             btnTubPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnTubPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnTubPath.Location = new Point(1334, 135);
             btnTubPath.Name = "btnTubPath";
             btnTubPath.Size = new Size(123, 42);
@@ -694,6 +722,7 @@ namespace TeamApp
             // btnMycarPath
             //
             btnMycarPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnMycarPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnMycarPath.Location = new Point(1334, 87);
             btnMycarPath.Name = "btnMycarPath";
             btnMycarPath.Size = new Size(123, 42);
@@ -705,6 +734,7 @@ namespace TeamApp
             // btnPythonPath
             //
             btnPythonPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnPythonPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnPythonPath.Location = new Point(1334, 39);
             btnPythonPath.Name = "btnPythonPath";
             btnPythonPath.Size = new Size(123, 42);
@@ -726,6 +756,7 @@ namespace TeamApp
             //
             // pnlGraphStats
             //
+            pnlGraphStats.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             pnlGraphStats.Location = new Point(73, 75);
             pnlGraphStats.Name = "pnlGraphStats";
             pnlGraphStats.Size = new Size(921, 408);
@@ -734,6 +765,7 @@ namespace TeamApp
             // lblDescription
             //
             lblDescription.AutoSize = true;
+            lblDescription.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             lblDescription.Location = new Point(73, 27);
             lblDescription.Name = "lblDescription";
             lblDescription.Size = new Size(921, 20);
@@ -783,7 +815,7 @@ namespace TeamApp
             rtbTrainingLog.Dock = DockStyle.Fill;
             rtbTrainingLog.Location = new Point(3, 23);
             rtbTrainingLog.Name = "rtbTrainingLog";
-            rtbTrainingLog.Size = new Size(1541, 371);
+            rtbTrainingLog.Size = new Size(1541, 364);
             rtbTrainingLog.TabIndex = 0;
             rtbTrainingLog.Text = "";
             //
@@ -791,6 +823,7 @@ namespace TeamApp
             //
             statusStripTraining.ImageScalingSize = new Size(20, 20);
             statusStripTraining.Items.AddRange(new ToolStripItem[] { toolStripStatusLabelTraining });
+            statusStripTraining.Dock = DockStyle.Bottom;
             statusStripTraining.Location = new Point(3, 858);
             statusStripTraining.Name = "statusStripTraining";
             statusStripTraining.Size = new Size(1566, 26);
@@ -809,6 +842,7 @@ namespace TeamApp
             AutoScaleDimensions = new SizeF(9F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1581, 953);
+            MinimumSize = new Size(1000, 700);
             Controls.Add(tabControlMain);
             Controls.Add(menuStripMain);
             MainMenuStrip = menuStripMain;
