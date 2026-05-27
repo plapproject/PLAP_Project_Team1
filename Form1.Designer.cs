@@ -68,36 +68,35 @@ namespace TeamApp
             btnToggleTheme = new Button();
             lblThrottleValue = new Label();
             btnGuide = new Button();
-            comboBoxFilter = new ComboBox();
             lblAngleValue = new Label();
             tabPage2 = new TabPage();
             groupBox4 = new GroupBox();
             groupBox3 = new GroupBox();
-            textBox6 = new TextBox();
-            textBox4 = new TextBox();
-            textBox3 = new TextBox();
-            textBox2 = new TextBox();
-            label9 = new Label();
-            label8 = new Label();
-            label7 = new Label();
-            label6 = new Label();
-            label5 = new Label();
-            label4 = new Label();
-            button6 = new Button();
-            button5 = new Button();
-            button4 = new Button();
-            button3 = new Button();
-            button2 = new Button();
-            button1 = new Button();
+            tbxTubPath = new TextBox();
+            tbxModelPath = new TextBox();
+            tbxMycarPath = new TextBox();
+            tbxPythonPath = new TextBox();
+            lblEpoch = new Label();
+            lblModeType = new Label();
+            lblModelPath = new Label();
+            lblTubPath = new Label();
+            lblMycarPath = new Label();
+            lblPythonPath = new Label();
+            btnSaveSettings = new Button();
+            btnStopTraining = new Button();
+            btnStartTraining = new Button();
+            btnTubPath = new Button();
+            btnMycarPath = new Button();
+            btnPythonPath = new Button();
             tabPage3 = new TabPage();
             panel1 = new Panel();
             lblDescription = new Label();
             statusStrip1 = new StatusStrip();
             toolStripStatusLabelPath = new ToolStripStatusLabel();
             toolStripStatusLabelFrames = new ToolStripStatusLabel();
-            comboBox1 = new ComboBox();
-            numericUpDown1 = new NumericUpDown();
-            richTextBox1 = new RichTextBox();
+            cbxModelType = new ComboBox();
+            nudEpoch = new NumericUpDown();
+            rtbTrainingLog = new RichTextBox();
             statusStrip2 = new StatusStrip();
             toolStripStatusLabel1 = new ToolStripStatusLabel();
             menuStrip1.SuspendLayout();
@@ -115,7 +114,7 @@ namespace TeamApp
             groupBox3.SuspendLayout();
             tabPage3.SuspendLayout();
             statusStrip1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)numericUpDown1).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)nudEpoch).BeginInit();
             statusStrip2.SuspendLayout();
             SuspendLayout();
             // 
@@ -327,7 +326,6 @@ namespace TeamApp
             groupBox1.Controls.Add(btnToggleTheme);
             groupBox1.Controls.Add(lblThrottleValue);
             groupBox1.Controls.Add(btnGuide);
-            groupBox1.Controls.Add(comboBoxFilter);
             groupBox1.Controls.Add(lblAngleValue);
             groupBox1.Location = new Point(0, 0);
             groupBox1.Name = "groupBox1";
@@ -415,9 +413,9 @@ namespace TeamApp
             // listBoxData
             // 
             listBoxData.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            listBoxData.Location = new Point(0, 101);
+            listBoxData.Location = new Point(0, 61);
             listBoxData.Name = "listBoxData";
-            listBoxData.Size = new Size(280, 564);
+            listBoxData.Size = new Size(280, 604);
             listBoxData.TabIndex = 13;
             listBoxData.SelectedIndexChanged += listBoxData_SelectedIndexChanged;
             // 
@@ -499,16 +497,6 @@ namespace TeamApp
             btnGuide.UseVisualStyleBackColor = true;
             btnGuide.Click += btnGuide_Click;
             // 
-            // comboBoxFilter
-            // 
-            comboBoxFilter.DropDownStyle = ComboBoxStyle.DropDownList;
-            comboBoxFilter.Items.AddRange(new object[] { "ÀüÃ¼ º¸±â", "½º·ÎÆ² ÃÖ¼Ò°ª", "Á¶Çâ ¹üÀ§", "¸ðµå = »ç¿ëÀÚ", "ÀÌ¹ÌÁö ¾ø´Â ÇÁ·¹ÀÓ" });
-            comboBoxFilter.Location = new Point(0, 61);
-            comboBoxFilter.Name = "comboBoxFilter";
-            comboBoxFilter.Size = new Size(280, 28);
-            comboBoxFilter.TabIndex = 9;
-            comboBoxFilter.SelectedIndexChanged += comboBoxFilter_SelectedIndexChanged;
-            // 
             // lblAngleValue
             // 
             lblAngleValue.Font = new Font("¸¼Àº °íµñ", 13.8F);
@@ -535,7 +523,7 @@ namespace TeamApp
             // 
             // groupBox4
             // 
-            groupBox4.Controls.Add(richTextBox1);
+            groupBox4.Controls.Add(rtbTrainingLog);
             groupBox4.Location = new Point(15, 462);
             groupBox4.Margin = new Padding(10);
             groupBox4.Name = "groupBox4";
@@ -546,24 +534,24 @@ namespace TeamApp
             // 
             // groupBox3
             // 
-            groupBox3.Controls.Add(numericUpDown1);
-            groupBox3.Controls.Add(comboBox1);
-            groupBox3.Controls.Add(textBox6);
-            groupBox3.Controls.Add(textBox4);
-            groupBox3.Controls.Add(textBox3);
-            groupBox3.Controls.Add(textBox2);
-            groupBox3.Controls.Add(label9);
-            groupBox3.Controls.Add(label8);
-            groupBox3.Controls.Add(label7);
-            groupBox3.Controls.Add(label6);
-            groupBox3.Controls.Add(label5);
-            groupBox3.Controls.Add(label4);
-            groupBox3.Controls.Add(button6);
-            groupBox3.Controls.Add(button5);
-            groupBox3.Controls.Add(button4);
-            groupBox3.Controls.Add(button3);
-            groupBox3.Controls.Add(button2);
-            groupBox3.Controls.Add(button1);
+            groupBox3.Controls.Add(nudEpoch);
+            groupBox3.Controls.Add(cbxModelType);
+            groupBox3.Controls.Add(tbxTubPath);
+            groupBox3.Controls.Add(tbxModelPath);
+            groupBox3.Controls.Add(tbxMycarPath);
+            groupBox3.Controls.Add(tbxPythonPath);
+            groupBox3.Controls.Add(lblEpoch);
+            groupBox3.Controls.Add(lblModeType);
+            groupBox3.Controls.Add(lblModelPath);
+            groupBox3.Controls.Add(lblTubPath);
+            groupBox3.Controls.Add(lblMycarPath);
+            groupBox3.Controls.Add(lblPythonPath);
+            groupBox3.Controls.Add(btnSaveSettings);
+            groupBox3.Controls.Add(btnStopTraining);
+            groupBox3.Controls.Add(btnStartTraining);
+            groupBox3.Controls.Add(btnTubPath);
+            groupBox3.Controls.Add(btnMycarPath);
+            groupBox3.Controls.Add(btnPythonPath);
             groupBox3.Location = new Point(15, 19);
             groupBox3.Name = "groupBox3";
             groupBox3.Size = new Size(1547, 437);
@@ -571,157 +559,158 @@ namespace TeamApp
             groupBox3.TabStop = false;
             groupBox3.Text = "ÇÐ½À ¼³Á¤";
             // 
-            // textBox6
+            // tbxTubPath
             // 
-            textBox6.Font = new Font("¸¼Àº °íµñ", 12F);
-            textBox6.Location = new Point(218, 148);
-            textBox6.Name = "textBox6";
-            textBox6.Size = new Size(1092, 34);
-            textBox6.TabIndex = 16;
+            tbxTubPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            tbxTubPath.Location = new Point(218, 148);
+            tbxTubPath.Name = "tbxTubPath";
+            tbxTubPath.Size = new Size(1092, 34);
+            tbxTubPath.TabIndex = 16;
             // 
-            // textBox4
+            // tbxModelPath
             // 
-            textBox4.Font = new Font("¸¼Àº °íµñ", 12F);
-            textBox4.Location = new Point(218, 199);
-            textBox4.Name = "textBox4";
-            textBox4.Size = new Size(1092, 34);
-            textBox4.TabIndex = 14;
+            tbxModelPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            tbxModelPath.Location = new Point(218, 199);
+            tbxModelPath.Name = "tbxModelPath";
+            tbxModelPath.Size = new Size(1092, 34);
+            tbxModelPath.TabIndex = 14;
             // 
-            // textBox3
+            // tbxMycarPath
             // 
-            textBox3.Font = new Font("¸¼Àº °íµñ", 12F);
-            textBox3.Location = new Point(218, 95);
-            textBox3.Name = "textBox3";
-            textBox3.Size = new Size(1092, 34);
-            textBox3.TabIndex = 13;
+            tbxMycarPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            tbxMycarPath.Location = new Point(218, 95);
+            tbxMycarPath.Name = "tbxMycarPath";
+            tbxMycarPath.Size = new Size(1092, 34);
+            tbxMycarPath.TabIndex = 13;
             // 
-            // textBox2
+            // tbxPythonPath
             // 
-            textBox2.Font = new Font("¸¼Àº °íµñ", 12F);
-            textBox2.Location = new Point(218, 43);
-            textBox2.Name = "textBox2";
-            textBox2.Size = new Size(1092, 34);
-            textBox2.TabIndex = 12;
+            tbxPythonPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            tbxPythonPath.Location = new Point(218, 43);
+            tbxPythonPath.Name = "tbxPythonPath";
+            tbxPythonPath.Size = new Size(1092, 34);
+            tbxPythonPath.TabIndex = 12;
             // 
-            // label9
+            // lblEpoch
             // 
-            label9.AutoSize = true;
-            label9.Font = new Font("¸¼Àº °íµñ", 12F);
-            label9.Location = new Point(45, 308);
-            label9.Name = "label9";
-            label9.Size = new Size(67, 28);
-            label9.TabIndex = 11;
-            label9.Text = "Epoch";
+            lblEpoch.AutoSize = true;
+            lblEpoch.Font = new Font("¸¼Àº °íµñ", 12F);
+            lblEpoch.Location = new Point(45, 308);
+            lblEpoch.Name = "lblEpoch";
+            lblEpoch.Size = new Size(99, 28);
+            lblEpoch.TabIndex = 11;
+            lblEpoch.Text = "ÇÐ½À È½¼ö";
             // 
-            // label8
+            // lblModeType
             // 
-            label8.AutoSize = true;
-            label8.Font = new Font("¸¼Àº °íµñ", 12F);
-            label8.Location = new Point(45, 254);
-            label8.Name = "label8";
-            label8.Size = new Size(99, 28);
-            label8.TabIndex = 10;
-            label8.Text = "¸ðµ¨ Á¾·ù";
+            lblModeType.AutoSize = true;
+            lblModeType.Font = new Font("¸¼Àº °íµñ", 12F);
+            lblModeType.Location = new Point(45, 254);
+            lblModeType.Name = "lblModeType";
+            lblModeType.Size = new Size(99, 28);
+            lblModeType.TabIndex = 10;
+            lblModeType.Text = "¸ðµ¨ Á¾·ù";
             // 
-            // label7
+            // lblModelPath
             // 
-            label7.AutoSize = true;
-            label7.Font = new Font("¸¼Àº °íµñ", 12F);
-            label7.Location = new Point(45, 202);
-            label7.Name = "label7";
-            label7.Size = new Size(146, 28);
-            label7.TabIndex = 9;
-            label7.Text = "¸ðµ¨ ÀúÀå °æ·Î";
+            lblModelPath.AutoSize = true;
+            lblModelPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            lblModelPath.Location = new Point(45, 202);
+            lblModelPath.Name = "lblModelPath";
+            lblModelPath.Size = new Size(146, 28);
+            lblModelPath.TabIndex = 9;
+            lblModelPath.Text = "¸ðµ¨ ÀúÀå °æ·Î";
             // 
-            // label6
+            // lblTubPath
             // 
-            label6.AutoSize = true;
-            label6.Font = new Font("¸¼Àº °íµñ", 12F);
-            label6.Location = new Point(45, 151);
-            label6.Name = "label6";
-            label6.Size = new Size(94, 28);
-            label6.TabIndex = 8;
-            label6.Text = "Tub °æ·Î";
+            lblTubPath.AutoSize = true;
+            lblTubPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            lblTubPath.Location = new Point(45, 151);
+            lblTubPath.Name = "lblTubPath";
+            lblTubPath.Size = new Size(94, 28);
+            lblTubPath.TabIndex = 8;
+            lblTubPath.Text = "Tub °æ·Î";
             // 
-            // label5
+            // lblMycarPath
             // 
-            label5.AutoSize = true;
-            label5.Font = new Font("¸¼Àº °íµñ", 12F);
-            label5.Location = new Point(45, 98);
-            label5.Name = "label5";
-            label5.Size = new Size(113, 28);
-            label5.TabIndex = 7;
-            label5.Text = "mycar °æ·Î";
+            lblMycarPath.AutoSize = true;
+            lblMycarPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            lblMycarPath.Location = new Point(45, 98);
+            lblMycarPath.Name = "lblMycarPath";
+            lblMycarPath.Size = new Size(113, 28);
+            lblMycarPath.TabIndex = 7;
+            lblMycarPath.Text = "mycar °æ·Î";
             // 
-            // label4
+            // lblPythonPath
             // 
-            label4.AutoSize = true;
-            label4.Font = new Font("¸¼Àº °íµñ", 12F);
-            label4.Location = new Point(45, 46);
-            label4.Name = "label4";
-            label4.Size = new Size(119, 28);
-            label4.TabIndex = 6;
-            label4.Text = "ÆÄÀÌ½ã °æ·Î";
+            lblPythonPath.AutoSize = true;
+            lblPythonPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            lblPythonPath.Location = new Point(45, 46);
+            lblPythonPath.Name = "lblPythonPath";
+            lblPythonPath.Size = new Size(119, 28);
+            lblPythonPath.TabIndex = 6;
+            lblPythonPath.Text = "ÆÄÀÌ½ã °æ·Î";
             // 
-            // button6
+            // btnSaveSettings
             // 
-            button6.Font = new Font("¸¼Àº °íµñ", 12F);
-            button6.Location = new Point(1006, 368);
-            button6.Name = "button6";
-            button6.Size = new Size(194, 42);
-            button6.TabIndex = 5;
-            button6.Text = "¼³Á¤ ÀúÀå";
-            button6.UseVisualStyleBackColor = true;
+            btnSaveSettings.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnSaveSettings.Location = new Point(1006, 368);
+            btnSaveSettings.Name = "btnSaveSettings";
+            btnSaveSettings.Size = new Size(194, 42);
+            btnSaveSettings.TabIndex = 5;
+            btnSaveSettings.Text = "¼³Á¤ ÀúÀå";
+            btnSaveSettings.UseVisualStyleBackColor = true;
             // 
-            // button5
+            // btnStopTraining
             // 
-            button5.Font = new Font("¸¼Àº °íµñ", 12F);
-            button5.Location = new Point(672, 368);
-            button5.Name = "button5";
-            button5.Size = new Size(194, 42);
-            button5.TabIndex = 4;
-            button5.Text = "ÇÐ½À ÁßÁö";
-            button5.UseVisualStyleBackColor = true;
+            btnStopTraining.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnStopTraining.Location = new Point(672, 368);
+            btnStopTraining.Name = "btnStopTraining";
+            btnStopTraining.Size = new Size(194, 42);
+            btnStopTraining.TabIndex = 4;
+            btnStopTraining.Text = "ÇÐ½À ÁßÁö";
+            btnStopTraining.UseVisualStyleBackColor = true;
             // 
-            // button4
+            // btnStartTraining
             // 
-            button4.Font = new Font("¸¼Àº °íµñ", 12F);
-            button4.Location = new Point(337, 368);
-            button4.Name = "button4";
-            button4.Size = new Size(194, 42);
-            button4.TabIndex = 3;
-            button4.Text = "ÇÐ½À ½ÃÀÛ";
-            button4.UseVisualStyleBackColor = true;
+            btnStartTraining.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnStartTraining.Location = new Point(337, 368);
+            btnStartTraining.Name = "btnStartTraining";
+            btnStartTraining.Size = new Size(194, 42);
+            btnStartTraining.TabIndex = 3;
+            btnStartTraining.Text = "ÇÐ½À ½ÃÀÛ";
+            btnStartTraining.UseVisualStyleBackColor = true;
             // 
-            // button3
+            // btnTubPath
             // 
-            button3.Font = new Font("¸¼Àº °íµñ", 12F);
-            button3.Location = new Point(1334, 135);
-            button3.Name = "button3";
-            button3.Size = new Size(123, 42);
-            button3.TabIndex = 2;
-            button3.Text = "button3";
-            button3.UseVisualStyleBackColor = true;
+            btnTubPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnTubPath.Location = new Point(1334, 135);
+            btnTubPath.Name = "btnTubPath";
+            btnTubPath.Size = new Size(123, 42);
+            btnTubPath.TabIndex = 2;
+            btnTubPath.Text = "Tub ¼±ÅÃ";
+            btnTubPath.UseVisualStyleBackColor = true;
             // 
-            // button2
+            // btnMycarPath
             // 
-            button2.Font = new Font("¸¼Àº °íµñ", 12F);
-            button2.Location = new Point(1334, 87);
-            button2.Name = "button2";
-            button2.Size = new Size(123, 42);
-            button2.TabIndex = 1;
-            button2.Text = "button2";
-            button2.UseVisualStyleBackColor = true;
+            btnMycarPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnMycarPath.Location = new Point(1334, 87);
+            btnMycarPath.Name = "btnMycarPath";
+            btnMycarPath.Size = new Size(123, 42);
+            btnMycarPath.TabIndex = 1;
+            btnMycarPath.Text = "Ã£±â";
+            btnMycarPath.UseVisualStyleBackColor = true;
+            btnMycarPath.Click += button2_Click;
             // 
-            // button1
+            // btnPythonPath
             // 
-            button1.Font = new Font("¸¼Àº °íµñ", 12F);
-            button1.Location = new Point(1334, 39);
-            button1.Name = "button1";
-            button1.Size = new Size(123, 42);
-            button1.TabIndex = 0;
-            button1.Text = "button1";
-            button1.UseVisualStyleBackColor = true;
+            btnPythonPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnPythonPath.Location = new Point(1334, 39);
+            btnPythonPath.Name = "btnPythonPath";
+            btnPythonPath.Size = new Size(123, 42);
+            btnPythonPath.TabIndex = 0;
+            btnPythonPath.Text = "Ã£±â";
+            btnPythonPath.UseVisualStyleBackColor = true;
             // 
             // tabPage3
             // 
@@ -772,31 +761,31 @@ namespace TeamApp
             toolStripStatusLabelFrames.Size = new Size(72, 16);
             toolStripStatusLabelFrames.Text = "Frames: 0";
             // 
-            // comboBox1
+            // cbxModelType
             // 
-            comboBox1.Font = new Font("¸¼Àº °íµñ", 12F);
-            comboBox1.FormattingEnabled = true;
-            comboBox1.Location = new Point(218, 251);
-            comboBox1.Name = "comboBox1";
-            comboBox1.Size = new Size(391, 36);
-            comboBox1.TabIndex = 2;
+            cbxModelType.Font = new Font("¸¼Àº °íµñ", 12F);
+            cbxModelType.FormattingEnabled = true;
+            cbxModelType.Location = new Point(218, 251);
+            cbxModelType.Name = "cbxModelType";
+            cbxModelType.Size = new Size(391, 36);
+            cbxModelType.TabIndex = 2;
             // 
-            // numericUpDown1
+            // nudEpoch
             // 
-            numericUpDown1.Font = new Font("¸¼Àº °íµñ", 12F);
-            numericUpDown1.Location = new Point(218, 306);
-            numericUpDown1.Name = "numericUpDown1";
-            numericUpDown1.Size = new Size(391, 34);
-            numericUpDown1.TabIndex = 17;
+            nudEpoch.Font = new Font("¸¼Àº °íµñ", 12F);
+            nudEpoch.Location = new Point(218, 306);
+            nudEpoch.Name = "nudEpoch";
+            nudEpoch.Size = new Size(391, 34);
+            nudEpoch.TabIndex = 17;
             // 
-            // richTextBox1
+            // rtbTrainingLog
             // 
-            richTextBox1.Dock = DockStyle.Fill;
-            richTextBox1.Location = new Point(3, 23);
-            richTextBox1.Name = "richTextBox1";
-            richTextBox1.Size = new Size(1541, 371);
-            richTextBox1.TabIndex = 0;
-            richTextBox1.Text = "";
+            rtbTrainingLog.Dock = DockStyle.Fill;
+            rtbTrainingLog.Location = new Point(3, 23);
+            rtbTrainingLog.Name = "rtbTrainingLog";
+            rtbTrainingLog.Size = new Size(1541, 371);
+            rtbTrainingLog.TabIndex = 0;
+            rtbTrainingLog.Text = "";
             // 
             // statusStrip2
             // 
@@ -849,7 +838,7 @@ namespace TeamApp
             tabPage3.PerformLayout();
             statusStrip1.ResumeLayout(false);
             statusStrip1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)numericUpDown1).EndInit();
+            ((System.ComponentModel.ISupportInitialize)nudEpoch).EndInit();
             statusStrip2.ResumeLayout(false);
             statusStrip2.PerformLayout();
             ResumeLayout(false);
@@ -881,7 +870,6 @@ namespace TeamApp
         private Label lblAngleValue;
         private Label lblThrottleValue;
         private Label lblModeValue;
-        private ComboBox comboBoxFilter;
         private NumericUpDown numericUpDownInterval;
         private Button btnApplyFilter;
         private ListBox listBoxData;
@@ -916,25 +904,25 @@ namespace TeamApp
         private TabPage tabPage2;
         private GroupBox groupBox3;
         private GroupBox groupBox4;
-        private Label label9;
-        private Label label8;
-        private Label label7;
-        private Label label6;
-        private Label label5;
-        private Label label4;
-        private Button button6;
-        private Button button5;
-        private Button button4;
-        private Button button3;
-        private Button button2;
-        private Button button1;
-        private TextBox textBox6;
-        private TextBox textBox4;
-        private TextBox textBox3;
-        private TextBox textBox2;
-        private NumericUpDown numericUpDown1;
-        private ComboBox comboBox1;
-        private RichTextBox richTextBox1;
+        private Label lblEpoch;
+        private Label lblModeType;
+        private Label lblModelPath;
+        private Label lblTubPath;
+        private Label lblMycarPath;
+        private Label lblPythonPath;
+        private Button btnSaveSettings;
+        private Button btnStopTraining;
+        private Button btnStartTraining;
+        private Button btnTubPath;
+        private Button btnMycarPath;
+        private Button btnPythonPath;
+        private TextBox tbxTubPath;
+        private TextBox tbxModelPath;
+        private TextBox tbxMycarPath;
+        private TextBox tbxPythonPath;
+        private NumericUpDown nudEpoch;
+        private ComboBox cbxModelType;
+        private RichTextBox rtbTrainingLog;
         private StatusStrip statusStrip2;
         private ToolStripStatusLabel toolStripStatusLabel1;
     }

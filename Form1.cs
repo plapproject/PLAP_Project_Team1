@@ -342,7 +342,7 @@ namespace TeamApp
         {
             if (originalFrames == null || originalFrames.Count == 0) return;
 
-            string selectedFilter = comboBoxFilter.SelectedItem?.ToString() ?? "전체 보기";
+            string selectedFilter = cbx.SelectedItem?.ToString() ?? "전체 보기";
             double minValue = (double)numFilterMin.Value;
             double maxValue = (double)numFilterMax.Value;
 
@@ -436,6 +436,11 @@ namespace TeamApp
         }
 
         private void toolStripStatusLabel1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void button2_Click(object sender, EventArgs e)
         {
 
         }
