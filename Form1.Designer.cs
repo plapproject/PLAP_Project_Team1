@@ -40,14 +40,11 @@ namespace TeamApp
             mnuOpenGuide = new ToolStripMenuItem();
             tabControlMain = new TabControl();
             tabPageDataViewer = new TabPage();
+            statusStripDataFooter = new StatusStrip();
+            toolStripStatusLabelDataPath = new ToolStripStatusLabel();
             grpTubCleaner = new GroupBox();
-            btnRepair = new Button();
-            btnReloadTub = new Button();
-            txtTubCleanerPath = new TextBox();
-            numFilterMax = new NumericUpDown();
-            lblFilterMax = new Label();
-            lblFilterMin = new Label();
-            numFilterMin = new NumericUpDown();
+            lblThrottleRange = new Label();
+            lblAngleRange = new Label();
             btnApplyFilter = new Button();
             btnClearFilter = new Button();
             grpTubExplorer = new GroupBox();
@@ -68,7 +65,6 @@ namespace TeamApp
             btnToggleTheme = new Button();
             lblThrottleValue = new Label();
             btnGuide = new Button();
-            cbxFrameFilter = new ComboBox();
             lblAngleValue = new Label();
             tabPageTraining = new TabPage();
             statusStripTraining = new StatusStrip();
@@ -100,12 +96,25 @@ namespace TeamApp
             statusStripDataViewer = new StatusStrip();
             toolStripStatusLabelPath = new ToolStripStatusLabel();
             toolStripStatusLabelFrames = new ToolStripStatusLabel();
+            txtAngleMin = new TextBox();
+            txtThrottleMin = new TextBox();
+            txtThrottleMax = new TextBox();
+            txtAngleMax = new TextBox();
+            lblThrottleRangeSeparator = new Label();
+            lblAngleRangeSeparator = new Label();
+            lblModeFilter = new Label();
+            cbxModeFilter = new ComboBox();
+            cbxScenarioFilter = new ComboBox();
+            lblScenarioFilter = new Label();
+            btnDeleteFrame = new Button();
+            btnExcludeRange = new Button();
+            btnExcludeSelectedFrame = new Button();
+            btnRestoreFrame = new Button();
             menuStripMain.SuspendLayout();
             tabControlMain.SuspendLayout();
             tabPageDataViewer.SuspendLayout();
+            statusStripDataFooter.SuspendLayout();
             grpTubCleaner.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)numFilterMax).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)numFilterMin).BeginInit();
             grpTubExplorer.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)trkFramePosition).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numPlaybackInterval).BeginInit();
@@ -203,6 +212,7 @@ namespace TeamApp
             // 
             // tabPageDataViewer
             // 
+            tabPageDataViewer.Controls.Add(statusStripDataFooter);
             tabPageDataViewer.Controls.Add(grpTubCleaner);
             tabPageDataViewer.Controls.Add(grpTubExplorer);
             tabPageDataViewer.Location = new Point(4, 29);
@@ -213,93 +223,76 @@ namespace TeamApp
             tabPageDataViewer.Text = "µ¥ÀÌÅÍ ºä¾î";
             tabPageDataViewer.UseVisualStyleBackColor = true;
             // 
+            // statusStripDataFooter
+            // 
+            statusStripDataFooter.ImageScalingSize = new Size(20, 20);
+            statusStripDataFooter.Items.AddRange(new ToolStripItem[] { toolStripStatusLabelDataPath });
+            statusStripDataFooter.Location = new Point(3, 858);
+            statusStripDataFooter.Name = "statusStripDataFooter";
+            statusStripDataFooter.Size = new Size(1566, 26);
+            statusStripDataFooter.TabIndex = 24;
+            statusStripDataFooter.Text = "statusStripDataFooter";
+            // 
+            // toolStripStatusLabelDataPath
+            // 
+            toolStripStatusLabelDataPath.Name = "toolStripStatusLabelDataPath";
+            toolStripStatusLabelDataPath.Size = new Size(33, 20);
+            toolStripStatusLabelDataPath.Text = "C:\\";
+            // 
             // grpTubCleaner
             // 
             grpTubCleaner.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            grpTubCleaner.Controls.Add(btnRepair);
-            grpTubCleaner.Controls.Add(btnReloadTub);
-            grpTubCleaner.Controls.Add(txtTubCleanerPath);
-            grpTubCleaner.Controls.Add(numFilterMax);
-            grpTubCleaner.Controls.Add(lblFilterMax);
-            grpTubCleaner.Controls.Add(lblFilterMin);
-            grpTubCleaner.Controls.Add(numFilterMin);
+            grpTubCleaner.Controls.Add(btnRestoreFrame);
+            grpTubCleaner.Controls.Add(btnDeleteFrame);
+            grpTubCleaner.Controls.Add(btnExcludeRange);
+            grpTubCleaner.Controls.Add(btnExcludeSelectedFrame);
+            grpTubCleaner.Controls.Add(cbxScenarioFilter);
+            grpTubCleaner.Controls.Add(lblScenarioFilter);
+            grpTubCleaner.Controls.Add(cbxModeFilter);
+            grpTubCleaner.Controls.Add(lblModeFilter);
+            grpTubCleaner.Controls.Add(lblAngleRangeSeparator);
+            grpTubCleaner.Controls.Add(lblThrottleRangeSeparator);
+            grpTubCleaner.Controls.Add(txtThrottleMax);
+            grpTubCleaner.Controls.Add(txtAngleMax);
+            grpTubCleaner.Controls.Add(txtThrottleMin);
+            grpTubCleaner.Controls.Add(txtAngleMin);
+            grpTubCleaner.Controls.Add(lblThrottleRange);
+            grpTubCleaner.Controls.Add(lblAngleRange);
             grpTubCleaner.Controls.Add(btnApplyFilter);
             grpTubCleaner.Controls.Add(btnClearFilter);
-            grpTubCleaner.Location = new Point(3, 741);
+            grpTubCleaner.Location = new Point(3, 635);
             grpTubCleaner.Name = "grpTubCleaner";
-            grpTubCleaner.Size = new Size(1563, 68);
+            grpTubCleaner.Size = new Size(1563, 220);
             grpTubCleaner.TabIndex = 23;
             grpTubCleaner.TabStop = false;
             grpTubCleaner.Text = "ÅÍºê Á¤¸®±â";
             // 
-            // btnRepair
+            // lblThrottleRange
             // 
-            btnRepair.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnRepair.Location = new Point(1308, 25);
-            btnRepair.Name = "btnRepair";
-            btnRepair.Size = new Size(120, 29);
-            btnRepair.TabIndex = 28;
-            btnRepair.Text = "º¹¿ø";
-            btnRepair.UseVisualStyleBackColor = true;
+            lblThrottleRange.AutoSize = true;
+            lblThrottleRange.Font = new Font("¸¼Àº °íµñ", 10F);
+            lblThrottleRange.Location = new Point(333, 100);
+            lblThrottleRange.Name = "lblThrottleRange";
+            lblThrottleRange.Size = new Size(168, 23);
+            lblThrottleRange.TabIndex = 26;
+            lblThrottleRange.Text = "½º·ÎÆ²°ª ¹üÀ§(0~1): ";
             // 
-            // btnReloadTub
+            // lblAngleRange
             // 
-            btnReloadTub.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnReloadTub.Location = new Point(1435, 25);
-            btnReloadTub.Name = "btnReloadTub";
-            btnReloadTub.Size = new Size(120, 29);
-            btnReloadTub.TabIndex = 29;
-            btnReloadTub.Text = "ÅÍºê ´Ù½Ã ·Îµå";
-            btnReloadTub.UseVisualStyleBackColor = true;
-            // 
-            // txtTubCleanerPath
-            // 
-            txtTubCleanerPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtTubCleanerPath.Location = new Point(476, 25);
-            txtTubCleanerPath.Name = "txtTubCleanerPath";
-            txtTubCleanerPath.Size = new Size(574, 27);
-            txtTubCleanerPath.TabIndex = 27;
-            // 
-            // numFilterMax
-            // 
-            numFilterMax.Location = new Point(320, 25);
-            numFilterMax.Name = "numFilterMax";
-            numFilterMax.Size = new Size(150, 27);
-            numFilterMax.TabIndex = 25;
-            // 
-            // lblFilterMax
-            // 
-            lblFilterMax.AutoSize = true;
-            lblFilterMax.Font = new Font("¸¼Àº °íµñ", 10F);
-            lblFilterMax.Location = new Point(253, 27);
-            lblFilterMax.Name = "lblFilterMax";
-            lblFilterMax.Size = new Size(61, 23);
-            lblFilterMax.TabIndex = 26;
-            lblFilterMax.Text = "ÃÖ´ñ°ª";
-            // 
-            // lblFilterMin
-            // 
-            lblFilterMin.AutoSize = true;
-            lblFilterMin.Font = new Font("¸¼Àº °íµñ", 10F);
-            lblFilterMin.Location = new Point(15, 27);
-            lblFilterMin.Name = "lblFilterMin";
-            lblFilterMin.Size = new Size(61, 23);
-            lblFilterMin.TabIndex = 25;
-            lblFilterMin.Text = "ÃÖ¼Ú°ª";
-            // 
-            // numFilterMin
-            // 
-            numFilterMin.Location = new Point(82, 27);
-            numFilterMin.Name = "numFilterMin";
-            numFilterMin.Size = new Size(150, 27);
-            numFilterMin.TabIndex = 24;
+            lblAngleRange.AutoSize = true;
+            lblAngleRange.Font = new Font("¸¼Àº °íµñ", 10F);
+            lblAngleRange.Location = new Point(333, 58);
+            lblAngleRange.Name = "lblAngleRange";
+            lblAngleRange.Size = new Size(164, 23);
+            lblAngleRange.TabIndex = 25;
+            lblAngleRange.Text = "Á¶Çâ°¢ ¹üÀ§ (-1~1): ";
             // 
             // btnApplyFilter
             // 
             btnApplyFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnApplyFilter.Location = new Point(1056, 24);
+            btnApplyFilter.Location = new Point(317, 149);
             btnApplyFilter.Name = "btnApplyFilter";
-            btnApplyFilter.Size = new Size(120, 29);
+            btnApplyFilter.Size = new Size(149, 29);
             btnApplyFilter.TabIndex = 12;
             btnApplyFilter.Text = "ÇÊÅÍ Àû¿ë";
             btnApplyFilter.UseVisualStyleBackColor = true;
@@ -308,9 +301,9 @@ namespace TeamApp
             // btnClearFilter
             // 
             btnClearFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnClearFilter.Location = new Point(1182, 24);
+            btnClearFilter.Location = new Point(472, 149);
             btnClearFilter.Name = "btnClearFilter";
-            btnClearFilter.Size = new Size(120, 29);
+            btnClearFilter.Size = new Size(149, 29);
             btnClearFilter.TabIndex = 19;
             btnClearFilter.Text = "ÇÊÅÍ ÇØÁ¦";
             btnClearFilter.UseVisualStyleBackColor = true;
@@ -335,11 +328,10 @@ namespace TeamApp
             grpTubExplorer.Controls.Add(btnToggleTheme);
             grpTubExplorer.Controls.Add(lblThrottleValue);
             grpTubExplorer.Controls.Add(btnGuide);
-            grpTubExplorer.Controls.Add(cbxFrameFilter);
             grpTubExplorer.Controls.Add(lblAngleValue);
             grpTubExplorer.Location = new Point(0, 0);
             grpTubExplorer.Name = "grpTubExplorer";
-            grpTubExplorer.Size = new Size(1569, 736);
+            grpTubExplorer.Size = new Size(1569, 635);
             grpTubExplorer.TabIndex = 22;
             grpTubExplorer.TabStop = false;
             grpTubExplorer.Text = "ÅÍºê Å½»ö±â";
@@ -347,7 +339,7 @@ namespace TeamApp
             // trkFramePosition
             // 
             trkFramePosition.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            trkFramePosition.Location = new Point(0, 672);
+            trkFramePosition.Location = new Point(-1, 571);
             trkFramePosition.Maximum = 0;
             trkFramePosition.Name = "trkFramePosition";
             trkFramePosition.Size = new Size(1563, 56);
@@ -430,9 +422,9 @@ namespace TeamApp
             // lstFrameData
             // 
             lstFrameData.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
-            lstFrameData.Location = new Point(0, 101);
+            lstFrameData.Location = new Point(0, 61);
             lstFrameData.Name = "lstFrameData";
-            lstFrameData.Size = new Size(280, 564);
+            lstFrameData.Size = new Size(360, 504);
             lstFrameData.TabIndex = 13;
             lstFrameData.SelectedIndexChanged += lstFrameData_SelectedIndexChanged;
             // 
@@ -450,9 +442,9 @@ namespace TeamApp
             // 
             picMainPreview.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             picMainPreview.BorderStyle = BorderStyle.FixedSingle;
-            picMainPreview.Location = new Point(287, 61);
+            picMainPreview.Location = new Point(366, 61);
             picMainPreview.Name = "picMainPreview";
-            picMainPreview.Size = new Size(992, 605);
+            picMainPreview.Size = new Size(912, 504);
             picMainPreview.SizeMode = PictureBoxSizeMode.StretchImage;
             picMainPreview.TabIndex = 4;
             picMainPreview.TabStop = false;
@@ -518,16 +510,6 @@ namespace TeamApp
             btnGuide.Text = "´Ü°èº° °¡ÀÌµå";
             btnGuide.UseVisualStyleBackColor = true;
             btnGuide.Click += btnGuide_Click;
-            // 
-            // cbxFrameFilter
-            // 
-            cbxFrameFilter.DropDownStyle = ComboBoxStyle.DropDownList;
-            cbxFrameFilter.Items.AddRange(new object[] { "ÀüÃ¼ º¸±â", "½º·ÎÆ² ÃÖ¼Ò°ª", "Á¶Çâ ¹üÀ§", "¸ðµå = »ç¿ëÀÚ", "ÀÌ¹ÌÁö ¾ø´Â ÇÁ·¹ÀÓ" });
-            cbxFrameFilter.Location = new Point(0, 61);
-            cbxFrameFilter.Name = "cbxFrameFilter";
-            cbxFrameFilter.Size = new Size(280, 28);
-            cbxFrameFilter.TabIndex = 9;
-            cbxFrameFilter.SelectedIndexChanged += cbxFrameFilter_SelectedIndexChanged;
             // 
             // lblAngleValue
             // 
@@ -848,6 +830,138 @@ namespace TeamApp
             toolStripStatusLabelFrames.Size = new Size(72, 16);
             toolStripStatusLabelFrames.Text = "Frames: 0";
             // 
+            // txtAngleMin
+            // 
+            txtAngleMin.Font = new Font("¸¼Àº °íµñ", 10F);
+            txtAngleMin.Location = new Point(503, 55);
+            txtAngleMin.Name = "txtAngleMin";
+            txtAngleMin.Size = new Size(130, 30);
+            txtAngleMin.TabIndex = 30;
+            // 
+            // txtThrottleMin
+            // 
+            txtThrottleMin.Font = new Font("¸¼Àº °íµñ", 10F);
+            txtThrottleMin.Location = new Point(503, 97);
+            txtThrottleMin.Name = "txtThrottleMin";
+            txtThrottleMin.Size = new Size(130, 30);
+            txtThrottleMin.TabIndex = 31;
+            // 
+            // txtThrottleMax
+            // 
+            txtThrottleMax.Font = new Font("¸¼Àº °íµñ", 10F);
+            txtThrottleMax.Location = new Point(672, 97);
+            txtThrottleMax.Name = "txtThrottleMax";
+            txtThrottleMax.Size = new Size(130, 30);
+            txtThrottleMax.TabIndex = 33;
+            // 
+            // txtAngleMax
+            // 
+            txtAngleMax.Font = new Font("¸¼Àº °íµñ", 10F);
+            txtAngleMax.Location = new Point(672, 55);
+            txtAngleMax.Name = "txtAngleMax";
+            txtAngleMax.Size = new Size(130, 30);
+            txtAngleMax.TabIndex = 32;
+            // 
+            // lblThrottleRangeSeparator
+            // 
+            lblThrottleRangeSeparator.AutoSize = true;
+            lblThrottleRangeSeparator.Font = new Font("¸¼Àº °íµñ", 10F);
+            lblThrottleRangeSeparator.Location = new Point(639, 100);
+            lblThrottleRangeSeparator.Name = "lblThrottleRangeSeparator";
+            lblThrottleRangeSeparator.Size = new Size(27, 23);
+            lblThrottleRangeSeparator.TabIndex = 34;
+            lblThrottleRangeSeparator.Text = "¢¦";
+            // 
+            // lblAngleRangeSeparator
+            // 
+            lblAngleRangeSeparator.AutoSize = true;
+            lblAngleRangeSeparator.Font = new Font("¸¼Àº °íµñ", 10F);
+            lblAngleRangeSeparator.Location = new Point(639, 58);
+            lblAngleRangeSeparator.Name = "lblAngleRangeSeparator";
+            lblAngleRangeSeparator.Size = new Size(27, 23);
+            lblAngleRangeSeparator.TabIndex = 35;
+            lblAngleRangeSeparator.Text = "¢¦";
+            // 
+            // lblModeFilter
+            // 
+            lblModeFilter.AutoSize = true;
+            lblModeFilter.Font = new Font("¸¼Àº °íµñ", 10F);
+            lblModeFilter.Location = new Point(849, 53);
+            lblModeFilter.Name = "lblModeFilter";
+            lblModeFilter.Size = new Size(84, 23);
+            lblModeFilter.TabIndex = 36;
+            lblModeFilter.Text = "¸ðµå      :";
+            // 
+            // cbxModeFilter
+            // 
+            cbxModeFilter.Font = new Font("¸¼Àº °íµñ", 10F);
+            cbxModeFilter.FormattingEnabled = true;
+            cbxModeFilter.Items.AddRange(new object[] { "All", "User", "Local", "Local_angel" });
+            cbxModeFilter.Location = new Point(943, 50);
+            cbxModeFilter.Name = "cbxModeFilter";
+            cbxModeFilter.Size = new Size(276, 31);
+            cbxModeFilter.TabIndex = 37;
+            // 
+            // cbxScenarioFilter
+            // 
+            cbxScenarioFilter.Font = new Font("¸¼Àº °íµñ", 10F);
+            cbxScenarioFilter.FormattingEnabled = true;
+            cbxScenarioFilter.Items.AddRange(new object[] { "All", "Normal", "Night", "Left_turn", "Right_turn", "Out_of_bound" });
+            cbxScenarioFilter.Location = new Point(943, 92);
+            cbxScenarioFilter.Name = "cbxScenarioFilter";
+            cbxScenarioFilter.Size = new Size(276, 31);
+            cbxScenarioFilter.TabIndex = 39;
+            // 
+            // lblScenarioFilter
+            // 
+            lblScenarioFilter.AutoSize = true;
+            lblScenarioFilter.Font = new Font("¸¼Àº °íµñ", 10F);
+            lblScenarioFilter.Location = new Point(849, 92);
+            lblScenarioFilter.Name = "lblScenarioFilter";
+            lblScenarioFilter.Size = new Size(88, 23);
+            lblScenarioFilter.TabIndex = 38;
+            lblScenarioFilter.Text = "½Ã³ª¸®¿À: ";
+            // 
+            // btnDeleteFrame
+            // 
+            btnDeleteFrame.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnDeleteFrame.Location = new Point(937, 149);
+            btnDeleteFrame.Name = "btnDeleteFrame";
+            btnDeleteFrame.Size = new Size(149, 29);
+            btnDeleteFrame.TabIndex = 42;
+            btnDeleteFrame.Text = "»èÁ¦";
+            btnDeleteFrame.UseVisualStyleBackColor = true;
+            // 
+            // btnExcludeRange
+            // 
+            btnExcludeRange.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnExcludeRange.Location = new Point(627, 149);
+            btnExcludeRange.Name = "btnExcludeRange";
+            btnExcludeRange.Size = new Size(149, 29);
+            btnExcludeRange.TabIndex = 40;
+            btnExcludeRange.Text = "±¸°£ Á¦¿Ü";
+            btnExcludeRange.UseVisualStyleBackColor = true;
+            // 
+            // btnExcludeSelectedFrame
+            // 
+            btnExcludeSelectedFrame.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnExcludeSelectedFrame.Location = new Point(782, 149);
+            btnExcludeSelectedFrame.Name = "btnExcludeSelectedFrame";
+            btnExcludeSelectedFrame.Size = new Size(149, 29);
+            btnExcludeSelectedFrame.TabIndex = 41;
+            btnExcludeSelectedFrame.Text = "¼±ÅÃ ÇÁ·¹ÀÓ Á¦¿Ü";
+            btnExcludeSelectedFrame.UseVisualStyleBackColor = true;
+            // 
+            // btnRestoreFrame
+            // 
+            btnRestoreFrame.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnRestoreFrame.Location = new Point(1092, 149);
+            btnRestoreFrame.Name = "btnRestoreFrame";
+            btnRestoreFrame.Size = new Size(149, 29);
+            btnRestoreFrame.TabIndex = 43;
+            btnRestoreFrame.Text = "º¹±¸";
+            btnRestoreFrame.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(9F, 20F);
@@ -865,10 +979,11 @@ namespace TeamApp
             menuStripMain.PerformLayout();
             tabControlMain.ResumeLayout(false);
             tabPageDataViewer.ResumeLayout(false);
+            tabPageDataViewer.PerformLayout();
+            statusStripDataFooter.ResumeLayout(false);
+            statusStripDataFooter.PerformLayout();
             grpTubCleaner.ResumeLayout(false);
             grpTubCleaner.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)numFilterMax).EndInit();
-            ((System.ComponentModel.ISupportInitialize)numFilterMin).EndInit();
             grpTubExplorer.ResumeLayout(false);
             grpTubExplorer.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)trkFramePosition).EndInit();
@@ -906,7 +1021,6 @@ namespace TeamApp
         private PictureBox picMainPreview;
         private Label lblFrameValue;
         private Label lblAngleValue;
-        private ComboBox cbxFrameFilter;
         private Label lblThrottleValue;
         private Label lblModeValue;
         private NumericUpDown numPlaybackInterval;
@@ -933,13 +1047,8 @@ namespace TeamApp
         private Label lblPlayInterval;
         private GroupBox grpTubExplorer;
         private GroupBox grpTubCleaner;
-        private NumericUpDown numFilterMax;
-        private NumericUpDown numFilterMin;
-        private TextBox txtTubCleanerPath;
-        private Label lblFilterMax;
-        private Label lblFilterMin;
-        private Button btnRepair;
-        private Button btnReloadTub;
+        private Label lblThrottleRange;
+        private Label lblAngleRange;
         private TabPage tabPageTraining;
         private GroupBox grpTrainingSettings;
         private GroupBox grpTrainingLog;
@@ -964,5 +1073,21 @@ namespace TeamApp
         private RichTextBox rtbTrainingLog;
         private StatusStrip statusStripTraining;
         private ToolStripStatusLabel toolStripStatusLabelTraining;
+        private StatusStrip statusStripDataFooter;
+        private ToolStripStatusLabel toolStripStatusLabelDataPath;
+        private Label lblAngleRangeSeparator;
+        private Label lblThrottleRangeSeparator;
+        private TextBox txtThrottleMax;
+        private TextBox txtAngleMax;
+        private TextBox txtThrottleMin;
+        private TextBox txtAngleMin;
+        private ComboBox cbxScenarioFilter;
+        private Label lblScenarioFilter;
+        private ComboBox cbxModeFilter;
+        private Label lblModeFilter;
+        private Button btnRestoreFrame;
+        private Button btnDeleteFrame;
+        private Button btnExcludeRange;
+        private Button btnExcludeSelectedFrame;
     }
 }
