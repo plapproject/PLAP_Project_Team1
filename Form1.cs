@@ -15,17 +15,29 @@ namespace TeamApp
 {
     public partial class Form1 : Form
     {
-        private List<FrameData> originalFrames = new List<FrameData>();
-        private List<FrameData> filteredFrames = new List<FrameData>();
+        // ── 데이터 목록 ────────────────────────────────────────────────────────────
+        // _originalFrames : 로드된 모든 프레임 (삭제된 것 포함, 순서 불변)
+        // _currentDisplayedFrames : 현재 ListBox에 표시 중인 목록
+        //   - 필터 해제 시: _originalFrames 그대로
+        //   - 필터 적용 시: IsDeleted == false 인 것만
+        private List<FrameData> _originalFrames = new List<FrameData>();
+        private List<FrameData> _currentDisplayedFrames = new List<FrameData>();
+
         private int currentIndex = -1;
         private System.Windows.Forms.Timer playTimer;
         private bool isPlaying = false;
         private bool isDarkTheme = false;
 
+        // ── 현재 열린 폴더 경로 ───────────────────────────────────────────────────
         private string _currentFolderPath = "";
 
+        // ── ScottPlot 차트 ────────────────────────────────────────────────────────
         private FormsPlot? _formsPlot;
         private bool _chartDirty = true;
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // 생성자 / 초기화
+        // ══════════════════════════════════════════════════════════════════════════
 
         public Form1()
         {
@@ -36,7 +48,6 @@ namespace TeamApp
             playTimer = new System.Windows.Forms.Timer();
             playTimer.Tick += PlayTimer_Tick;
 
-            // ensure status strip is docked
             if (statusStripDataViewer != null && !this.Controls.Contains(statusStripDataViewer))
             {
                 statusStripDataViewer.Dock = DockStyle.Bottom;
@@ -46,32 +57,40 @@ namespace TeamApp
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            btnClearFilter.Click += BtnClearFilter_Click;
+            // ── 버튼 이벤트 동적 연결 ─────────────────────────────────────────────
+            btnClearFilter.Click      += BtnClearFilter_Click;
             btnExcludeSelectedFrame.Click += BtnRepair_Click;
-            btnRestoreFrame.Click += BtnReloadTub_Click;
+            btnRestoreFrame.Click     += BtnReloadTub_Click;
 
-            mnuOpenDataFolder.Click += (s, _) => btnOpenFolder_Click(s!, EventArgs.Empty);
-            mnuReloadData.Click += (s, _) => btnReload_Click(s!, EventArgs.Empty);
-            mnuExit.Click += (s, _) => Application.Exit();
-            mnuOpenGuide.Click += (s, _) => btnGuide_Click(s!, EventArgs.Empty);
+            mnuOpenDataFolder.Click   += (s, _) => btnOpenFolder_Click(s!, EventArgs.Empty);
+            mnuReloadData.Click       += (s, _) => btnReload_Click(s!, EventArgs.Empty);
+            mnuExit.Click             += (s, _) => Application.Exit();
+            mnuOpenGuide.Click        += (s, _) => btnGuide_Click(s!, EventArgs.Empty);
 
             tabControlMain.SelectedIndexChanged += TabControl1_SelectedIndexChanged;
 
-            btnExcludeSelectedFrame.Text = "���� ������ ����";
-            btnRestoreFrame.Text = "����";
-            txtAngleMin.Text = "-1";
-            txtAngleMax.Text = "1";
+            btnExcludeSelectedFrame.Text = "구간 제외";
+            btnRestoreFrame.Text         = "복원";
+            txtAngleMin.Text    = "-1";
+            txtAngleMax.Text    = "1";
             txtThrottleMin.Text = "0";
             txtThrottleMax.Text = "1";
 
+            // ── [3] ListBox OwnerDraw 설정 ────────────────────────────────────────
+            lstFrameData.DrawMode = DrawMode.OwnerDrawFixed;
+            lstFrameData.DrawItem += lstFrameData_DrawItem;
+
             UpdateStatusLabels();
         }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // UI 이벤트 핸들러
+        // ══════════════════════════════════════════════════════════════════════════
 
         private void btnOpenFolder_Click(object sender, EventArgs e)
         {
             using var dlg = new FolderBrowserDialog();
             if (dlg.ShowDialog() != DialogResult.OK) return;
-
             _ = LoadCatalogAsync(dlg.SelectedPath);
         }
 
@@ -80,8 +99,9 @@ namespace TeamApp
             string path = _currentFolderPath;
             if (string.IsNullOrEmpty(path))
             {
-                if (string.IsNullOrEmpty(toolStripStatusLabelPath.Text) || toolStripStatusLabelPath.Text == "\uACBD\uB85C: -") return;
-                path = toolStripStatusLabelPath.Text.Replace("\uACBD\uB85C: ", "").Trim();
+                if (string.IsNullOrEmpty(toolStripStatusLabelPath.Text) ||
+                    toolStripStatusLabelPath.Text == "경로: -") return;
+                path = toolStripStatusLabelPath.Text.Replace("경로: ", "").Trim();
             }
             if (Directory.Exists(path)) _ = LoadCatalogAsync(path);
         }
@@ -91,221 +111,245 @@ namespace TeamApp
         private void btnGuide_Click(object sender, EventArgs e)
         {
             MessageBox.Show(
-                "Data Manager \uC0AC\uC6A9 \uC21C\uC11C\n\n" +
-                "1. \uB370\uC774\uD130 \uBDF0\uC5B4 \uD0ED\uC5D0\uC11C data \uD3F4\uB354\uB97C \uC5FD\uB2C8\uB2E4.\n" +
-                "2. \uC774\uBBF8\uC9C0, Angle, Throttle \uAC12\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.\n" +
-                "3. \uD544\uD130\uB85C \uD559\uC2B5 \uB370\uC774\uD130 \uD488\uC9C8\uC744 \uC810\uAC80\uD569\uB2C8\uB2E4.\n" +
-                "4. \uCD5C\uC19F\uAC12/\uCD5C\uB313\uAC12\uC5D0 \uAD6C\uAC04 \uD504\uB808\uC784 \uC778\uB371\uC2A4\uB97C \uC785\uB825\uD55C \uB4A4 \uAD6C\uAC04 \uC0AD\uC81C\uB97C \uC2E4\uD589\uD569\uB2C8\uB2E4.\n" +
-                "5. \uC804\uCCB4 \uBCF5\uC6D0/\uC0C8\uB85C\uACE0\uCE68\uC73C\uB85C \uC0AD\uC81C \uD45C\uC2DC\uB97C \uBCF5\uC6D0\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.\n" +
-                "6. \uADF8\uB798\uD504/\uD1B5\uACC4 \uD0ED\uC5D0\uC11C Angle\u00B7Throttle \uBD84\uD3EC\uB97C \uC2DC\uAC01\uD654\uD569\uB2C8\uB2E4.",
-                "\uB2E8\uACC4\uBCC4 \uAC00\uC774\uB4DC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                "Data Manager 사용 순서\n\n" +
+                "1. 데이터 뷰어 탭에서 data 폴더를 엽니다.\n" +
+                "2. 이미지, Angle, Throttle 값을 확인합니다.\n" +
+                "3. 필터로 학습 데이터 품질을 점검합니다.\n" +
+                "4. 제외할 프레임을 선택 후 '구간 제외'를 실행합니다.\n" +
+                "5. '복원'으로 언제든 삭제 표시를 되돌릴 수 있습니다.\n" +
+                "6. 그래프/통계 탭에서 Angle·Throttle 분포를 확인합니다.",
+                "단계별 가이드", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
+
         private void btnApplyFilter_Click(object sender, EventArgs e) => ApplyFilter();
 
-        private void BtnClearFilter_Click(object? sender, EventArgs e) => ClearFilter();
+        private void BtnClearFilter_Click(object sender, EventArgs e) => ClearFilter();
 
+        // ── 구간 제외 (Soft Delete) ───────────────────────────────────────────────
         private void BtnRepair_Click(object? sender, EventArgs e)
         {
-            int originalIndex = GetSelectedOriginalIndex();
-            if (originalIndex < 0)
+            // 현재 ListBox에서 선택된 항목들의 첫/끝 originalFrames 인덱스를 구함
+            if (lstFrameData.SelectedItems.Count == 0)
             {
-                MessageBox.Show(
-                    "\uC0AD\uC81C\uD560 \uD504\uB808\uC784\uC744 \uBA3C\uC800 \uC120\uD0DD\uD574 \uC8FC\uC138\uC694.",
-                    "\uC120\uD0DD \uD544\uC694", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("제외할 프레임을 하나 이상 선택해 주세요.",
+                    "선택 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
+            // 선택된 항목들 중 _originalFrames 내 인덱스를 수집
+            var selectedOriginalIndices = new List<int>();
+            foreach (var item in lstFrameData.SelectedItems)
+            {
+                if (item is FrameData fd)
+                {
+                    int idx = _originalFrames.IndexOf(fd);
+                    if (idx >= 0) selectedOriginalIndices.Add(idx);
+                }
+            }
+
+            if (selectedOriginalIndices.Count == 0) return;
+
+            int from = selectedOriginalIndices.Min();
+            int to   = selectedOriginalIndices.Max();
+
             var confirm = MessageBox.Show(
-                $"\uC120\uD0DD\uD55C \uD504\uB808\uC784({originalIndex})\uC744 Soft Delete \uCC98\uB9AC\uD569\uB2C8\uB2E4.\n\uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?",
-                "\uC120\uD0DD \uD504\uB808\uC784 \uC81C\uC678", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                $"원본 인덱스 {from} ~ {to} 구간을 제외(Soft Delete) 처리합니다.\n" +
+                "실제 파일은 삭제되지 않으며, '복원'으로 되돌릴 수 있습니다.\n\n계속하시겠습니까?",
+                "구간 제외 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (confirm != DialogResult.Yes) return;
 
-            SoftDeleteRange(originalIndex, originalIndex);
+            SoftDeleteRange(from, to);
         }
 
+        // ── 전체 복원 ─────────────────────────────────────────────────────────────
         private void BtnReloadTub_Click(object? sender, EventArgs e)
         {
             var confirm = MessageBox.Show(
-                "\uBAA8\uB4E0 Soft Delete \uD50C\uB798\uADF8\uB97C \uCD08\uAE30\uD654\uD558\uACE0 \uC804\uCCB4 \uB370\uC774\uD130\uB97C \uBCF5\uC6D0\uD569\uB2C8\uB2E4.\n\uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?",
-                "\uC804\uCCB4 \uBCF5\uC6D0", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                "모든 Soft Delete 플래그를 초기화하고 전체 데이터를 복원합니다.\n계속하시겠습니까?",
+                "전체 복원", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (confirm != DialogResult.Yes) return;
             RestoreAll();
         }
+
         private void btnAutoPlay_Click(object sender, EventArgs e) => TogglePlayPause();
 
         private void lstFrameData_SelectedIndexChanged(object? sender, EventArgs e)
         {
             if (lstFrameData.SelectedItem == null) return;
             int idx = lstFrameData.SelectedIndex;
-            if (idx >= 0 && idx < filteredFrames.Count)
+            if (idx >= 0 && idx < _currentDisplayedFrames.Count)
                 SetIndex(idx);
         }
 
         private void trkFramePosition_Scroll(object sender, EventArgs e)
         {
             int idx = trkFramePosition.Value;
-            if (idx >= 0 && idx < filteredFrames.Count)
+            if (idx >= 0 && idx < _currentDisplayedFrames.Count)
                 SetIndex(idx);
         }
 
         private void btnFirst_Click(object sender, EventArgs e) => SetIndex(0);
-        private void btnPrev_Click(object sender, EventArgs e) => SetIndex(Math.Max(0, currentIndex - 1));
-        private void btnNext_Click(object sender, EventArgs e) => SetIndex(Math.Min(filteredFrames.Count - 1, currentIndex + 1));
-        private void btnLast_Click(object sender, EventArgs e) => SetIndex(filteredFrames.Count - 1);
+        private void btnPrev_Click(object sender, EventArgs e)  => SetIndex(Math.Max(0, currentIndex - 1));
+        private void btnNext_Click(object sender, EventArgs e)  => SetIndex(Math.Min(_currentDisplayedFrames.Count - 1, currentIndex + 1));
+        private void btnLast_Click(object sender, EventArgs e)  => SetIndex(_currentDisplayedFrames.Count - 1);
 
+        // ── 재생 타이머 ───────────────────────────────────────────────────────────
         private void PlayTimer_Tick(object? sender, EventArgs e)
         {
-            if (filteredFrames == null || filteredFrames.Count == 0) return;
+            if (_currentDisplayedFrames == null || _currentDisplayedFrames.Count == 0) return;
             int next = currentIndex + 1;
-            while (next < filteredFrames.Count && filteredFrames[next].IsDeleted)
+            // 삭제된 프레임은 건너뜀
+            while (next < _currentDisplayedFrames.Count && _currentDisplayedFrames[next].IsDeleted)
                 next++;
-            if (next >= filteredFrames.Count)
+            if (next >= _currentDisplayedFrames.Count)
             {
                 playTimer.Stop();
                 isPlaying = false;
-                btnAutoPlay.Text = "\uC790\uB3D9 \uC7AC\uC0DD";
+                btnAutoPlay.Text = "자동 재생";
                 return;
             }
             SetIndex(next);
         }
 
+        // ── 키보드 단축키 ─────────────────────────────────────────────────────────
         private void Form1_KeyDown(object? sender, KeyEventArgs e)
         {
             switch (e.KeyCode)
             {
                 case Keys.Right: btnNext_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.Left: btnPrev_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.Left:  btnPrev_Click(this, EventArgs.Empty); e.Handled = true; break;
                 case Keys.Space: TogglePlayPause(); e.Handled = true; break;
-                case Keys.Home: btnFirst_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.End: btnLast_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.Home:  btnFirst_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.End:   btnLast_Click(this, EventArgs.Empty); e.Handled = true; break;
             }
         }
 
+        // ══════════════════════════════════════════════════════════════════════════
+        // [3] ListBox OwnerDraw 핸들러
+        // ══════════════════════════════════════════════════════════════════════════
 
-        private async Task LoadFolderAsync(string folder)
+        /// <summary>
+        /// 항목별 색상을 직접 그립니다.
+        /// • IsDeleted == true  → 굵은 빨간 글씨 (선택 시 연핑크 배경으로 가시성 확보)
+        /// • IsDeleted == false → 기본 색
+        /// </summary>
+        private void lstFrameData_DrawItem(object? sender, DrawItemEventArgs e)
         {
-            SetLoadingState(true);
+            if (e.Index < 0 || e.Index >= _currentDisplayedFrames.Count) return;
 
-            try
+            e.DrawBackground();
+
+            var frame = _currentDisplayedFrames[e.Index];
+            bool isSelected = (e.State & DrawItemState.Selected) != 0;
+            bool isDeleted  = frame.IsDeleted;
+
+            // ── 배경색 ────────────────────────────────────────────────────────
+            System.Drawing.Color backColor;
+            if (isDeleted)
+                backColor = isSelected
+                    ? System.Drawing.Color.FromArgb(255, 180, 180)   // 연핑크 (선택)
+                    : System.Drawing.Color.FromArgb(255, 235, 235);  // 더 연한 분홍 (일반)
+            else
+                backColor = isSelected ? SystemColors.Highlight : e.BackColor;
+
+            using (var backBrush = new SolidBrush(backColor))
+                e.Graphics.FillRectangle(backBrush, e.Bounds);
+
+            // ── 글꼴 & 글자색 ─────────────────────────────────────────────────
+            Font  font;
+            System.Drawing.Color foreColor;
+
+            if (isDeleted)
             {
-                var frames = await Task.Run(() =>
-                {
-                    var imageExt = new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif" };
-                    var images = Directory.EnumerateFiles(folder)
-                        .Where(f => imageExt.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                        .OrderBy(f => f)
-                        .ToList();
-
-                    var csvMap = new Dictionary<string, (double angle, double throttle, string mode)>();
-                    var csvFiles = Directory.GetFiles(folder, "*.csv");
-                    if (csvFiles.Length > 0)
-                    {
-                        try
-                        {
-                            foreach (var line in File.ReadAllLines(csvFiles[0]))
-                            {
-                                var parts = line.Split(',');
-                                if (parts.Length >= 4 &&
-                                    double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double a) &&
-                                    double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out double t))
-                                {
-                                    csvMap[parts[0].Trim()] = (a, t, parts[3].Trim());
-                                }
-                            }
-                        }
-                        catch { }
-                    }
-
-                    var result = new List<FrameData>(images.Count);
-                    foreach (var img in images)
-                    {
-                        var baseName = Path.GetFileName(img);
-                        double angle = 0, throttle = 0;
-                        string mode = "-";
-
-                        var jsonPath = Path.Combine(folder,
-                            Path.GetFileNameWithoutExtension(img) + ".json");
-
-                        if (File.Exists(jsonPath))
-                        {
-                            try
-                            {
-                                using var fs = File.OpenRead(jsonPath);
-                                var doc = JsonDocument.Parse(fs);
-                                if (doc.RootElement.TryGetProperty("angle", out var aEl) && aEl.TryGetDouble(out double a)) angle = a;
-                                if (doc.RootElement.TryGetProperty("throttle", out var tEl) && tEl.TryGetDouble(out double t)) throttle = t;
-                                if (doc.RootElement.TryGetProperty("mode", out var mEl)) mode = mEl.GetString() ?? "-";
-                            }
-                            catch { }
-                        }
-                        else if (csvMap.TryGetValue(baseName, out var row))
-                        {
-                            angle = row.angle; throttle = row.throttle; mode = row.mode;
-                        }
-
-                        result.Add(new FrameData
-                        {
-                            ImagePath = img,
-                            Angle = angle,
-                            Throttle = throttle,
-                            Mode = mode,
-                            Name = baseName,
-                            IsDeleted = false
-                        });
-                    }
-                    return result;
-                });
-
-                originalFrames = frames;
-                filteredFrames = new List<FrameData>(originalFrames);
-
-                toolStripStatusLabelPath.Text = "\uACBD\uB85C: " + folder;
-                _chartDirty = true;
-                RefreshListBinding();
-                SetIndex(0);
+                font      = new Font(e.Font ?? lstFrameData.Font, System.Drawing.FontStyle.Bold);
+                foreColor = isSelected ? System.Drawing.Color.DarkRed : System.Drawing.Color.Red;
             }
-            catch (Exception ex)
+            else
             {
-                MessageBox.Show("\uD3F4\uB354 \uB85C\uB4DC \uC911 \uC624\uB958: " + ex.Message,
-                    "\uC624\uB958", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                font      = e.Font ?? lstFrameData.Font;
+                foreColor = isSelected ? SystemColors.HighlightText : e.ForeColor;
             }
-            finally
+
+            using (var foreBrush = new SolidBrush(foreColor))
             {
-                SetLoadingState(false);
+                string text = frame.DisplayName;
+                e.Graphics.DrawString(text, font, foreBrush,
+                    new RectangleF(e.Bounds.X + 2, e.Bounds.Y + 1,
+                                   e.Bounds.Width - 4, e.Bounds.Height - 2));
             }
+
+            // 자원 해제: 삭제 항목에만 new Font를 생성했으므로 조건부 Dispose
+            if (isDeleted) font.Dispose();
+
+            e.DrawFocusRectangle();
         }
 
+        // ══════════════════════════════════════════════════════════════════════════
+        // 핵심 로직
+        // ══════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// 로딩 중 버튼 비활성화 / 커서 변경
+        /// </summary>
         private void SetLoadingState(bool loading)
         {
-            btnOpenFolder.Enabled = !loading;
-            btnReload.Enabled = !loading;
-            btnApplyFilter.Enabled = !loading;
-            btnClearFilter.Enabled = !loading;
+            btnOpenFolder.Enabled           = !loading;
+            btnReload.Enabled               = !loading;
+            btnApplyFilter.Enabled          = !loading;
+            btnClearFilter.Enabled          = !loading;
             btnExcludeSelectedFrame.Enabled = !loading;
-            btnRestoreFrame.Enabled = !loading;
+            btnRestoreFrame.Enabled         = !loading;
             this.Cursor = loading ? Cursors.WaitCursor : Cursors.Default;
-            if (loading) toolStripStatusLabelFrames.Text = "\uB85C\uB529 \uC911...";
+            if (loading) toolStripStatusLabelFrames.Text = "로딩 중...";
         }
 
+        // ── [2] UpdateUIState ─────────────────────────────────────────────────────
+        /// <summary>
+        /// FormattedIndex를 재계산하고 ListBox를 즉시 갱신합니다.
+        /// • IsDeleted == false : [0000], [0001], [0002] ...
+        /// • IsDeleted == true  : [XXXX]
+        /// </summary>
+        private void UpdateUIState()
+        {
+            // 1) 유효 인덱스 재계산
+            int validIndex = 0;
+            foreach (var f in _originalFrames)
+            {
+                if (f.IsDeleted)
+                    f.FormattedIndex = "[XXXX]";
+                else
+                    f.FormattedIndex = $"[{validIndex++:D4}]";
+            }
+
+            // 2) ListBox 즉시 갱신 (BeginUpdate/EndUpdate 없이 DataSource 교체로 강제 갱신)
+            lstFrameData.DataSource    = null;
+            lstFrameData.DataSource    = _currentDisplayedFrames;
+            lstFrameData.DisplayMember = "DisplayName";
+
+            // 3) TrackBar 범위 갱신
+            trkFramePosition.Minimum = 0;
+            trkFramePosition.Maximum = Math.Max(0, _currentDisplayedFrames.Count - 1);
+
+            UpdateStatusLabels();
+        }
+
+        /// <summary>
+        /// 초기 로드 직후 또는 복원 직후에 사용합니다.
+        /// _currentDisplayedFrames를 _originalFrames로 설정하고 UpdateUIState를 호출합니다.
+        /// </summary>
         private void RefreshListBinding()
         {
-            lstFrameData.BeginUpdate();
-            lstFrameData.DataSource = null;
-            lstFrameData.DataSource = filteredFrames;
-            lstFrameData.DisplayMember = "DisplayName";
-            lstFrameData.EndUpdate();
-
-            trkFramePosition.Minimum = 0;
-            trkFramePosition.Maximum = Math.Max(0, filteredFrames.Count - 1);
-            UpdateStatusLabels();
+            _currentDisplayedFrames = _originalFrames;
+            UpdateUIState();
         }
 
         private void SetIndex(int idx)
         {
-            if (filteredFrames == null || filteredFrames.Count == 0) return;
-            idx = Math.Max(0, Math.Min(filteredFrames.Count - 1, idx));
+            if (_currentDisplayedFrames == null || _currentDisplayedFrames.Count == 0) return;
+            idx = Math.Max(0, Math.Min(_currentDisplayedFrames.Count - 1, idx));
             currentIndex = idx;
 
+            // 이벤트 루프 방지
             lstFrameData.SelectedIndexChanged -= lstFrameData_SelectedIndexChanged;
             lstFrameData.SelectedIndex = idx;
             lstFrameData.SelectedIndexChanged += lstFrameData_SelectedIndexChanged;
@@ -313,28 +357,32 @@ namespace TeamApp
             if (trkFramePosition.Value != idx)
                 trkFramePosition.Value = idx;
 
-            var frame = filteredFrames[idx];
+            var frame = _currentDisplayedFrames[idx];
 
-            string resolvedImagePath = ResolveImagePath(frame.Name);
-            UpdatePreviewImage(resolvedImagePath);
+            string resolvedPath = ResolveImagePath(frame.Name);
+            UpdatePreviewImage(resolvedPath);
 
-            lblFrameValue.Text = $"Frame: {idx + 1} / {filteredFrames.Count}";
-            lblAngleValue.Text = $"\uC870\uD5A5\uAC12: {frame.Angle:0.000}";
-            lblThrottleValue.Text = $"\uC2A4\uB85C\uD2C0\uAC12: {frame.Throttle:0.000}";
-            lblModeValue.Text = $"\uBAA8\uB4DC: {frame.Mode}";
+            lblFrameValue.Text    = $"Frame: {idx + 1} / {_currentDisplayedFrames.Count}";
+            lblAngleValue.Text    = $"조향값: {frame.Angle:0.000}";
+            lblThrottleValue.Text = $"스로틀값: {frame.Throttle:0.000}";
+            lblModeValue.Text     = $"모드: {frame.Mode}";
             UpdateStatusLabels();
         }
 
+        /// <summary>
+        /// _currentFolderPath + 파일명으로 실제 이미지 경로를 탐색합니다.
+        /// 1) 루트 폴더 직접, 2) 하위 images 폴더
+        /// </summary>
         private string ResolveImagePath(string fileName)
         {
             if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(_currentFolderPath))
                 return string.Empty;
 
-            string path1 = Path.Combine(_currentFolderPath, fileName);
-            if (File.Exists(path1)) return path1;
+            string p1 = Path.Combine(_currentFolderPath, fileName);
+            if (File.Exists(p1)) return p1;
 
-            string path2 = Path.Combine(_currentFolderPath, "images", fileName);
-            if (File.Exists(path2)) return path2;
+            string p2 = Path.Combine(_currentFolderPath, "images", fileName);
+            if (File.Exists(p2)) return p2;
 
             return string.Empty;
         }
@@ -349,7 +397,7 @@ namespace TeamApp
                     picMainPreview.Image = null;
                     return;
                 }
-                using var fs = File.OpenRead(path);
+                using var fs  = File.OpenRead(path);
                 using var img = System.Drawing.Image.FromStream(fs);
                 var bmp = new Bitmap(img);
 
@@ -357,7 +405,7 @@ namespace TeamApp
                 picMainPreview.Image = bmp;
                 old?.Dispose();
             }
-            catch {  }
+            catch { /* 이미지 로드 실패 무시 */ }
         }
 
         private void TogglePlayPause()
@@ -366,22 +414,26 @@ namespace TeamApp
             {
                 playTimer.Stop();
                 isPlaying = false;
-                btnAutoPlay.Text = "\uC790\uB3D9 \uC7AC\uC0DD";
+                btnAutoPlay.Text = "자동 재생";
             }
             else
             {
                 playTimer.Interval = (int)numPlaybackInterval.Value;
                 playTimer.Start();
                 isPlaying = true;
-                btnAutoPlay.Text = "\uC77C\uC2DC\uC815\uC9C0";
+                btnAutoPlay.Text = "⏸ 일시정지";
             }
         }
 
         private void ToggleTheme()
         {
             isDarkTheme = !isDarkTheme;
-            System.Drawing.Color back = isDarkTheme ? System.Drawing.Color.FromArgb(45, 45, 48) : SystemColors.Control;
-            System.Drawing.Color fore = isDarkTheme ? System.Drawing.Color.White : SystemColors.ControlText;
+            System.Drawing.Color back = isDarkTheme
+                ? System.Drawing.Color.FromArgb(45, 45, 48)
+                : SystemColors.Control;
+            System.Drawing.Color fore = isDarkTheme
+                ? System.Drawing.Color.White
+                : SystemColors.ControlText;
             this.BackColor = back;
             foreach (Control c in this.Controls)
                 ApplyThemeToControl(c, back, fore);
@@ -402,211 +454,256 @@ namespace TeamApp
             catch { }
         }
 
+        // ── [4] 필터 적용 ─────────────────────────────────────────────────────────
+        /// <summary>
+        /// Angle/Throttle 범위 필터 적용.
+        /// 필터 적용 시 _currentDisplayedFrames = IsDeleted==false 인 것만.
+        /// </summary>
         private void ApplyFilter()
         {
-            if (originalFrames == null || originalFrames.Count == 0) return;
+            if (_originalFrames == null || _originalFrames.Count == 0) return;
 
-            if (!TryReadFilterRanges(out double angleMin, out double angleMax, out double throttleMin, out double throttleMax))
+            if (!TryReadFilterRanges(out double angleMin, out double angleMax,
+                                     out double throttleMin, out double throttleMax))
                 return;
 
-            filteredFrames = originalFrames
-                .Where(frame => frame.IsDeleted ||
-                    (frame.Angle >= angleMin && frame.Angle <= angleMax &&
-                     frame.Throttle >= throttleMin && frame.Throttle <= throttleMax))
+            // [4] 필터 적용: IsDeleted==false 인 것만 + 범위 조건
+            _currentDisplayedFrames = _originalFrames
+                .Where(f => !f.IsDeleted &&
+                            f.Angle    >= angleMin && f.Angle    <= angleMax &&
+                            f.Throttle >= throttleMin && f.Throttle <= throttleMax)
                 .ToList();
 
             _chartDirty = true;
-            RefreshListBinding();
-            SetIndex(0);
+            UpdateUIState();
+            if (_currentDisplayedFrames.Count > 0) SetIndex(0);
         }
 
-        private bool TryReadFilterRanges(out double angleMin, out double angleMax, out double throttleMin, out double throttleMax)
+        private bool TryReadFilterRanges(out double angleMin, out double angleMax,
+                                          out double throttleMin, out double throttleMax)
         {
             angleMin = angleMax = throttleMin = throttleMax = 0;
 
-            bool isValid =
-                double.TryParse(txtAngleMin.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out angleMin) &&
-                double.TryParse(txtAngleMax.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out angleMax) &&
-                double.TryParse(txtThrottleMin.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMin) &&
-                double.TryParse(txtThrottleMax.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMax);
+            bool ok =
+                double.TryParse(txtAngleMin.Text.Trim(),   NumberStyles.Float, CultureInfo.InvariantCulture, out angleMin) &&
+                double.TryParse(txtAngleMax.Text.Trim(),   NumberStyles.Float, CultureInfo.InvariantCulture, out angleMax) &&
+                double.TryParse(txtThrottleMin.Text.Trim(),NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMin) &&
+                double.TryParse(txtThrottleMax.Text.Trim(),NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMax);
 
-            if (!isValid)
+            if (!ok)
             {
-                MessageBox.Show(
-                    "\uC870\uD5A5\uAC01\uACFC \uC2A4\uB85C\uD2C0 \uBC94\uC704\uB294 \uC22B\uC790\uB85C \uC785\uB825\uD574 \uC8FC\uC138\uC694.",
-                    "\uC785\uB825 \uC624\uB958", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("조향각과 스로틀 범위는 숫자로 입력해 주세요.",
+                    "입력 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
-
             if (angleMin > angleMax || throttleMin > throttleMax)
             {
-                MessageBox.Show(
-                    "\uBC94\uC704\uC758 \uCD5C\uC18C\uAC12\uC740 \uCD5C\uB300\uAC12\uBCF4\uB2E4 \uD074 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.",
-                    "\uBC94\uC704 \uC624\uB958", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("범위의 최솟값은 최댓값보다 클 수 없습니다.",
+                    "범위 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
-
             return true;
         }
 
-        private int GetSelectedOriginalIndex()
-        {
-            if (lstFrameData.SelectedItem is not FrameData selectedFrame) return -1;
-            return originalFrames.IndexOf(selectedFrame);
-        }
-
+        // ── [4] 필터 해제 ─────────────────────────────────────────────────────────
+        /// <summary>
+        /// 필터 해제: _currentDisplayedFrames = _originalFrames 원상복구.
+        /// </summary>
         private void ClearFilter()
         {
-            if (originalFrames == null) return;
-            filteredFrames = new List<FrameData>(originalFrames);
+            if (_originalFrames == null) return;
+            // [4] 필터 해제
+            _currentDisplayedFrames = _originalFrames;
             _chartDirty = true;
-            RefreshListBinding();
-            SetIndex(0);
+            UpdateUIState();
+            if (_currentDisplayedFrames.Count > 0) SetIndex(0);
         }
 
+        // ── [4] Soft Delete 구간 처리 ────────────────────────────────────────────
         private void SoftDeleteRange(int from, int to)
         {
-            if (originalFrames == null || originalFrames.Count == 0) return;
+            if (_originalFrames == null || _originalFrames.Count == 0) return;
 
             int safeFrom = Math.Max(0, from);
-            int safeTo = Math.Min(originalFrames.Count - 1, to);
+            int safeTo   = Math.Min(_originalFrames.Count - 1, to);
 
             if (safeFrom > safeTo)
             {
                 MessageBox.Show(
-                    $"\uC720\uD6A8\uD55C \uD504\uB808\uC784 \uBC94\uC704\uB97C \uBC97\uC5B4\uB0AC\uC2B5\uB2C8\uB2E4.\n" +
-                    $"\uC785\uB825 \uBC94\uC704: {from} ~ {to} | \uC804\uCCB4 \uD504\uB808\uC784: {originalFrames.Count}",
-                    "\uBC94\uC704 \uC624\uB958", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    $"유효한 프레임 범위를 벗어났습니다.\n입력 범위: {from} ~ {to} | 전체 프레임: {_originalFrames.Count}",
+                    "범위 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             int newlyDeleted = 0;
             for (int i = safeFrom; i <= safeTo; i++)
             {
-                if (!originalFrames[i].IsDeleted)
+                if (!_originalFrames[i].IsDeleted)
                 {
-                    originalFrames[i].IsDeleted = true;
+                    _originalFrames[i].IsDeleted = true;
                     newlyDeleted++;
                 }
             }
 
-            filteredFrames = new List<FrameData>(originalFrames);
+            // [4] 삭제 후 → UpdateUIState + RenderChart
             _chartDirty = true;
-            RefreshListBinding();
+            UpdateUIState();
+            RenderChart();
 
-            int adjustedIdx = Math.Max(0, Math.Min(currentIndex, filteredFrames.Count - 1));
-            if (filteredFrames.Count > 0)
-                SetIndex(adjustedIdx);
+            int clamped = Math.Max(0, Math.Min(currentIndex, _currentDisplayedFrames.Count - 1));
+            if (_currentDisplayedFrames.Count > 0) SetIndex(clamped);
 
             MessageBox.Show(
-                $"\uC644\uB8CC: {newlyDeleted}\uAC1C \uD504\uB808\uC784\uC774 Soft Delete \uCC98\uB9AC\uB418\uC5C8\uC2B5\uB2C8\uB2E4.\n" +
-                "(\uC774\uBBF8 \uC0AD\uC81C \uC0C1\uD0DC\uC600\uB358 \uD504\uB808\uC784\uC740 \uC81C\uC678)\n" +
-                "'\uC804\uCCB4 \uBCF5\uC6D0/\uC0C8\uB85C\uACE0\uCE68' \uBC84\uD2BC\uC73C\uB85C \uC5B8\uC81C\uB4E0 \uBCF5\uC6D0 \uAC00\uB2A5\uD569\uB2C8\uB2E4.",
-                "\uAD6C\uAC04 \uC0AD\uC81C \uC644\uB8CC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                $"완료: {newlyDeleted}개 프레임이 제외(Soft Delete) 처리되었습니다.\n" +
+                "(이미 삭제 상태였던 프레임은 제외)\n" +
+                "'복원' 버튼으로 언제든 되돌릴 수 있습니다.",
+                "구간 제외 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void RestoreAll()
         {
-            if (originalFrames == null) return;
+            if (_originalFrames == null) return;
 
-            foreach (var f in originalFrames)
+            foreach (var f in _originalFrames)
                 f.IsDeleted = false;
 
-            filteredFrames = new List<FrameData>(originalFrames);
+            // 복원 후 전체 표시
+            _currentDisplayedFrames = _originalFrames;
             _chartDirty = true;
-            RefreshListBinding();
+            UpdateUIState();
+            RenderChart();
             SetIndex(0);
 
-            MessageBox.Show("\uBAA8\uB4E0 \uD504\uB808\uC784\uC774 \uBCF5\uC6D0\uB418\uC5C8\uC2B5\uB2C8\uB2E4.",
-                "\uBCF5\uC6D0 \uC644\uB8CC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("모든 프레임이 복원되었습니다.",
+                "복원 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void UpdateStatusLabels()
         {
-            int total = originalFrames?.Count ?? 0;
-            int deleted = originalFrames?.Count(f => f.IsDeleted) ?? 0;
-            int shown = filteredFrames?.Count ?? 0;
-            toolStripStatusLabelFrames.Text = $"\uC804\uCCB4: {total}  |  \uC0AD\uC81C\uB428: {deleted}  |  \uD45C\uC2DC \uC911: {shown}";
+            int total   = _originalFrames?.Count ?? 0;
+            int deleted = _originalFrames?.Count(f => f.IsDeleted) ?? 0;
+            int shown   = _currentDisplayedFrames?.Count ?? 0;
+            toolStripStatusLabelFrames.Text =
+                $"전체: {total}  |  제외됨: {deleted}  |  표시 중: {shown}";
         }
 
+        // ══════════════════════════════════════════════════════════════════════════
+        // [1] FrameData 데이터 모델
+        // ══════════════════════════════════════════════════════════════════════════
 
         private class FrameData
         {
-            public string ImagePath { get; set; } = string.Empty;
-            public double Angle { get; set; }
-            public double Throttle { get; set; }
-            public string Mode { get; set; } = "-";
-            public string Name { get; set; } = string.Empty;
+            public string ImagePath  { get; set; } = string.Empty;
+            public double Angle      { get; set; }
+            public double Throttle   { get; set; }
+            public string Mode       { get; set; } = "-";
+            public string Name       { get; set; } = string.Empty;
 
+            /// <summary>
+            /// Soft Delete 플래그. true이면 학습에서 제외되지만 파일은 보존됩니다.
+            /// </summary>
             public bool IsDeleted { get; set; } = false;
 
+            /// <summary>
+            /// 카탈로그 파일(catalog_0.catalog)이 폴더에 없는 경우 true.
+            /// </summary>
             public bool IsCatalogMissing { get; set; } = false;
 
+            /// <summary>
+            /// 카탈로그는 있지만 이 이미지에 대응하는 데이터 행이 없는 경우 true.
+            /// </summary>
             public bool HasNoData { get; set; } = false;
 
+            /// <summary>
+            /// [1] 동적 재인덱싱 결과를 담는 속성.
+            /// UpdateUIState() 호출 시 자동으로 갱신됩니다.
+            /// • IsDeleted == false : "[0000]", "[0001]", ...
+            /// • IsDeleted == true  : "[XXXX]"
+            /// </summary>
+            public string FormattedIndex { get; set; } = "[----]";
+
+            /// <summary>
+            /// [1] ListBox 바인딩용 표시 이름.
+            /// 맨 앞에 FormattedIndex가 오며 [X] 접두어는 사용하지 않습니다.
+            /// 우선순위:
+            ///   1) IsCatalogMissing → "{FormattedIndex} {Name} | [카탈로그 파일 없음]"
+            ///   2) HasNoData        → "{FormattedIndex} {Name} | catalog 값 없음"
+            ///   3) 정상: Throttle &lt; 0 → "▼ 후진",
+            ///           Angle &lt; -0.1 → "◀ 좌", Angle &gt; 0.1 → "우 ▶", 그 외 → "▲ 직진"
+            /// 출력 예시: "[XXXX] 3_cam-image_array_.jpg | ▼ 후진 (조향: -0.80, 스로틀: -0.50)"
+            /// </summary>
             public string DisplayName
             {
                 get
                 {
                     if (IsCatalogMissing)
-                        return $"{Name} | [\uCE74\uD0C8\uB85C\uADF8 \uD30C\uC77C \uC5C6\uC74C]";
+                        return $"{FormattedIndex} {Name} | [카탈로그 파일 없음]";
                     if (HasNoData)
-                        return $"{Name} | catalog \uD30C\uC77C\uC740 \uC788\uC9C0\uB9CC \uB9E4\uCE6D\uB41C \uAC12\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.";
+                        return $"{FormattedIndex} {Name} | catalog 값 없음";
 
                     string dir;
                     if (Throttle < 0)
-                        dir = "\uD6C4\uC9C4";
+                        dir = "▼ 후진";
                     else if (Angle < -0.1)
-                        dir = "\uC88C\uD68C\uC804";
+                        dir = "◀ 좌";
                     else if (Angle > 0.1)
-                        dir = "\uC6B0\uD68C\uC804";
+                        dir = "우 ▶";
                     else
-                        dir = "\uC9C1\uC9C4";
+                        dir = "▲ 직진";
 
-                    string body = $"{Name} | {dir} (\uC870\uD5A5: {Angle:0.00}, \uC2A4\uB85C\uD2C0: {Throttle:0.00})";
-                    return IsDeleted ? $"[X] {body}" : body;
+                    return $"{FormattedIndex} {Name} | {dir} (조향: {Angle:0.00}, 스로틀: {Throttle:0.00})";
                 }
             }
         }
 
+        // ══════════════════════════════════════════════════════════════════════════
+        // Mock Parser — 이미지 파일 기준 + catalog_0.catalog 병합
+        // ══════════════════════════════════════════════════════════════════════════
 
+        /// <summary>
+        /// 이미지 파일(.jpg)을 기준으로 FrameData 리스트를 생성합니다.
+        /// 1) 폴더(및 하위 images 폴더)에서 .jpg 검색·정렬
+        /// 2) catalog_0.catalog 를 JSON Lines로 파싱하여 Dictionary 구축
+        /// 3) 이미지 목록 기준으로 catalog 데이터 병합
+        ///    - 카탈로그 없음       → IsCatalogMissing = true
+        ///    - 카탈로그 행 없음    → HasNoData = true
+        /// </summary>
         private List<FrameData> LoadMockData(string folderPath)
         {
             _currentFolderPath = folderPath;
 
+            // ── 1. .jpg 파일 목록 수집 ─────────────────────────────────────────
             var jpgFiles = new List<string>();
 
             if (Directory.Exists(folderPath))
-            {
                 jpgFiles.AddRange(
                     Directory.EnumerateFiles(folderPath, "*.jpg")
-                        .Select(Path.GetFileName)!);
-            }
+                             .Select(Path.GetFileName)!);
 
-            string imagesSubDir = Path.Combine(folderPath, "images");
-            if (Directory.Exists(imagesSubDir))
+            string subImagesDir = Path.Combine(folderPath, "images");
+            if (Directory.Exists(subImagesDir))
             {
                 var existing = new HashSet<string>(jpgFiles, StringComparer.OrdinalIgnoreCase);
-                foreach (var f in Directory.EnumerateFiles(imagesSubDir, "*.jpg"))
+                foreach (var f in Directory.EnumerateFiles(subImagesDir, "*.jpg"))
                 {
                     string name = Path.GetFileName(f)!;
-                    if (!existing.Contains(name))
-                        jpgFiles.Add(name);
+                    if (!existing.Contains(name)) jpgFiles.Add(name);
                 }
             }
 
+            // 자연 정렬 (숫자 접두어 기준)
             jpgFiles.Sort((a, b) =>
             {
-                string numA = new string(a.TakeWhile(char.IsDigit).ToArray());
-                string numB = new string(b.TakeWhile(char.IsDigit).ToArray());
-                if (int.TryParse(numA, out int nA) && int.TryParse(numB, out int nB))
-                    return nA.CompareTo(nB);
+                string nA = new string(a.TakeWhile(char.IsDigit).ToArray());
+                string nB = new string(b.TakeWhile(char.IsDigit).ToArray());
+                if (int.TryParse(nA, out int iA) && int.TryParse(nB, out int iB))
+                    return iA.CompareTo(iB);
                 return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
             });
 
-            if (jpgFiles.Count == 0)
-                return new List<FrameData>();
+            if (jpgFiles.Count == 0) return new List<FrameData>();
 
+            // ── 2. catalog_0.catalog 파싱 ─────────────────────────────────────
             string catalogPath = Path.Combine(folderPath, "catalog_0.catalog");
             bool catalogExists = File.Exists(catalogPath);
 
@@ -617,85 +714,72 @@ namespace TeamApp
             {
                 try
                 {
-                    var lines = File.ReadAllLines(catalogPath, Encoding.UTF8);
-                    foreach (var rawLine in lines)
+                    foreach (var rawLine in File.ReadAllLines(catalogPath, Encoding.UTF8))
                     {
                         string line = rawLine.Trim();
                         if (string.IsNullOrEmpty(line)) continue;
-
                         try
                         {
-                            using var doc = JsonDocument.Parse(line);
+                            using var doc  = JsonDocument.Parse(line);
                             var root = doc.RootElement;
 
-                            string imageName = string.Empty;
+                            string imgName = string.Empty;
                             if (root.TryGetProperty("cam/image_array", out var imgEl))
-                                imageName = imgEl.GetString() ?? string.Empty;
-                            if (string.IsNullOrEmpty(imageName)) continue;
+                                imgName = imgEl.GetString() ?? string.Empty;
+                            if (string.IsNullOrEmpty(imgName)) continue;
 
-                            // Angle (InvariantCulture)
-                            double angle = 0.0;
-                            if (root.TryGetProperty("user/angle", out var angleEl))
+                            double angle = 0;
+                            if (root.TryGetProperty("user/angle", out var aEl))
                             {
-                                if (angleEl.ValueKind == JsonValueKind.Number)
-                                    angleEl.TryGetDouble(out angle);
-                                else
-                                    double.TryParse(angleEl.GetString(), NumberStyles.Float,
-                                        CultureInfo.InvariantCulture, out angle);
+                                if (aEl.ValueKind == JsonValueKind.Number) aEl.TryGetDouble(out angle);
+                                else double.TryParse(aEl.GetString(), NumberStyles.Float,
+                                         CultureInfo.InvariantCulture, out angle);
                             }
 
-                            // Throttle (InvariantCulture)
-                            double throttle = 0.0;
-                            if (root.TryGetProperty("user/throttle", out var throttleEl))
+                            double throttle = 0;
+                            if (root.TryGetProperty("user/throttle", out var tEl))
                             {
-                                if (throttleEl.ValueKind == JsonValueKind.Number)
-                                    throttleEl.TryGetDouble(out throttle);
-                                else
-                                    double.TryParse(throttleEl.GetString(), NumberStyles.Float,
-                                        CultureInfo.InvariantCulture, out throttle);
+                                if (tEl.ValueKind == JsonValueKind.Number) tEl.TryGetDouble(out throttle);
+                                else double.TryParse(tEl.GetString(), NumberStyles.Float,
+                                         CultureInfo.InvariantCulture, out throttle);
                             }
 
                             string mode = "-";
-                            if (root.TryGetProperty("user/mode", out var modeEl))
-                                mode = modeEl.GetString() ?? "-";
+                            if (root.TryGetProperty("user/mode", out var mEl))
+                                mode = mEl.GetString() ?? "-";
 
-                            catalogMap[imageName] = (angle, throttle, mode);
+                            catalogMap[imgName] = (angle, throttle, mode);
                         }
-                        catch {  }
+                        catch { }
                     }
                 }
-                catch {  }
+                catch { }
             }
 
+            // ── 3. 이미지 기준 FrameData 리스트 구축 ─────────────────────────
             var result = new List<FrameData>(jpgFiles.Count);
-
             foreach (var imgName in jpgFiles)
             {
                 var frame = new FrameData
                 {
-                    Name = imgName,
+                    Name      = imgName,
                     ImagePath = Path.Combine(folderPath, imgName),
                     IsDeleted = false
                 };
 
                 if (!catalogExists)
-                {
                     frame.IsCatalogMissing = true;
-                }
                 else if (catalogMap.TryGetValue(imgName, out var data))
                 {
-                    frame.Angle = data.angle;
+                    frame.Angle    = data.angle;
                     frame.Throttle = data.throttle;
-                    frame.Mode = data.mode;
+                    frame.Mode     = data.mode;
                 }
                 else
-                {
                     frame.HasNoData = true;
-                }
 
                 result.Add(frame);
             }
-
             return result;
         }
 
@@ -709,30 +793,34 @@ namespace TeamApp
                 if (frames.Count == 0)
                 {
                     MessageBox.Show(
-                        "\uC120\uD0DD\uD55C \uD3F4\uB354\uC5D0\uC11C .jpg \uC774\uBBF8\uC9C0 \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.\n" +
-                        "\uC774\uBBF8\uC9C0\uAC00 \uD3F4\uB354 \uB8E8\uD2B8 \uB610\uB294 \uD558\uC704 'images' \uD3F4\uB354\uC5D0 \uC788\uB294\uC9C0 \uD655\uC778\uD574 \uC8FC\uC138\uC694.",
-                        "\uC774\uBBF8\uC9C0 \uC5C6\uC74C", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        "선택한 폴더에서 .jpg 이미지 파일을 찾을 수 없습니다.\n" +
+                        "이미지가 폴더 루트 또는 하위 'images' 폴더에 있는지 확인해 주세요.",
+                        "이미지 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                originalFrames = frames;
-                filteredFrames = new List<FrameData>(originalFrames);
+                _originalFrames = frames;
+                // 초기 로드: 전체 표시
+                RefreshListBinding();  // _currentDisplayedFrames = _originalFrames + UpdateUIState 호출
 
-                toolStripStatusLabelPath.Text = "\uACBD\uB85C: " + folder;
+                toolStripStatusLabelPath.Text = "경로: " + folder;
                 _chartDirty = true;
-                RefreshListBinding();
                 SetIndex(0);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("\uB370\uC774\uD130 \uB85C\uB4DC \uC911 \uC624\uB958: " + ex.Message,
-                    "\uC624\uB958", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("데이터 로드 중 오류: " + ex.Message,
+                    "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
                 SetLoadingState(false);
             }
         }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // Designer 연결 스텁
+        // ══════════════════════════════════════════════════════════════════════════
 
         private void tabPageTraining_Click(object sender, EventArgs e) { }
         private void lblFilterMin_Click(object sender, EventArgs e) { }
@@ -747,7 +835,11 @@ namespace TeamApp
         private void lblThrottleValue_Click(object sender, EventArgs e) { }
         private void toolStripStatusLabelTraining_Click(object sender, EventArgs e) { }
         private void btnMycarPath_Click(object sender, EventArgs e) { }
+        private void grpTubCleaner_Enter(object sender, EventArgs e) { }
 
+        // ══════════════════════════════════════════════════════════════════════════
+        // ScottPlot 차트 — 동적 생성 / Lazy 렌더링
+        // ══════════════════════════════════════════════════════════════════════════
 
         private void TabControl1_SelectedIndexChanged(object? sender, EventArgs e)
         {
@@ -757,105 +849,83 @@ namespace TeamApp
 
         private void InitFormsPlot()
         {
-            _formsPlot = new FormsPlot();
-
-            _formsPlot.Location = new System.Drawing.Point(0, 42);
-            _formsPlot.Size = new System.Drawing.Size(
-                tabPageGraphStats.ClientSize.Width,
-                tabPageGraphStats.ClientSize.Height - 42);
-            _formsPlot.Anchor = AnchorStyles.Top | AnchorStyles.Bottom
-                              | AnchorStyles.Left | AnchorStyles.Right;
-            _formsPlot.Name = "formsPlotMain";
+            _formsPlot = new FormsPlot
+            {
+                Location = new System.Drawing.Point(0, 42),
+                Size     = new System.Drawing.Size(
+                    tabPageGraphStats.ClientSize.Width,
+                    tabPageGraphStats.ClientSize.Height - 42),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom |
+                         AnchorStyles.Left | AnchorStyles.Right,
+                Name = "formsPlotMain"
+            };
 
             _formsPlot.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1e1e1e");
-            _formsPlot.Plot.DataBackground.Color = ScottPlot.Color.FromHex("#2d2d30");
+            _formsPlot.Plot.DataBackground.Color   = ScottPlot.Color.FromHex("#2d2d30");
 
             tabPageGraphStats.Controls.Add(_formsPlot);
             _formsPlot.BringToFront();
         }
 
+        // ── [5] RenderChart — 유효 데이터만 연속 인덱스로 표시 ───────────────────
+        /// <summary>
+        /// _originalFrames 중 IsDeleted == false 인 것만 모아,
+        /// X축은 0, 1, 2, ... 연속 인덱스를 사용합니다.
+        /// VerticalSpan은 더 이상 사용하지 않습니다.
+        /// </summary>
         private void RenderChart()
         {
-            if (originalFrames == null || originalFrames.Count == 0)
+            if (_originalFrames == null || _originalFrames.Count == 0)
             {
                 _chartDirty = false;
                 return;
             }
 
-            if (_formsPlot == null)
-                InitFormsPlot();
+            if (_formsPlot == null) InitFormsPlot();
 
             var plot = _formsPlot!.Plot;
-            _formsPlot.Plot.Axes.Title.Label.FontName = "Malgun Gothic";
-            _formsPlot.Plot.Axes.Bottom.Label.FontName = "Malgun Gothic";
-            _formsPlot.Plot.Axes.Left.Label.FontName = "Malgun Gothic";
+
+            // ── 한글 폰트 강제 적용 (SkiaSharp 기본 폰트는 한글 미지원) ──────────
+            _formsPlot.Plot.Axes.Title.Label.FontName           = "Malgun Gothic";
+            _formsPlot.Plot.Axes.Bottom.Label.FontName          = "Malgun Gothic";
+            _formsPlot.Plot.Axes.Left.Label.FontName            = "Malgun Gothic";
             _formsPlot.Plot.Axes.Bottom.TickLabelStyle.FontName = "Malgun Gothic";
-            _formsPlot.Plot.Axes.Left.TickLabelStyle.FontName = "Malgun Gothic";
+            _formsPlot.Plot.Axes.Left.TickLabelStyle.FontName   = "Malgun Gothic";
+
             plot.Clear();
 
-            int total = originalFrames.Count;
+            // ── [5] IsDeleted == false 인 것만 연속 인덱스로 추출 ────────────────
+            var validFrames = _originalFrames.Where(f => !f.IsDeleted).ToList();
 
-            var angleXs = new List<double>(total);
-            var angleYs = new List<double>(total);
-            var throttleXs = new List<double>(total);
-            var throttleYs = new List<double>(total);
-
-            for (int i = 0; i < total; i++)
+            if (validFrames.Count == 0)
             {
-                var f = originalFrames[i];
-                if (!f.IsDeleted)
-                {
-                    angleXs.Add(i); angleYs.Add(f.Angle);
-                    throttleXs.Add(i); throttleYs.Add(f.Throttle);
-                }
+                plot.Title("유효한 데이터가 없습니다 (모두 제외됨)");
+                _formsPlot.Refresh();
+                _chartDirty = false;
+                return;
             }
 
-            if (angleXs.Count > 0)
-            {
-                var sigAngle = plot.Add.SignalXY(angleXs.ToArray(), angleYs.ToArray());
-                sigAngle.Color = ScottPlot.Color.FromHex("#4FC3F7");
-                sigAngle.LineWidth = 1.5f;
-                sigAngle.LegendText = "\uC870\uD5A5(Angle)";
-            }
+            int n = validFrames.Count;
+            double[] xs        = Enumerable.Range(0, n).Select(i => (double)i).ToArray();
+            double[] angleYs   = validFrames.Select(f => f.Angle).ToArray();
+            double[] throttleYs = validFrames.Select(f => f.Throttle).ToArray();
 
-            if (throttleXs.Count > 0)
-            {
-                var sigThrottle = plot.Add.SignalXY(throttleXs.ToArray(), throttleYs.ToArray());
-                sigThrottle.Color = ScottPlot.Color.FromHex("#81C784");
-                sigThrottle.LineWidth = 1.5f;
-                sigThrottle.LegendText = "\uC2A4\uB85C\uD2C0(Throttle)";
-            }
+            // ── Angle 라인 ─────────────────────────────────────────────────────
+            var sigAngle = plot.Add.SignalXY(xs, angleYs);
+            sigAngle.Color       = ScottPlot.Color.FromHex("#4FC3F7");  // 하늘색
+            sigAngle.LineWidth   = 1.5f;
+            sigAngle.LegendText  = "조향(Angle)";
 
-            bool inDeleted = false;
-            int spanStart = 0;
-            bool anyDeleted = false;
+            // ── Throttle 라인 ──────────────────────────────────────────────────
+            var sigThrottle = plot.Add.SignalXY(xs, throttleYs);
+            sigThrottle.Color      = ScottPlot.Color.FromHex("#81C784");  // 연초록
+            sigThrottle.LineWidth  = 1.5f;
+            sigThrottle.LegendText = "스로틀(Throttle)";
 
-            for (int i = 0; i <= total; i++)
-            {
-                bool deleted = i < total && originalFrames[i].IsDeleted;
-
-                if (deleted && !inDeleted)
-                {
-                    spanStart = i;
-                    inDeleted = true;
-                }
-                else if (!deleted && inDeleted)
-                {
-                    var span = plot.Add.VerticalSpan(spanStart, i - 1);
-                    span.FillStyle.Color = ScottPlot.Colors.Red.WithAlpha(50);
-                    span.LineStyle.Width = 0;
-                    if (!anyDeleted)
-                    {
-                        span.LegendText = "\uC0AD\uC81C\uB41C \uAD6C\uAC04";
-                        anyDeleted = true;
-                    }
-                    inDeleted = false;
-                }
-            }
-
-            plot.XLabel("������ �ε���");
-            plot.YLabel("�� (Angle / Throttle)");
-            plot.Title("���Ⱚ/����Ʋ ���� �׷���");
+            // ── 축 레이블 ──────────────────────────────────────────────────────
+            plot.XLabel("유효 프레임 인덱스 (제외된 프레임 건너뜀)");
+            plot.YLabel("값 (Angle / Throttle)");
+            plot.Title($"조향값·스로틀 분포 그래프  [유효: {n} / 전체: {_originalFrames.Count}]");
             plot.Axes.SetLimitsY(-1.2, 1.2);
             plot.ShowLegend(Alignment.UpperRight);
 
