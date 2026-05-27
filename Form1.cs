@@ -341,21 +341,28 @@ namespace TeamApp
         private void ApplyFilter()
         {
             if (originalFrames == null || originalFrames.Count == 0) return;
-            var sel = comboBoxFilter.SelectedItem?.ToString() ?? "Angle";
-            var txt = txtFilterMin.Text?.Trim() ?? "";
-            double min = double.MinValue, max = double.MaxValue;
-            if (!string.IsNullOrEmpty(txt))
+
+            string selectedFilter = comboBoxFilter.SelectedItem?.ToString() ?? "전체 보기";
+            double minValue = (double)numFilterMin.Value;
+            double maxValue = (double)numFilterMax.Value;
+
+            if (minValue > maxValue)
             {
-                var parts = txt.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length >= 1) double.TryParse(parts[0], out min);
-                if (parts.Length >= 2) double.TryParse(parts[1], out max);
+                MessageBox.Show(
+                    "최솟값은 최댓값보다 클 수 없습니다. 필터 범위를 다시 확인해 주세요.",
+                    "필터 범위 오류",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
             }
 
             filteredFrames = originalFrames.Where(f =>
             {
-                if (sel == "Angle") return f.Angle >= min && f.Angle <= max;
-                if (sel == "Throttle") return f.Throttle >= min && f.Throttle <= max;
-                if (sel == "Mode") return f.Mode != null && f.Mode.Contains(txt, StringComparison.OrdinalIgnoreCase);
+                // 선택된 필터 이름은 디자이너의 콤보박스 항목과 맞춰 둡니다.
+                if (selectedFilter == "스로틀 최소값") return f.Throttle >= minValue;
+                if (selectedFilter == "조향 범위") return f.Angle >= minValue && f.Angle <= maxValue;
+                if (selectedFilter == "모드 = 사용자") return string.Equals(f.Mode, "user", StringComparison.OrdinalIgnoreCase);
+                if (selectedFilter == "이미지 없는 프레임") return !File.Exists(f.ImagePath);
                 return true;
             }).ToList();
 
