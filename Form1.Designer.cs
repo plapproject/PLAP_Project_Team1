@@ -28,204 +28,212 @@ namespace TeamApp
         /// </summary>
         private void InitializeComponent()
         {
-            menuStrip1 = new MenuStrip();
-            파일ToolStripMenuItem = new ToolStripMenuItem();
-            데이터폴더열기ToolStripMenuItem = new ToolStripMenuItem();
-            다시불러오기ToolStripMenuItem = new ToolStripMenuItem();
-            종료ToolStripMenuItem = new ToolStripMenuItem();
-            보기ToolStripMenuItem = new ToolStripMenuItem();
-            테마전환ToolStripMenuItem = new ToolStripMenuItem();
-            그래프테ToolStripMenuItem = new ToolStripMenuItem();
-            도움말ToolStripMenuItem = new ToolStripMenuItem();
-            단계별가이드ToolStripMenuItem = new ToolStripMenuItem();
-            tabControl1 = new TabControl();
-            tabPage1 = new TabPage();
-            groupBox2 = new GroupBox();
+            menuStripMain = new MenuStrip();
+            mnuFile = new ToolStripMenuItem();
+            mnuOpenDataFolder = new ToolStripMenuItem();
+            mnuReloadData = new ToolStripMenuItem();
+            mnuExit = new ToolStripMenuItem();
+            mnuView = new ToolStripMenuItem();
+            mnuToggleTheme = new ToolStripMenuItem();
+            mnuOpenGraphStats = new ToolStripMenuItem();
+            mnuHelp = new ToolStripMenuItem();
+            mnuOpenGuide = new ToolStripMenuItem();
+            tabControlMain = new TabControl();
+            tabPageDataViewer = new TabPage();
+            grpTubCleaner = new GroupBox();
             btnRepair = new Button();
             btnReloadTub = new Button();
-            textBox1 = new TextBox();
+            txtTubCleanerPath = new TextBox();
             numFilterMax = new NumericUpDown();
-            label3 = new Label();
-            label2 = new Label();
+            lblFilterMax = new Label();
+            lblFilterMin = new Label();
             numFilterMin = new NumericUpDown();
             btnApplyFilter = new Button();
             btnClearFilter = new Button();
-            groupBox1 = new GroupBox();
-            trackBarMain = new TrackBar();
-            numericUpDownInterval = new NumericUpDown();
+            grpTubExplorer = new GroupBox();
+            trkFramePosition = new TrackBar();
+            numPlaybackInterval = new NumericUpDown();
             btnOpenFolder = new Button();
-            label1 = new Label();
+            lblPlayInterval = new Label();
             btnLast = new Button();
             btnAutoPlay = new Button();
             btnNext = new Button();
             btnPrev = new Button();
-            listBoxData = new ListBox();
+            lstFrameData = new ListBox();
             btnFirst = new Button();
-            pbMainPreview = new PictureBox();
+            picMainPreview = new PictureBox();
             btnReload = new Button();
             lblFrameValue = new Label();
             lblModeValue = new Label();
             btnToggleTheme = new Button();
             lblThrottleValue = new Label();
             btnGuide = new Button();
-            comboBoxFilter = new ComboBox();
             lblAngleValue = new Label();
-            tabPage2 = new TabPage();
-            groupBox3 = new GroupBox();
-            tabPage3 = new TabPage();
-            panel1 = new Panel();
+            tabPageTraining = new TabPage();
+            grpTrainingLog = new GroupBox();
+            grpTrainingSettings = new GroupBox();
+            tbxTubPath = new TextBox();
+            tbxModelPath = new TextBox();
+            tbxMycarPath = new TextBox();
+            tbxPythonPath = new TextBox();
+            lblEpoch = new Label();
+            lblModeType = new Label();
+            lblModelPath = new Label();
+            lblTubPath = new Label();
+            lblMycarPath = new Label();
+            lblPythonPath = new Label();
+            btnSaveSettings = new Button();
+            btnStopTraining = new Button();
+            btnStartTraining = new Button();
+            btnTubPath = new Button();
+            btnMycarPath = new Button();
+            btnPythonPath = new Button();
+            tabPageGraphStats = new TabPage();
+            pnlGraphStats = new Panel();
             lblDescription = new Label();
-            tabPage4 = new TabPage();
-            statusStrip1 = new StatusStrip();
+            statusStripDataViewer = new StatusStrip();
             toolStripStatusLabelPath = new ToolStripStatusLabel();
             toolStripStatusLabelFrames = new ToolStripStatusLabel();
-            groupBox4 = new GroupBox();
-            button1 = new Button();
-            button2 = new Button();
-            button3 = new Button();
-            button4 = new Button();
-            button5 = new Button();
-            button6 = new Button();
-            label4 = new Label();
-            label5 = new Label();
-            label6 = new Label();
-            label7 = new Label();
-            label8 = new Label();
-            label9 = new Label();
-            textBox2 = new TextBox();
-            textBox3 = new TextBox();
-            textBox4 = new TextBox();
-            textBox6 = new TextBox();
-            menuStrip1.SuspendLayout();
-            tabControl1.SuspendLayout();
-            tabPage1.SuspendLayout();
-            groupBox2.SuspendLayout();
+            cbxModelType = new ComboBox();
+            nudEpoch = new NumericUpDown();
+            rtbTrainingLog = new RichTextBox();
+            statusStripTraining = new StatusStrip();
+            toolStripStatusLabelTraining = new ToolStripStatusLabel();
+            menuStripMain.SuspendLayout();
+            tabControlMain.SuspendLayout();
+            tabPageDataViewer.SuspendLayout();
+            grpTubCleaner.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numFilterMax).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numFilterMin).BeginInit();
-            groupBox1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)trackBarMain).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)numericUpDownInterval).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)pbMainPreview).BeginInit();
-            tabPage2.SuspendLayout();
-            groupBox3.SuspendLayout();
-            tabPage3.SuspendLayout();
-            statusStrip1.SuspendLayout();
+            grpTubExplorer.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)trkFramePosition).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numPlaybackInterval).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)picMainPreview).BeginInit();
+            tabPageTraining.SuspendLayout();
+            grpTrainingLog.SuspendLayout();
+            grpTrainingSettings.SuspendLayout();
+            tabPageGraphStats.SuspendLayout();
+            statusStripDataViewer.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)nudEpoch).BeginInit();
+            statusStripTraining.SuspendLayout();
             SuspendLayout();
             //
-            // menuStrip1
+            // menuStripMain
             //
-            menuStrip1.ImageScalingSize = new Size(20, 20);
-            menuStrip1.Items.AddRange(new ToolStripItem[] { 파일ToolStripMenuItem, 보기ToolStripMenuItem, 도움말ToolStripMenuItem });
-            menuStrip1.Location = new Point(0, 0);
-            menuStrip1.Name = "menuStrip1";
-            menuStrip1.Padding = new Padding(6, 3, 0, 3);
-            menuStrip1.Size = new Size(1581, 30);
-            menuStrip1.TabIndex = 0;
-            menuStrip1.Text = "menuStrip1";
+            menuStripMain.ImageScalingSize = new Size(20, 20);
+            menuStripMain.Items.AddRange(new ToolStripItem[] { mnuFile, mnuView, mnuHelp });
+            menuStripMain.Location = new Point(0, 0);
+            menuStripMain.Name = "menuStripMain";
+            menuStripMain.Padding = new Padding(6, 3, 0, 3);
+            menuStripMain.Size = new Size(1581, 30);
+            menuStripMain.TabIndex = 0;
+            menuStripMain.Text = "menuStripMain";
             //
-            // 파일ToolStripMenuItem
+            // mnuFile
             //
-            파일ToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { 데이터폴더열기ToolStripMenuItem, 다시불러오기ToolStripMenuItem, 종료ToolStripMenuItem });
-            파일ToolStripMenuItem.Name = "파일ToolStripMenuItem";
-            파일ToolStripMenuItem.Size = new Size(53, 24);
-            파일ToolStripMenuItem.Text = "파일";
+            mnuFile.DropDownItems.AddRange(new ToolStripItem[] { mnuOpenDataFolder, mnuReloadData, mnuExit });
+            mnuFile.Name = "mnuFile";
+            mnuFile.Size = new Size(53, 24);
+            mnuFile.Text = "파일";
             //
-            // 데이터폴더열기ToolStripMenuItem
+            // mnuOpenDataFolder
             //
-            데이터폴더열기ToolStripMenuItem.Name = "데이터폴더열기ToolStripMenuItem";
-            데이터폴더열기ToolStripMenuItem.Size = new Size(207, 26);
-            데이터폴더열기ToolStripMenuItem.Text = "데이터 폴더 열기";
+            mnuOpenDataFolder.Name = "mnuOpenDataFolder";
+            mnuOpenDataFolder.Size = new Size(207, 26);
+            mnuOpenDataFolder.Text = "데이터 폴더 열기";
             //
-            // 다시불러오기ToolStripMenuItem
+            // mnuReloadData
             //
-            다시불러오기ToolStripMenuItem.Name = "다시불러오기ToolStripMenuItem";
-            다시불러오기ToolStripMenuItem.Size = new Size(207, 26);
-            다시불러오기ToolStripMenuItem.Text = "다시 불러오기";
+            mnuReloadData.Name = "mnuReloadData";
+            mnuReloadData.Size = new Size(207, 26);
+            mnuReloadData.Text = "다시 불러오기";
             //
-            // 종료ToolStripMenuItem
+            // mnuExit
             //
-            종료ToolStripMenuItem.Name = "종료ToolStripMenuItem";
-            종료ToolStripMenuItem.Size = new Size(207, 26);
-            종료ToolStripMenuItem.Text = "종료";
+            mnuExit.Name = "mnuExit";
+            mnuExit.Size = new Size(207, 26);
+            mnuExit.Text = "종료";
             //
-            // 보기ToolStripMenuItem
+            // mnuView
             //
-            보기ToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { 테마전환ToolStripMenuItem, 그래프테ToolStripMenuItem });
-            보기ToolStripMenuItem.Name = "보기ToolStripMenuItem";
-            보기ToolStripMenuItem.Size = new Size(53, 24);
-            보기ToolStripMenuItem.Text = "보기";
+            mnuView.DropDownItems.AddRange(new ToolStripItem[] { mnuToggleTheme, mnuOpenGraphStats });
+            mnuView.Name = "mnuView";
+            mnuView.Size = new Size(53, 24);
+            mnuView.Text = "보기";
             //
-            // 테마전환ToolStripMenuItem
+            // mnuToggleTheme
             //
-            테마전환ToolStripMenuItem.Name = "테마전환ToolStripMenuItem";
-            테마전환ToolStripMenuItem.Size = new Size(258, 26);
-            테마전환ToolStripMenuItem.Text = "테마 전환";
+            mnuToggleTheme.Name = "mnuToggleTheme";
+            mnuToggleTheme.Size = new Size(258, 26);
+            mnuToggleTheme.Text = "테마 전환";
             //
-            // 그래프테ToolStripMenuItem
+            // mnuOpenGraphStats
             //
-            그래프테ToolStripMenuItem.Name = "그래프테ToolStripMenuItem";
-            그래프테ToolStripMenuItem.Size = new Size(258, 26);
-            그래프테ToolStripMenuItem.Text = "그래프/통계 탭으로 이동";
-            그래프테ToolStripMenuItem.Click += 그래프테ToolStripMenuItem_Click;
+            mnuOpenGraphStats.Name = "mnuOpenGraphStats";
+            mnuOpenGraphStats.Size = new Size(258, 26);
+            mnuOpenGraphStats.Text = "그래프/통계 탭으로 이동";
+            mnuOpenGraphStats.Click += mnuOpenGraphStats_Click;
             //
-            // 도움말ToolStripMenuItem
+            // mnuHelp
             //
-            도움말ToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { 단계별가이드ToolStripMenuItem });
-            도움말ToolStripMenuItem.Name = "도움말ToolStripMenuItem";
-            도움말ToolStripMenuItem.Size = new Size(68, 24);
-            도움말ToolStripMenuItem.Text = "도움말";
-            도움말ToolStripMenuItem.Click += 도움말ToolStripMenuItem_Click;
+            mnuHelp.DropDownItems.AddRange(new ToolStripItem[] { mnuOpenGuide });
+            mnuHelp.Name = "mnuHelp";
+            mnuHelp.Size = new Size(68, 24);
+            mnuHelp.Text = "도움말";
+            mnuHelp.Click += mnuHelp_Click;
             //
-            // 단계별가이드ToolStripMenuItem
+            // mnuOpenGuide
             //
-            단계별가이드ToolStripMenuItem.Name = "단계별가이드ToolStripMenuItem";
-            단계별가이드ToolStripMenuItem.Size = new Size(187, 26);
-            단계별가이드ToolStripMenuItem.Text = "단계별 가이드";
+            mnuOpenGuide.Name = "mnuOpenGuide";
+            mnuOpenGuide.Size = new Size(187, 26);
+            mnuOpenGuide.Text = "단계별 가이드";
             //
-            // tabControl1
+            // tabControlMain
             //
-            tabControl1.Controls.Add(tabPage1);
-            tabControl1.Controls.Add(tabPage2);
-            tabControl1.Controls.Add(tabPage3);
-            tabControl1.Controls.Add(tabPage4);
-            tabControl1.Location = new Point(3, 31);
-            tabControl1.Name = "tabControl1";
-            tabControl1.SelectedIndex = 0;
-            tabControl1.Size = new Size(1580, 920);
-            tabControl1.TabIndex = 1;
+            tabControlMain.Controls.Add(tabPageDataViewer);
+            tabControlMain.Controls.Add(tabPageTraining);
+            tabControlMain.Controls.Add(tabPageGraphStats);
+            tabControlMain.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            tabControlMain.Location = new Point(3, 31);
+            tabControlMain.Name = "tabControlMain";
+            tabControlMain.SelectedIndex = 0;
+            tabControlMain.Size = new Size(1580, 920);
+            tabControlMain.TabIndex = 1;
             //
-            // tabPage1
+            // tabPageDataViewer
             //
-            tabPage1.Controls.Add(groupBox2);
-            tabPage1.Controls.Add(groupBox1);
-            tabPage1.Location = new Point(4, 29);
-            tabPage1.Name = "tabPage1";
-            tabPage1.Padding = new Padding(3, 3, 3, 3);
-            tabPage1.Size = new Size(1572, 887);
-            tabPage1.TabIndex = 0;
-            tabPage1.Text = "데이터 뷰어";
-            tabPage1.UseVisualStyleBackColor = true;
+            tabPageDataViewer.Controls.Add(grpTubCleaner);
+            tabPageDataViewer.Controls.Add(grpTubExplorer);
+            tabPageDataViewer.Location = new Point(4, 29);
+            tabPageDataViewer.Name = "tabPageDataViewer";
+            tabPageDataViewer.Padding = new Padding(3);
+            tabPageDataViewer.Size = new Size(1572, 887);
+            tabPageDataViewer.TabIndex = 0;
+            tabPageDataViewer.Text = "데이터 뷰어";
+            tabPageDataViewer.UseVisualStyleBackColor = true;
             //
-            // groupBox2
+            // grpTubCleaner
             //
-            groupBox2.Controls.Add(btnRepair);
-            groupBox2.Controls.Add(btnReloadTub);
-            groupBox2.Controls.Add(textBox1);
-            groupBox2.Controls.Add(numFilterMax);
-            groupBox2.Controls.Add(label3);
-            groupBox2.Controls.Add(label2);
-            groupBox2.Controls.Add(numFilterMin);
-            groupBox2.Controls.Add(btnApplyFilter);
-            groupBox2.Controls.Add(btnClearFilter);
-            groupBox2.Location = new Point(3, 741);
-            groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(1563, 68);
-            groupBox2.TabIndex = 23;
-            groupBox2.TabStop = false;
-            groupBox2.Text = "터브 정리기";
+            grpTubCleaner.Controls.Add(btnRepair);
+            grpTubCleaner.Controls.Add(btnReloadTub);
+            grpTubCleaner.Controls.Add(txtTubCleanerPath);
+            grpTubCleaner.Controls.Add(numFilterMax);
+            grpTubCleaner.Controls.Add(lblFilterMax);
+            grpTubCleaner.Controls.Add(lblFilterMin);
+            grpTubCleaner.Controls.Add(numFilterMin);
+            grpTubCleaner.Controls.Add(btnApplyFilter);
+            grpTubCleaner.Controls.Add(btnClearFilter);
+            grpTubCleaner.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            grpTubCleaner.Location = new Point(3, 741);
+            grpTubCleaner.Name = "grpTubCleaner";
+            grpTubCleaner.Size = new Size(1563, 68);
+            grpTubCleaner.TabIndex = 23;
+            grpTubCleaner.TabStop = false;
+            grpTubCleaner.Text = "터브 정리기";
             //
             // btnRepair
             //
+            btnRepair.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnRepair.Location = new Point(1308, 25);
             btnRepair.Name = "btnRepair";
             btnRepair.Size = new Size(120, 29);
@@ -235,6 +243,7 @@ namespace TeamApp
             //
             // btnReloadTub
             //
+            btnReloadTub.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnReloadTub.Location = new Point(1435, 25);
             btnReloadTub.Name = "btnReloadTub";
             btnReloadTub.Size = new Size(120, 29);
@@ -242,12 +251,13 @@ namespace TeamApp
             btnReloadTub.Text = "터브 다시 로드";
             btnReloadTub.UseVisualStyleBackColor = true;
             //
-            // textBox1
+            // txtTubCleanerPath
             //
-            textBox1.Location = new Point(476, 25);
-            textBox1.Name = "textBox1";
-            textBox1.Size = new Size(574, 27);
-            textBox1.TabIndex = 27;
+            txtTubCleanerPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtTubCleanerPath.Location = new Point(476, 25);
+            txtTubCleanerPath.Name = "txtTubCleanerPath";
+            txtTubCleanerPath.Size = new Size(574, 27);
+            txtTubCleanerPath.TabIndex = 27;
             //
             // numFilterMax
             //
@@ -256,25 +266,25 @@ namespace TeamApp
             numFilterMax.Size = new Size(150, 27);
             numFilterMax.TabIndex = 25;
             //
-            // label3
+            // lblFilterMax
             //
-            label3.AutoSize = true;
-            label3.Font = new Font("맑은 고딕", 10F);
-            label3.Location = new Point(253, 27);
-            label3.Name = "label3";
-            label3.Size = new Size(61, 23);
-            label3.TabIndex = 26;
-            label3.Text = "최댓값";
+            lblFilterMax.AutoSize = true;
+            lblFilterMax.Font = new Font("맑은 고딕", 10F);
+            lblFilterMax.Location = new Point(253, 27);
+            lblFilterMax.Name = "lblFilterMax";
+            lblFilterMax.Size = new Size(61, 23);
+            lblFilterMax.TabIndex = 26;
+            lblFilterMax.Text = "최댓값";
             //
-            // label2
+            // lblFilterMin
             //
-            label2.AutoSize = true;
-            label2.Font = new Font("맑은 고딕", 10F);
-            label2.Location = new Point(15, 27);
-            label2.Name = "label2";
-            label2.Size = new Size(61, 23);
-            label2.TabIndex = 25;
-            label2.Text = "최솟값";
+            lblFilterMin.AutoSize = true;
+            lblFilterMin.Font = new Font("맑은 고딕", 10F);
+            lblFilterMin.Location = new Point(15, 27);
+            lblFilterMin.Name = "lblFilterMin";
+            lblFilterMin.Size = new Size(61, 23);
+            lblFilterMin.TabIndex = 25;
+            lblFilterMin.Text = "최솟값";
             //
             // numFilterMin
             //
@@ -285,6 +295,7 @@ namespace TeamApp
             //
             // btnApplyFilter
             //
+            btnApplyFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnApplyFilter.Location = new Point(1056, 24);
             btnApplyFilter.Name = "btnApplyFilter";
             btnApplyFilter.Size = new Size(120, 29);
@@ -295,6 +306,7 @@ namespace TeamApp
             //
             // btnClearFilter
             //
+            btnClearFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnClearFilter.Location = new Point(1182, 24);
             btnClearFilter.Name = "btnClearFilter";
             btnClearFilter.Size = new Size(120, 29);
@@ -302,52 +314,54 @@ namespace TeamApp
             btnClearFilter.Text = "필터 해제";
             btnClearFilter.UseVisualStyleBackColor = true;
             //
-            // groupBox1
+            // grpTubExplorer
             //
-            groupBox1.Controls.Add(trackBarMain);
-            groupBox1.Controls.Add(numericUpDownInterval);
-            groupBox1.Controls.Add(btnOpenFolder);
-            groupBox1.Controls.Add(label1);
-            groupBox1.Controls.Add(btnLast);
-            groupBox1.Controls.Add(btnAutoPlay);
-            groupBox1.Controls.Add(btnNext);
-            groupBox1.Controls.Add(btnPrev);
-            groupBox1.Controls.Add(listBoxData);
-            groupBox1.Controls.Add(btnFirst);
-            groupBox1.Controls.Add(pbMainPreview);
-            groupBox1.Controls.Add(btnReload);
-            groupBox1.Controls.Add(lblFrameValue);
-            groupBox1.Controls.Add(lblModeValue);
-            groupBox1.Controls.Add(btnToggleTheme);
-            groupBox1.Controls.Add(lblThrottleValue);
-            groupBox1.Controls.Add(btnGuide);
-            groupBox1.Controls.Add(comboBoxFilter);
-            groupBox1.Controls.Add(lblAngleValue);
-            groupBox1.Location = new Point(0, 0);
-            groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(1569, 736);
-            groupBox1.TabIndex = 22;
-            groupBox1.TabStop = false;
-            groupBox1.Text = "터브 탐색기";
+            grpTubExplorer.Controls.Add(trkFramePosition);
+            grpTubExplorer.Controls.Add(numPlaybackInterval);
+            grpTubExplorer.Controls.Add(btnOpenFolder);
+            grpTubExplorer.Controls.Add(lblPlayInterval);
+            grpTubExplorer.Controls.Add(btnLast);
+            grpTubExplorer.Controls.Add(btnAutoPlay);
+            grpTubExplorer.Controls.Add(btnNext);
+            grpTubExplorer.Controls.Add(btnPrev);
+            grpTubExplorer.Controls.Add(lstFrameData);
+            grpTubExplorer.Controls.Add(btnFirst);
+            grpTubExplorer.Controls.Add(picMainPreview);
+            grpTubExplorer.Controls.Add(btnReload);
+            grpTubExplorer.Controls.Add(lblFrameValue);
+            grpTubExplorer.Controls.Add(lblModeValue);
+            grpTubExplorer.Controls.Add(btnToggleTheme);
+            grpTubExplorer.Controls.Add(lblThrottleValue);
+            grpTubExplorer.Controls.Add(btnGuide);
+            grpTubExplorer.Controls.Add(lblAngleValue);
+            grpTubExplorer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            grpTubExplorer.Location = new Point(0, 0);
+            grpTubExplorer.Name = "grpTubExplorer";
+            grpTubExplorer.Size = new Size(1569, 736);
+            grpTubExplorer.TabIndex = 22;
+            grpTubExplorer.TabStop = false;
+            grpTubExplorer.Text = "터브 탐색기";
             //
-            // trackBarMain
+            // trkFramePosition
             //
-            trackBarMain.Location = new Point(0, 672);
-            trackBarMain.Maximum = 0;
-            trackBarMain.Name = "trackBarMain";
-            trackBarMain.Size = new Size(1563, 56);
-            trackBarMain.TabIndex = 18;
-            trackBarMain.Scroll += trackBarMain_Scroll;
+            trkFramePosition.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            trkFramePosition.Location = new Point(0, 672);
+            trkFramePosition.Maximum = 0;
+            trkFramePosition.Name = "trkFramePosition";
+            trkFramePosition.Size = new Size(1563, 56);
+            trkFramePosition.TabIndex = 18;
+            trkFramePosition.Scroll += trkFramePosition_Scroll;
             //
-            // numericUpDownInterval
+            // numPlaybackInterval
             //
-            numericUpDownInterval.Location = new Point(1403, 329);
-            numericUpDownInterval.Maximum = new decimal(new int[] { 5000, 0, 0, 0 });
-            numericUpDownInterval.Minimum = new decimal(new int[] { 10, 0, 0, 0 });
-            numericUpDownInterval.Name = "numericUpDownInterval";
-            numericUpDownInterval.Size = new Size(156, 27);
-            numericUpDownInterval.TabIndex = 11;
-            numericUpDownInterval.Value = new decimal(new int[] { 200, 0, 0, 0 });
+            numPlaybackInterval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            numPlaybackInterval.Location = new Point(1403, 329);
+            numPlaybackInterval.Maximum = new decimal(new int[] { 5000, 0, 0, 0 });
+            numPlaybackInterval.Minimum = new decimal(new int[] { 10, 0, 0, 0 });
+            numPlaybackInterval.Name = "numPlaybackInterval";
+            numPlaybackInterval.Size = new Size(156, 27);
+            numPlaybackInterval.TabIndex = 11;
+            numPlaybackInterval.Value = new decimal(new int[] { 200, 0, 0, 0 });
             //
             // btnOpenFolder
             //
@@ -359,18 +373,20 @@ namespace TeamApp
             btnOpenFolder.UseVisualStyleBackColor = true;
             btnOpenFolder.Click += btnOpenFolder_Click;
             //
-            // label1
+            // lblPlayInterval
             //
-            label1.Font = new Font("맑은 고딕", 10.2F, FontStyle.Bold, GraphicsUnit.Point, 129);
-            label1.Location = new Point(1284, 328);
-            label1.Name = "label1";
-            label1.Size = new Size(127, 31);
-            label1.TabIndex = 21;
-            label1.Text = "재생간격(ms)";
-            label1.Click += label1_Click;
+            lblPlayInterval.Font = new Font("맑은 고딕", 10.2F, FontStyle.Bold, GraphicsUnit.Point, 129);
+            lblPlayInterval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            lblPlayInterval.Location = new Point(1284, 328);
+            lblPlayInterval.Name = "lblPlayInterval";
+            lblPlayInterval.Size = new Size(127, 31);
+            lblPlayInterval.TabIndex = 21;
+            lblPlayInterval.Text = "재생간격(ms)";
+            lblPlayInterval.Click += lblPlayInterval_Click;
             //
             // btnLast
             //
+            btnLast.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnLast.Location = new Point(1423, 140);
             btnLast.Name = "btnLast";
             btnLast.Size = new Size(134, 29);
@@ -380,16 +396,18 @@ namespace TeamApp
             //
             // btnAutoPlay
             //
+            btnAutoPlay.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnAutoPlay.Location = new Point(1287, 176);
             btnAutoPlay.Name = "btnAutoPlay";
             btnAutoPlay.Size = new Size(270, 27);
             btnAutoPlay.TabIndex = 20;
             btnAutoPlay.Text = "자동 재생";
             btnAutoPlay.UseVisualStyleBackColor = true;
-            btnAutoPlay.Click += button3_Click;
+            btnAutoPlay.Click += btnAutoPlay_Click;
             //
             // btnNext
             //
+            btnNext.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnNext.Location = new Point(1423, 104);
             btnNext.Name = "btnNext";
             btnNext.Size = new Size(134, 29);
@@ -399,6 +417,7 @@ namespace TeamApp
             //
             // btnPrev
             //
+            btnPrev.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnPrev.Location = new Point(1284, 104);
             btnPrev.Name = "btnPrev";
             btnPrev.Size = new Size(134, 29);
@@ -406,17 +425,18 @@ namespace TeamApp
             btnPrev.Text = "<";
             btnPrev.Click += btnPrev_Click;
             //
-            // listBoxData
+            // lstFrameData
             //
-            listBoxData.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            listBoxData.Location = new Point(0, 101);
-            listBoxData.Name = "listBoxData";
-            listBoxData.Size = new Size(280, 564);
-            listBoxData.TabIndex = 13;
-            listBoxData.SelectedIndexChanged += listBoxData_SelectedIndexChanged;
+            lstFrameData.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
+            lstFrameData.Location = new Point(0, 61);
+            lstFrameData.Name = "lstFrameData";
+            lstFrameData.Size = new Size(280, 604);
+            lstFrameData.TabIndex = 13;
+            lstFrameData.SelectedIndexChanged += lstFrameData_SelectedIndexChanged;
             //
             // btnFirst
             //
+            btnFirst.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnFirst.Location = new Point(1284, 140);
             btnFirst.Name = "btnFirst";
             btnFirst.Size = new Size(134, 29);
@@ -424,15 +444,16 @@ namespace TeamApp
             btnFirst.Text = "<<";
             btnFirst.Click += btnFirst_Click;
             //
-            // pbMainPreview
+            // picMainPreview
             //
-            pbMainPreview.BorderStyle = BorderStyle.FixedSingle;
-            pbMainPreview.Location = new Point(287, 61);
-            pbMainPreview.Name = "pbMainPreview";
-            pbMainPreview.Size = new Size(992, 605);
-            pbMainPreview.SizeMode = PictureBoxSizeMode.StretchImage;
-            pbMainPreview.TabIndex = 4;
-            pbMainPreview.TabStop = false;
+            picMainPreview.BorderStyle = BorderStyle.FixedSingle;
+            picMainPreview.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            picMainPreview.Location = new Point(287, 61);
+            picMainPreview.Name = "picMainPreview";
+            picMainPreview.Size = new Size(992, 605);
+            picMainPreview.SizeMode = PictureBoxSizeMode.StretchImage;
+            picMainPreview.TabIndex = 4;
+            picMainPreview.TabStop = false;
             //
             // btnReload
             //
@@ -447,6 +468,7 @@ namespace TeamApp
             // lblFrameValue
             //
             lblFrameValue.Font = new Font("맑은 고딕", 13.8F, FontStyle.Regular, GraphicsUnit.Point, 129);
+            lblFrameValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblFrameValue.Location = new Point(1284, 61);
             lblFrameValue.Name = "lblFrameValue";
             lblFrameValue.Size = new Size(276, 39);
@@ -456,6 +478,7 @@ namespace TeamApp
             // lblModeValue
             //
             lblModeValue.Font = new Font("맑은 고딕", 13.8F);
+            lblModeValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblModeValue.Location = new Point(1287, 287);
             lblModeValue.Name = "lblModeValue";
             lblModeValue.Size = new Size(273, 112);
@@ -476,6 +499,7 @@ namespace TeamApp
             // lblThrottleValue
             //
             lblThrottleValue.Font = new Font("맑은 고딕", 13.8F);
+            lblThrottleValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblThrottleValue.Location = new Point(1287, 251);
             lblThrottleValue.Name = "lblThrottleValue";
             lblThrottleValue.Size = new Size(273, 37);
@@ -493,19 +517,10 @@ namespace TeamApp
             btnGuide.UseVisualStyleBackColor = true;
             btnGuide.Click += btnGuide_Click;
             //
-            // comboBoxFilter
-            //
-            comboBoxFilter.DropDownStyle = ComboBoxStyle.DropDownList;
-            comboBoxFilter.Items.AddRange(new object[] { "전체 보기", "스로틀 최소값", "조향 범위", "모드 = 사용자", "이미지 없는 프레임" });
-            comboBoxFilter.Location = new Point(0, 61);
-            comboBoxFilter.Name = "comboBoxFilter";
-            comboBoxFilter.Size = new Size(280, 28);
-            comboBoxFilter.TabIndex = 9;
-            comboBoxFilter.SelectedIndexChanged += comboBoxFilter_SelectedIndexChanged;
-            //
             // lblAngleValue
             //
             lblAngleValue.Font = new Font("맑은 고딕", 13.8F);
+            lblAngleValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblAngleValue.Location = new Point(1287, 211);
             lblAngleValue.Name = "lblAngleValue";
             lblAngleValue.Size = new Size(273, 39);
@@ -513,89 +528,258 @@ namespace TeamApp
             lblAngleValue.Text = "조향값: 0.000";
             lblAngleValue.Click += lblAngleValue_Click;
             //
-            // tabPage2
+            // tabPageTraining
             //
-            tabPage2.Controls.Add(groupBox4);
-            tabPage2.Controls.Add(groupBox3);
-            tabPage2.Location = new Point(4, 29);
-            tabPage2.Name = "tabPage2";
-            tabPage2.Padding = new Padding(3, 3, 3, 3);
-            tabPage2.Size = new Size(1572, 887);
-            tabPage2.TabIndex = 1;
-            tabPage2.Text = "학습 실행";
-            tabPage2.UseVisualStyleBackColor = true;
-            tabPage2.Click += tabPage2_Click;
+            tabPageTraining.Controls.Add(statusStripTraining);
+            tabPageTraining.Controls.Add(grpTrainingLog);
+            tabPageTraining.Controls.Add(grpTrainingSettings);
+            tabPageTraining.Location = new Point(4, 29);
+            tabPageTraining.Name = "tabPageTraining";
+            tabPageTraining.Padding = new Padding(3);
+            tabPageTraining.Size = new Size(1572, 887);
+            tabPageTraining.TabIndex = 1;
+            tabPageTraining.Text = "학습 실행";
+            tabPageTraining.UseVisualStyleBackColor = true;
+            tabPageTraining.Click += tabPageTraining_Click;
             //
-            // groupBox3
+            // grpTrainingLog
             //
-            groupBox3.Controls.Add(textBox6);
-            groupBox3.Controls.Add(textBox4);
-            groupBox3.Controls.Add(textBox3);
-            groupBox3.Controls.Add(textBox2);
-            groupBox3.Controls.Add(label9);
-            groupBox3.Controls.Add(label8);
-            groupBox3.Controls.Add(label7);
-            groupBox3.Controls.Add(label6);
-            groupBox3.Controls.Add(label5);
-            groupBox3.Controls.Add(label4);
-            groupBox3.Controls.Add(button6);
-            groupBox3.Controls.Add(button5);
-            groupBox3.Controls.Add(button4);
-            groupBox3.Controls.Add(button3);
-            groupBox3.Controls.Add(button2);
-            groupBox3.Controls.Add(button1);
-            groupBox3.Location = new Point(15, 19);
-            groupBox3.Name = "groupBox3";
-            groupBox3.Size = new Size(1547, 501);
-            groupBox3.TabIndex = 0;
-            groupBox3.TabStop = false;
-            groupBox3.Text = "학습 설정";
+            grpTrainingLog.Controls.Add(rtbTrainingLog);
+            grpTrainingLog.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            grpTrainingLog.Location = new Point(15, 462);
+            grpTrainingLog.Margin = new Padding(10);
+            grpTrainingLog.Name = "grpTrainingLog";
+            grpTrainingLog.Size = new Size(1547, 390);
+            grpTrainingLog.TabIndex = 1;
+            grpTrainingLog.TabStop = false;
+            grpTrainingLog.Text = "학습 로그";
             //
-            // tabPage3
+            // grpTrainingSettings
             //
-            tabPage3.Controls.Add(panel1);
-            tabPage3.Controls.Add(lblDescription);
-            tabPage3.Location = new Point(4, 29);
-            tabPage3.Name = "tabPage3";
-            tabPage3.Padding = new Padding(3, 3, 3, 3);
-            tabPage3.Size = new Size(1572, 887);
-            tabPage3.TabIndex = 2;
-            tabPage3.Text = "그래프/통계";
-            tabPage3.UseVisualStyleBackColor = true;
+            grpTrainingSettings.Controls.Add(nudEpoch);
+            grpTrainingSettings.Controls.Add(cbxModelType);
+            grpTrainingSettings.Controls.Add(tbxTubPath);
+            grpTrainingSettings.Controls.Add(tbxModelPath);
+            grpTrainingSettings.Controls.Add(tbxMycarPath);
+            grpTrainingSettings.Controls.Add(tbxPythonPath);
+            grpTrainingSettings.Controls.Add(lblEpoch);
+            grpTrainingSettings.Controls.Add(lblModeType);
+            grpTrainingSettings.Controls.Add(lblModelPath);
+            grpTrainingSettings.Controls.Add(lblTubPath);
+            grpTrainingSettings.Controls.Add(lblMycarPath);
+            grpTrainingSettings.Controls.Add(lblPythonPath);
+            grpTrainingSettings.Controls.Add(btnSaveSettings);
+            grpTrainingSettings.Controls.Add(btnStopTraining);
+            grpTrainingSettings.Controls.Add(btnStartTraining);
+            grpTrainingSettings.Controls.Add(btnTubPath);
+            grpTrainingSettings.Controls.Add(btnMycarPath);
+            grpTrainingSettings.Controls.Add(btnPythonPath);
+            grpTrainingSettings.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            grpTrainingSettings.Location = new Point(15, 19);
+            grpTrainingSettings.Name = "grpTrainingSettings";
+            grpTrainingSettings.Size = new Size(1547, 437);
+            grpTrainingSettings.TabIndex = 0;
+            grpTrainingSettings.TabStop = false;
+            grpTrainingSettings.Text = "학습 설정";
             //
-            // panel1
+            // tbxTubPath
             //
-            panel1.Location = new Point(73, 75);
-            panel1.Name = "panel1";
-            panel1.Size = new Size(921, 408);
-            panel1.TabIndex = 1;
+            tbxTubPath.Font = new Font("맑은 고딕", 12F);
+            tbxTubPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            tbxTubPath.Location = new Point(218, 148);
+            tbxTubPath.Name = "tbxTubPath";
+            tbxTubPath.Size = new Size(1092, 34);
+            tbxTubPath.TabIndex = 16;
+            //
+            // tbxModelPath
+            //
+            tbxModelPath.Font = new Font("맑은 고딕", 12F);
+            tbxModelPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            tbxModelPath.Location = new Point(218, 199);
+            tbxModelPath.Name = "tbxModelPath";
+            tbxModelPath.Size = new Size(1092, 34);
+            tbxModelPath.TabIndex = 14;
+            //
+            // tbxMycarPath
+            //
+            tbxMycarPath.Font = new Font("맑은 고딕", 12F);
+            tbxMycarPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            tbxMycarPath.Location = new Point(218, 95);
+            tbxMycarPath.Name = "tbxMycarPath";
+            tbxMycarPath.Size = new Size(1092, 34);
+            tbxMycarPath.TabIndex = 13;
+            //
+            // tbxPythonPath
+            //
+            tbxPythonPath.Font = new Font("맑은 고딕", 12F);
+            tbxPythonPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            tbxPythonPath.Location = new Point(218, 43);
+            tbxPythonPath.Name = "tbxPythonPath";
+            tbxPythonPath.Size = new Size(1092, 34);
+            tbxPythonPath.TabIndex = 12;
+            //
+            // lblEpoch
+            //
+            lblEpoch.AutoSize = true;
+            lblEpoch.Font = new Font("맑은 고딕", 12F);
+            lblEpoch.Location = new Point(45, 308);
+            lblEpoch.Name = "lblEpoch";
+            lblEpoch.Size = new Size(99, 28);
+            lblEpoch.TabIndex = 11;
+            lblEpoch.Text = "학습 횟수";
+            //
+            // lblModeType
+            //
+            lblModeType.AutoSize = true;
+            lblModeType.Font = new Font("맑은 고딕", 12F);
+            lblModeType.Location = new Point(45, 254);
+            lblModeType.Name = "lblModeType";
+            lblModeType.Size = new Size(99, 28);
+            lblModeType.TabIndex = 10;
+            lblModeType.Text = "모델 종류";
+            //
+            // lblModelPath
+            //
+            lblModelPath.AutoSize = true;
+            lblModelPath.Font = new Font("맑은 고딕", 12F);
+            lblModelPath.Location = new Point(45, 202);
+            lblModelPath.Name = "lblModelPath";
+            lblModelPath.Size = new Size(146, 28);
+            lblModelPath.TabIndex = 9;
+            lblModelPath.Text = "모델 저장 경로";
+            //
+            // lblTubPath
+            //
+            lblTubPath.AutoSize = true;
+            lblTubPath.Font = new Font("맑은 고딕", 12F);
+            lblTubPath.Location = new Point(45, 151);
+            lblTubPath.Name = "lblTubPath";
+            lblTubPath.Size = new Size(94, 28);
+            lblTubPath.TabIndex = 8;
+            lblTubPath.Text = "Tub 경로";
+            //
+            // lblMycarPath
+            //
+            lblMycarPath.AutoSize = true;
+            lblMycarPath.Font = new Font("맑은 고딕", 12F);
+            lblMycarPath.Location = new Point(45, 98);
+            lblMycarPath.Name = "lblMycarPath";
+            lblMycarPath.Size = new Size(113, 28);
+            lblMycarPath.TabIndex = 7;
+            lblMycarPath.Text = "mycar 경로";
+            //
+            // lblPythonPath
+            //
+            lblPythonPath.AutoSize = true;
+            lblPythonPath.Font = new Font("맑은 고딕", 12F);
+            lblPythonPath.Location = new Point(45, 46);
+            lblPythonPath.Name = "lblPythonPath";
+            lblPythonPath.Size = new Size(119, 28);
+            lblPythonPath.TabIndex = 6;
+            lblPythonPath.Text = "파이썬 경로";
+            //
+            // btnSaveSettings
+            //
+            btnSaveSettings.Font = new Font("맑은 고딕", 12F);
+            btnSaveSettings.Location = new Point(1006, 368);
+            btnSaveSettings.Name = "btnSaveSettings";
+            btnSaveSettings.Size = new Size(194, 42);
+            btnSaveSettings.TabIndex = 5;
+            btnSaveSettings.Text = "설정 저장";
+            btnSaveSettings.UseVisualStyleBackColor = true;
+            //
+            // btnStopTraining
+            //
+            btnStopTraining.Font = new Font("맑은 고딕", 12F);
+            btnStopTraining.Location = new Point(672, 368);
+            btnStopTraining.Name = "btnStopTraining";
+            btnStopTraining.Size = new Size(194, 42);
+            btnStopTraining.TabIndex = 4;
+            btnStopTraining.Text = "학습 중지";
+            btnStopTraining.UseVisualStyleBackColor = true;
+            //
+            // btnStartTraining
+            //
+            btnStartTraining.Font = new Font("맑은 고딕", 12F);
+            btnStartTraining.Location = new Point(337, 368);
+            btnStartTraining.Name = "btnStartTraining";
+            btnStartTraining.Size = new Size(194, 42);
+            btnStartTraining.TabIndex = 3;
+            btnStartTraining.Text = "학습 시작";
+            btnStartTraining.UseVisualStyleBackColor = true;
+            //
+            // btnTubPath
+            //
+            btnTubPath.Font = new Font("맑은 고딕", 12F);
+            btnTubPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnTubPath.Location = new Point(1334, 135);
+            btnTubPath.Name = "btnTubPath";
+            btnTubPath.Size = new Size(123, 42);
+            btnTubPath.TabIndex = 2;
+            btnTubPath.Text = "Tub 선택";
+            btnTubPath.UseVisualStyleBackColor = true;
+            //
+            // btnMycarPath
+            //
+            btnMycarPath.Font = new Font("맑은 고딕", 12F);
+            btnMycarPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnMycarPath.Location = new Point(1334, 87);
+            btnMycarPath.Name = "btnMycarPath";
+            btnMycarPath.Size = new Size(123, 42);
+            btnMycarPath.TabIndex = 1;
+            btnMycarPath.Text = "찾기";
+            btnMycarPath.UseVisualStyleBackColor = true;
+            btnMycarPath.Click += btnMycarPath_Click;
+            //
+            // btnPythonPath
+            //
+            btnPythonPath.Font = new Font("맑은 고딕", 12F);
+            btnPythonPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnPythonPath.Location = new Point(1334, 39);
+            btnPythonPath.Name = "btnPythonPath";
+            btnPythonPath.Size = new Size(123, 42);
+            btnPythonPath.TabIndex = 0;
+            btnPythonPath.Text = "찾기";
+            btnPythonPath.UseVisualStyleBackColor = true;
+            //
+            // tabPageGraphStats
+            //
+            tabPageGraphStats.Controls.Add(pnlGraphStats);
+            tabPageGraphStats.Controls.Add(lblDescription);
+            tabPageGraphStats.Location = new Point(4, 29);
+            tabPageGraphStats.Name = "tabPageGraphStats";
+            tabPageGraphStats.Padding = new Padding(3);
+            tabPageGraphStats.Size = new Size(1572, 887);
+            tabPageGraphStats.TabIndex = 2;
+            tabPageGraphStats.Text = "그래프/통계";
+            tabPageGraphStats.UseVisualStyleBackColor = true;
+            //
+            // pnlGraphStats
+            //
+            pnlGraphStats.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            pnlGraphStats.Location = new Point(73, 75);
+            pnlGraphStats.Name = "pnlGraphStats";
+            pnlGraphStats.Size = new Size(921, 408);
+            pnlGraphStats.TabIndex = 1;
             //
             // lblDescription
             //
             lblDescription.AutoSize = true;
+            lblDescription.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             lblDescription.Location = new Point(73, 27);
             lblDescription.Name = "lblDescription";
             lblDescription.Size = new Size(921, 20);
             lblDescription.TabIndex = 0;
             lblDescription.Text = "조향값과 스로틀값 변화 추이를 시각화합니다. 파란색은 조향, 초록색은 스로틀입니다. 필터 적용 후 보이는 데이터 기준으로 갱신됩니다.";
             //
-            // tabPage4
+            // statusStripDataViewer
             //
-            tabPage4.Location = new Point(4, 29);
-            tabPage4.Name = "tabPage4";
-            tabPage4.Size = new Size(1572, 887);
-            tabPage4.TabIndex = 3;
-            tabPage4.Text = "tabPage4";
-            tabPage4.UseVisualStyleBackColor = true;
-            //
-            // statusStrip1
-            //
-            statusStrip1.ImageScalingSize = new Size(20, 20);
-            statusStrip1.Items.AddRange(new ToolStripItem[] { toolStripStatusLabelPath, toolStripStatusLabelFrames });
-            statusStrip1.Location = new Point(0, 0);
-            statusStrip1.Name = "statusStrip1";
-            statusStrip1.Size = new Size(200, 22);
-            statusStrip1.TabIndex = 0;
+            statusStripDataViewer.ImageScalingSize = new Size(20, 20);
+            statusStripDataViewer.Items.AddRange(new ToolStripItem[] { toolStripStatusLabelPath, toolStripStatusLabelFrames });
+            statusStripDataViewer.Location = new Point(0, 0);
+            statusStripDataViewer.Name = "statusStripDataViewer";
+            statusStripDataViewer.Size = new Size(200, 22);
+            statusStripDataViewer.TabIndex = 0;
             //
             // toolStripStatusLabelPath
             //
@@ -609,279 +793,164 @@ namespace TeamApp
             toolStripStatusLabelFrames.Size = new Size(72, 16);
             toolStripStatusLabelFrames.Text = "Frames: 0";
             //
-            // groupBox4
+            // cbxModelType
             //
-            groupBox4.Location = new Point(15, 526);
-            groupBox4.Name = "groupBox4";
-            groupBox4.Size = new Size(1547, 355);
-            groupBox4.TabIndex = 1;
-            groupBox4.TabStop = false;
-            groupBox4.Text = "학습 로그";
+            cbxModelType.Font = new Font("맑은 고딕", 12F);
+            cbxModelType.FormattingEnabled = true;
+            cbxModelType.Location = new Point(218, 251);
+            cbxModelType.Name = "cbxModelType";
+            cbxModelType.Size = new Size(391, 36);
+            cbxModelType.TabIndex = 2;
             //
-            // button1
+            // nudEpoch
             //
-            button1.Font = new Font("맑은 고딕", 12F);
-            button1.Location = new Point(1334, 39);
-            button1.Name = "button1";
-            button1.Size = new Size(123, 42);
-            button1.TabIndex = 0;
-            button1.Text = "button1";
-            button1.UseVisualStyleBackColor = true;
+            nudEpoch.Font = new Font("맑은 고딕", 12F);
+            nudEpoch.Location = new Point(218, 306);
+            nudEpoch.Name = "nudEpoch";
+            nudEpoch.Size = new Size(391, 34);
+            nudEpoch.TabIndex = 17;
             //
-            // button2
+            // rtbTrainingLog
             //
-            button2.Font = new Font("맑은 고딕", 12F);
-            button2.Location = new Point(1334, 87);
-            button2.Name = "button2";
-            button2.Size = new Size(123, 42);
-            button2.TabIndex = 1;
-            button2.Text = "button2";
-            button2.UseVisualStyleBackColor = true;
+            rtbTrainingLog.Dock = DockStyle.Fill;
+            rtbTrainingLog.Location = new Point(3, 23);
+            rtbTrainingLog.Name = "rtbTrainingLog";
+            rtbTrainingLog.Size = new Size(1541, 364);
+            rtbTrainingLog.TabIndex = 0;
+            rtbTrainingLog.Text = "";
             //
-            // button3
+            // statusStripTraining
             //
-            button3.Font = new Font("맑은 고딕", 12F);
-            button3.Location = new Point(1334, 135);
-            button3.Name = "button3";
-            button3.Size = new Size(123, 42);
-            button3.TabIndex = 2;
-            button3.Text = "button3";
-            button3.UseVisualStyleBackColor = true;
+            statusStripTraining.ImageScalingSize = new Size(20, 20);
+            statusStripTraining.Items.AddRange(new ToolStripItem[] { toolStripStatusLabelTraining });
+            statusStripTraining.Dock = DockStyle.Bottom;
+            statusStripTraining.Location = new Point(3, 858);
+            statusStripTraining.Name = "statusStripTraining";
+            statusStripTraining.Size = new Size(1566, 26);
+            statusStripTraining.TabIndex = 2;
+            statusStripTraining.Text = "statusStripTraining";
             //
-            // button4
+            // toolStripStatusLabelTraining
             //
-            button4.Font = new Font("맑은 고딕", 12F);
-            button4.Location = new Point(553, 416);
-            button4.Name = "button4";
-            button4.Size = new Size(123, 42);
-            button4.TabIndex = 3;
-            button4.Text = "button4";
-            button4.UseVisualStyleBackColor = true;
-            //
-            // button5
-            //
-            button5.Font = new Font("맑은 고딕", 12F);
-            button5.Location = new Point(682, 416);
-            button5.Name = "button5";
-            button5.Size = new Size(123, 42);
-            button5.TabIndex = 4;
-            button5.Text = "button5";
-            button5.UseVisualStyleBackColor = true;
-            //
-            // button6
-            //
-            button6.Font = new Font("맑은 고딕", 12F);
-            button6.Location = new Point(811, 416);
-            button6.Name = "button6";
-            button6.Size = new Size(123, 42);
-            button6.TabIndex = 5;
-            button6.Text = "button6";
-            button6.UseVisualStyleBackColor = true;
-            //
-            // label4
-            //
-            label4.AutoSize = true;
-            label4.Font = new Font("맑은 고딕", 12F);
-            label4.Location = new Point(45, 46);
-            label4.Name = "label4";
-            label4.Size = new Size(119, 28);
-            label4.TabIndex = 6;
-            label4.Text = "파이썬 경로";
-            //
-            // label5
-            //
-            label5.AutoSize = true;
-            label5.Font = new Font("맑은 고딕", 12F);
-            label5.Location = new Point(45, 98);
-            label5.Name = "label5";
-            label5.Size = new Size(113, 28);
-            label5.TabIndex = 7;
-            label5.Text = "mycar 경로";
-            //
-            // label6
-            //
-            label6.AutoSize = true;
-            label6.Font = new Font("맑은 고딕", 12F);
-            label6.Location = new Point(45, 151);
-            label6.Name = "label6";
-            label6.Size = new Size(94, 28);
-            label6.TabIndex = 8;
-            label6.Text = "Tub 경로";
-            //
-            // label7
-            //
-            label7.AutoSize = true;
-            label7.Font = new Font("맑은 고딕", 12F);
-            label7.Location = new Point(45, 202);
-            label7.Name = "label7";
-            label7.Size = new Size(146, 28);
-            label7.TabIndex = 9;
-            label7.Text = "모델 저장 경로";
-            //
-            // label8
-            //
-            label8.AutoSize = true;
-            label8.Font = new Font("맑은 고딕", 12F);
-            label8.Location = new Point(45, 254);
-            label8.Name = "label8";
-            label8.Size = new Size(99, 28);
-            label8.TabIndex = 10;
-            label8.Text = "모델 종류";
-            //
-            // label9
-            //
-            label9.AutoSize = true;
-            label9.Font = new Font("맑은 고딕", 12F);
-            label9.Location = new Point(45, 308);
-            label9.Name = "label9";
-            label9.Size = new Size(67, 28);
-            label9.TabIndex = 11;
-            label9.Text = "Epoch";
-            //
-            // textBox2
-            //
-            textBox2.Font = new Font("맑은 고딕", 12F);
-            textBox2.Location = new Point(218, 43);
-            textBox2.Name = "textBox2";
-            textBox2.Size = new Size(1092, 34);
-            textBox2.TabIndex = 12;
-            //
-            // textBox3
-            //
-            textBox3.Font = new Font("맑은 고딕", 12F);
-            textBox3.Location = new Point(218, 95);
-            textBox3.Name = "textBox3";
-            textBox3.Size = new Size(1092, 34);
-            textBox3.TabIndex = 13;
-            //
-            // textBox4
-            //
-            textBox4.Font = new Font("맑은 고딕", 12F);
-            textBox4.Location = new Point(218, 199);
-            textBox4.Name = "textBox4";
-            textBox4.Size = new Size(1092, 34);
-            textBox4.TabIndex = 14;
-            //
-            // textBox6
-            //
-            textBox6.Font = new Font("맑은 고딕", 12F);
-            textBox6.Location = new Point(218, 148);
-            textBox6.Name = "textBox6";
-            textBox6.Size = new Size(1092, 34);
-            textBox6.TabIndex = 16;
+            toolStripStatusLabelTraining.Name = "toolStripStatusLabelTraining";
+            toolStripStatusLabelTraining.Size = new Size(102, 20);
+            toolStripStatusLabelTraining.Text = "Tub 경로: C:\\";
+            toolStripStatusLabelTraining.Click += toolStripStatusLabelTraining_Click;
             //
             // Form1
             //
             AutoScaleDimensions = new SizeF(9F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1581, 953);
-            Controls.Add(tabControl1);
-            Controls.Add(menuStrip1);
-            MainMenuStrip = menuStrip1;
-            Margin = new Padding(4, 4, 4, 4);
+            MinimumSize = new Size(1000, 700);
+            Controls.Add(tabControlMain);
+            Controls.Add(menuStripMain);
+            MainMenuStrip = menuStripMain;
+            Margin = new Padding(4);
             Name = "Form1";
             Text = "Data Manager";
             Load += Form1_Load;
-            menuStrip1.ResumeLayout(false);
-            menuStrip1.PerformLayout();
-            tabControl1.ResumeLayout(false);
-            tabPage1.ResumeLayout(false);
-            groupBox2.ResumeLayout(false);
-            groupBox2.PerformLayout();
+            menuStripMain.ResumeLayout(false);
+            menuStripMain.PerformLayout();
+            tabControlMain.ResumeLayout(false);
+            tabPageDataViewer.ResumeLayout(false);
+            grpTubCleaner.ResumeLayout(false);
+            grpTubCleaner.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)numFilterMax).EndInit();
             ((System.ComponentModel.ISupportInitialize)numFilterMin).EndInit();
-            groupBox1.ResumeLayout(false);
-            groupBox1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)trackBarMain).EndInit();
-            ((System.ComponentModel.ISupportInitialize)numericUpDownInterval).EndInit();
-            ((System.ComponentModel.ISupportInitialize)pbMainPreview).EndInit();
-            tabPage2.ResumeLayout(false);
-            groupBox3.ResumeLayout(false);
-            groupBox3.PerformLayout();
-            tabPage3.ResumeLayout(false);
-            tabPage3.PerformLayout();
-            statusStrip1.ResumeLayout(false);
-            statusStrip1.PerformLayout();
+            grpTubExplorer.ResumeLayout(false);
+            grpTubExplorer.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)trkFramePosition).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numPlaybackInterval).EndInit();
+            ((System.ComponentModel.ISupportInitialize)picMainPreview).EndInit();
+            tabPageTraining.ResumeLayout(false);
+            tabPageTraining.PerformLayout();
+            grpTrainingLog.ResumeLayout(false);
+            grpTrainingSettings.ResumeLayout(false);
+            grpTrainingSettings.PerformLayout();
+            tabPageGraphStats.ResumeLayout(false);
+            tabPageGraphStats.PerformLayout();
+            statusStripDataViewer.ResumeLayout(false);
+            statusStripDataViewer.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)nudEpoch).EndInit();
+            statusStripTraining.ResumeLayout(false);
+            statusStripTraining.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
 
         #endregion
 
-        private MenuStrip menuStrip1;
-        private ToolStripMenuItem 파일ToolStripMenuItem;
-        private ToolStripMenuItem 보기ToolStripMenuItem;
-        private ToolStripMenuItem 도움말ToolStripMenuItem;
-        private TabControl tabControl1;
-        private TabPage tabPage1;
-        private TabPage tabPage3;
-        private PictureBox pictureBox1;
-        private ListBox listBox1;
-        private Label lblStatus;
-        private TrackBar trackBar1;
-        private Button btnStart;
-        private Button btnStop;
-        private CheckBox chkShowImage;
+        private MenuStrip menuStripMain;
+        private ToolStripMenuItem mnuFile;
+        private ToolStripMenuItem mnuView;
+        private ToolStripMenuItem mnuHelp;
+        private TabControl tabControlMain;
+        private TabPage tabPageDataViewer;
+        private TabPage tabPageGraphStats;
         private Button btnOpenFolder;
         private Button btnReload;
         private Button btnToggleTheme;
         private Button btnGuide;
-        private PictureBox pbMainPreview;
+        private PictureBox picMainPreview;
         private Label lblFrameValue;
         private Label lblAngleValue;
         private Label lblThrottleValue;
         private Label lblModeValue;
-        private ComboBox comboBoxFilter;
-        private NumericUpDown numericUpDownInterval;
+        private NumericUpDown numPlaybackInterval;
         private Button btnApplyFilter;
-        private ListBox listBoxData;
+        private ListBox lstFrameData;
         private Button btnFirst;
         private Button btnPrev;
         private Button btnNext;
         private Button btnLast;
-        private TrackBar trackBarMain;
-        private StatusStrip statusStrip1;
+        private TrackBar trkFramePosition;
+        private StatusStrip statusStripDataViewer;
         private ToolStripStatusLabel toolStripStatusLabelPath;
         private ToolStripStatusLabel toolStripStatusLabelFrames;
         private Button btnClearFilter;
         private Label lblDescription;
-        private Panel panel1;
-        private ToolStripMenuItem 테마전환ToolStripMenuItem;
-        private ToolStripMenuItem 그래프테ToolStripMenuItem;
-        private ToolStripMenuItem 단계별가이드ToolStripMenuItem;
-        private ToolStripMenuItem 데이터폴더열기ToolStripMenuItem;
-        private ToolStripMenuItem 다시불러오기ToolStripMenuItem;
-        private ToolStripMenuItem 종료ToolStripMenuItem;
+        private Panel pnlGraphStats;
+        private ToolStripMenuItem mnuToggleTheme;
+        private ToolStripMenuItem mnuOpenGraphStats;
+        private ToolStripMenuItem mnuOpenGuide;
+        private ToolStripMenuItem mnuOpenDataFolder;
+        private ToolStripMenuItem mnuReloadData;
+        private ToolStripMenuItem mnuExit;
         private Button btnAutoPlay;
-        private Label label1;
-        private GroupBox groupBox1;
-        private GroupBox groupBox2;
+        private Label lblPlayInterval;
+        private GroupBox grpTubExplorer;
+        private GroupBox grpTubCleaner;
         private NumericUpDown numFilterMax;
         private NumericUpDown numFilterMin;
-        private TextBox textBox1;
-        private Label label3;
-        private Label label2;
+        private TextBox txtTubCleanerPath;
+        private Label lblFilterMax;
+        private Label lblFilterMin;
         private Button btnRepair;
         private Button btnReloadTub;
-        private TabPage tabPage2;
-        private TabPage tabPage4;
-        private GroupBox groupBox3;
-        private GroupBox groupBox4;
-        private Label label9;
-        private Label label8;
-        private Label label7;
-        private Label label6;
-        private Label label5;
-        private Label label4;
-        private Button button6;
-        private Button button5;
-        private Button button4;
-        private Button button3;
-        private Button button2;
-        private Button button1;
-        private TextBox textBox6;
-        private TextBox textBox4;
-        private TextBox textBox3;
-        private TextBox textBox2;
+        private TabPage tabPageTraining;
+        private GroupBox grpTrainingSettings;
+        private GroupBox grpTrainingLog;
+        private Label lblEpoch;
+        private Label lblModeType;
+        private Label lblModelPath;
+        private Label lblTubPath;
+        private Label lblMycarPath;
+        private Label lblPythonPath;
+        private Button btnSaveSettings;
+        private Button btnStopTraining;
+        private Button btnStartTraining;
+        private Button btnTubPath;
+        private Button btnMycarPath;
+        private Button btnPythonPath;
+        private TextBox tbxTubPath;
+        private TextBox tbxModelPath;
+        private TextBox tbxMycarPath;
+        private TextBox tbxPythonPath;
+        private NumericUpDown nudEpoch;
+        private ComboBox cbxModelType;
+        private RichTextBox rtbTrainingLog;
+        private StatusStrip statusStripTraining;
+        private ToolStripStatusLabel toolStripStatusLabelTraining;
     }
 }
