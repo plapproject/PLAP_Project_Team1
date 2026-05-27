@@ -566,12 +566,12 @@
             // 
             // groupBox3
             // 
-            groupBox3.Location = new Point(16, 19);
+            groupBox3.Location = new Point(6, 6);
             groupBox3.Name = "groupBox3";
             groupBox3.Size = new Size(1550, 79);
             groupBox3.TabIndex = 0;
             groupBox3.TabStop = false;
-            groupBox3.Text = "groupBox3";
+            groupBox3.Text = "설정 편집기";
             // 
             // Form1
             // 
