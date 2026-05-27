@@ -26,13 +26,13 @@ namespace TeamApp
 
             playTimer = new System.Windows.Forms.Timer();
             playTimer.Tick += PlayTimer_Tick;
-            // interval will be taken from numericUpDownInterval when playing
+            // interval will be taken from numPlaybackInterval when playing
 
             // ensure status strip is added
-            if (statusStrip1 != null && !this.Controls.Contains(statusStrip1))
+            if (statusStripDataViewer != null && !this.Controls.Contains(statusStripDataViewer))
             {
-                statusStrip1.Dock = DockStyle.Bottom;
-                this.Controls.Add(statusStrip1);
+                statusStripDataViewer.Dock = DockStyle.Bottom;
+                this.Controls.Add(statusStripDataViewer);
             }
         }
 
@@ -65,8 +65,8 @@ namespace TeamApp
 
         private void btnGuide_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("Data Manager ì‚¬ìš© ìˆœì„œ\n\n1. ë°ì´í„° ë·°ì–´ íƒ­ì—ì„œ data í´ë”ë¥¼ ì—½ë‹ˆë‹¤.\n2. ì´ë¯¸ì§€, Angle, Throttle ê°’ì„ í™•ì¸í•©ë‹ˆë‹¤.\n3. Throttle > 0 ë˜ëŠ” Angle ë²”ìœ„ í•„í„°ë¡œ í•™ìŠµ í’ˆì§ˆì„ ì ê²€í•©ë‹ˆë‹¤.\n4. ë¶ˆëŸ‰ í”„ë ˆìž„ì€ ì‚­ì œ í›„ catalogë¥¼ ì €ìž¥í•©ë‹ˆë‹¤.\n5. í•™ìŠµ ì‹¤í–‰ íƒ­ì—ì„œ Python ê²½ë¡œì™€ mycar ê²½ë¡œë¥¼ ì§€ì •í•©ë‹ˆë‹¤.\n6. í•™ìŠµ ì‹œìž‘ì„ ëˆŒëŸ¬ train.py ë¡œê·¸ë¥¼ í™•ì¸í•©ë‹ˆë‹¤.",
-            "ë‹¨ê³„ë³„ ê°€ì´ë“œ", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("Data Manager ?¬ìš© ?œì„œ\n\n1. ?°ì´??ë·°ì–´ ??—??data ?´ë”ë¥??½ë‹ˆ??\n2. ?´ë?ì§€, Angle, Throttle ê°’ì„ ?•ì¸?©ë‹ˆ??\n3. Throttle > 0 ?ëŠ” Angle ë²”ìœ„ ?„í„°ë¡??™ìŠµ ?ˆì§ˆ???ê??©ë‹ˆ??\n4. ë¶ˆëŸ‰ ?„ë ˆ?„ì? ?? œ ??catalogë¥??€?¥í•©?ˆë‹¤.\n5. ?™ìŠµ ?¤í–‰ ??—??Python ê²½ë¡œ?€ mycar ê²½ë¡œë¥?ì§€?•í•©?ˆë‹¤.\n6. ?™ìŠµ ?œìž‘???ŒëŸ¬ train.py ë¡œê·¸ë¥??•ì¸?©ë‹ˆ??",
+            "?¨ê³„ë³?ê°€?´ë“œ", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void btnApplyFilter_Click(object sender, EventArgs e)
@@ -74,18 +74,18 @@ namespace TeamApp
             ApplyFilter();
         }
 
-        private void listBoxData_SelectedIndexChanged(object sender, EventArgs e)
+        private void lstFrameData_SelectedIndexChanged(object? sender, EventArgs e)
         {
-            int idx = listBoxData.SelectedIndex;
+            int idx = lstFrameData.SelectedIndex;
             if (idx >= 0 && idx < filteredFrames.Count)
             {
                 SetIndex(idx);
             }
         }
 
-        private void trackBarMain_Scroll(object sender, EventArgs e)
+        private void trkFramePosition_Scroll(object sender, EventArgs e)
         {
-            int idx = trackBarMain.Value;
+            int idx = trkFramePosition.Value;
             if (idx >= 0 && idx < filteredFrames.Count)
             {
                 SetIndex(idx);
@@ -221,23 +221,23 @@ namespace TeamApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show("í´ë” ë¡œë“œ ì¤‘ ì˜¤ë¥˜: " + ex.Message);
+                MessageBox.Show("?´ë” ë¡œë“œ ì¤??¤ë¥˜: " + ex.Message);
             }
         }
 
         private void RefreshListBinding()
         {
-            listBoxData.BeginUpdate();
-            listBoxData.Items.Clear();
+            lstFrameData.BeginUpdate();
+            lstFrameData.Items.Clear();
             for (int i = 0; i < filteredFrames.Count; i++)
             {
                 var f = filteredFrames[i];
-                listBoxData.Items.Add($"{i:0000} - {f.Name}");
+                lstFrameData.Items.Add($"{i:0000} - {f.Name}");
             }
-            listBoxData.EndUpdate();
+            lstFrameData.EndUpdate();
 
-            trackBarMain.Minimum = 0;
-            trackBarMain.Maximum = Math.Max(0, filteredFrames.Count - 1);
+            trkFramePosition.Minimum = 0;
+            trkFramePosition.Maximum = Math.Max(0, filteredFrames.Count - 1);
             UpdateStatusLabels();
         }
 
@@ -247,13 +247,13 @@ namespace TeamApp
             idx = Math.Max(0, Math.Min(filteredFrames.Count - 1, idx));
             currentIndex = idx;
             // update selection without triggering events
-            listBoxData.SelectedIndexChanged -= listBoxData_SelectedIndexChanged;
-            listBoxData.SelectedIndex = idx;
-            listBoxData.SelectedIndexChanged += listBoxData_SelectedIndexChanged;
+            lstFrameData.SelectedIndexChanged -= lstFrameData_SelectedIndexChanged;
+            lstFrameData.SelectedIndex = idx;
+            lstFrameData.SelectedIndexChanged += lstFrameData_SelectedIndexChanged;
 
-            if (trackBarMain.Value != idx)
+            if (trkFramePosition.Value != idx)
             {
-                trackBarMain.Value = idx;
+                trkFramePosition.Value = idx;
             }
 
             var frame = filteredFrames[idx];
@@ -271,8 +271,8 @@ namespace TeamApp
             {
                 if (!File.Exists(path))
                 {
-                    pbMainPreview.Image?.Dispose();
-                    pbMainPreview.Image = null;
+                    picMainPreview.Image?.Dispose();
+                    picMainPreview.Image = null;
                     return;
                 }
 
@@ -282,8 +282,8 @@ namespace TeamApp
                 var bmp = new Bitmap(img);
                 img.Dispose();
 
-                var old = pbMainPreview.Image;
-                pbMainPreview.Image = bmp;
+                var old = picMainPreview.Image;
+                picMainPreview.Image = bmp;
                 old?.Dispose();
             }
             catch
@@ -301,7 +301,7 @@ namespace TeamApp
             }
             else
             {
-                playTimer.Interval = (int)numericUpDownInterval.Value;
+                playTimer.Interval = (int)numPlaybackInterval.Value;
                 playTimer.Start();
                 isPlaying = true;
             }
@@ -318,8 +318,8 @@ namespace TeamApp
                 ApplyThemeToControl(c, back, fore);
             }
             // ensure status strip colors
-            statusStrip1.BackColor = back;
-            statusStrip1.ForeColor = fore;
+            statusStripDataViewer.BackColor = back;
+            statusStripDataViewer.ForeColor = fore;
         }
 
         private void ApplyThemeToControl(Control c, Color back, Color fore)
@@ -342,34 +342,26 @@ namespace TeamApp
         {
             if (originalFrames == null || originalFrames.Count == 0) return;
 
-            string selectedFilter = cbx.SelectedItem?.ToString() ?? "ì „ì²´ ë³´ê¸°";
             double minValue = (double)numFilterMin.Value;
             double maxValue = (double)numFilterMax.Value;
 
             if (minValue > maxValue)
             {
                 MessageBox.Show(
-                    "ìµœì†Ÿê°’ì€ ìµœëŒ“ê°’ë³´ë‹¤ í´ ìˆ˜ ì—†ìŠµë‹ˆë‹¤. í•„í„° ë²”ìœ„ë¥¼ ë‹¤ì‹œ í™•ì¸í•´ ì£¼ì„¸ìš”.",
-                    "í•„í„° ë²”ìœ„ ì˜¤ë¥˜",
+                    "ÃÖ¼Ú°ªÀº ÃÖ´ñ°ªº¸´Ù Å¬ ¼ö ¾ø½À´Ï´Ù. ÇÊÅÍ ¹üÀ§¸¦ ´Ù½Ã È®ÀÎÇØ ÁÖ¼¼¿ä.",
+                    "ÇÊÅÍ ¹üÀ§ ¿À·ù",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
             }
 
+            // ÇöÀç È­¸é¿¡´Â ÃÖ¼Ú°ª/ÃÖ´ñ°ª ÀÔ·Â¸¸ ÀÖÀ¸¹Ç·Î ½º·ÎÆ² ¹üÀ§ ±âÁØÀ¸·Î ÇÊÅÍ¸µÇÕ´Ï´Ù.
             filteredFrames = originalFrames.Where(f =>
-            {
-                // ì„ íƒëœ í•„í„° ì´ë¦„ì€ ë””ìžì´ë„ˆì˜ ì½¤ë³´ë°•ìŠ¤ í•­ëª©ê³¼ ë§žì¶° ë‘¡ë‹ˆë‹¤.
-                if (selectedFilter == "ìŠ¤ë¡œí‹€ ìµœì†Œê°’") return f.Throttle >= minValue;
-                if (selectedFilter == "ì¡°í–¥ ë²”ìœ„") return f.Angle >= minValue && f.Angle <= maxValue;
-                if (selectedFilter == "ëª¨ë“œ = ì‚¬ìš©ìž") return string.Equals(f.Mode, "user", StringComparison.OrdinalIgnoreCase);
-                if (selectedFilter == "ì´ë¯¸ì§€ ì—†ëŠ” í”„ë ˆìž„") return !File.Exists(f.ImagePath);
-                return true;
-            }).ToList();
+                f.Throttle >= minValue && f.Throttle <= maxValue).ToList();
 
             RefreshListBinding();
             SetIndex(0);
         }
-
         private void UpdateStatusLabels()
         {
             toolStripStatusLabelFrames.Text = $"Frames: {originalFrames?.Count ?? 0}";
@@ -390,27 +382,21 @@ namespace TeamApp
 
         }
 
-        private void tabPage2_Click(object sender, EventArgs e)
+        private void tabPageTraining_Click(object sender, EventArgs e)
         {
 
         }
 
-        private void label2_Click(object sender, EventArgs e)
+        private void mnuHelp_Click(object sender, EventArgs e)
         {
 
         }
 
-        private void ë„ì›€ë§ToolStripMenuItem_Click(object sender, EventArgs e)
+        private void mnuOpenGraphStats_Click(object sender, EventArgs e)
         {
-
+            tabControlMain.SelectedTab = tabPageGraphStats;
         }
-
-        private void ê·¸ëž˜í”„í…ŒToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void button3_Click(object sender, EventArgs e)
+        private void btnAutoPlay_Click(object sender, EventArgs e)
         {
 
         }
@@ -425,7 +411,7 @@ namespace TeamApp
 
         }
 
-        private void label1_Click(object sender, EventArgs e)
+        private void lblPlayInterval_Click(object sender, EventArgs e)
         {
 
         }
@@ -435,12 +421,12 @@ namespace TeamApp
 
         }
 
-        private void toolStripStatusLabel1_Click(object sender, EventArgs e)
+        private void toolStripStatusLabelTraining_Click(object sender, EventArgs e)
         {
 
         }
 
-        private void button2_Click(object sender, EventArgs e)
+        private void btnMycarPath_Click(object sender, EventArgs e)
         {
 
         }
