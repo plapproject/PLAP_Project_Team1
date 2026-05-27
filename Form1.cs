@@ -22,6 +22,9 @@ namespace TeamApp
         private bool isPlaying = false;
         private bool isDarkTheme = false;
 
+        // ── 현재 열려 있는 폴더 경로 (이미지 경로 조합에 사용) ──────────────────────
+        private string _currentFolderPath = "";
+
         // ── ScottPlot 그래프 관련 필드 ────────────────────────────────────────────
         private FormsPlot? _formsPlot;      // tabPage3에 동적으로 생성되는 차트 컨트롤
         private bool _chartDirty = true;    // true이면 tabPage3 진입 시 RenderChart() 실행
@@ -86,14 +89,21 @@ namespace TeamApp
         {
             using var dlg = new FolderBrowserDialog();
             if (dlg.ShowDialog() != DialogResult.OK) return;
-            _ = LoadFolderAsync(dlg.SelectedPath);
+
+            // 항상 이미지 파일 기준 로더 사용 (catalog 유무 자동 판별)
+            _ = LoadCatalogAsync(dlg.SelectedPath);
         }
 
         private void btnReload_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrEmpty(toolStripStatusLabelPath.Text) || toolStripStatusLabelPath.Text == "경로: -") return;
-            string path = toolStripStatusLabelPath.Text.Replace("경로: ", "").Trim();
-            if (Directory.Exists(path)) _ = LoadFolderAsync(path);
+            // _currentFolderPath 우선 사용, 없으면 상태 표시줄에서 경로 추출
+            string path = _currentFolderPath;
+            if (string.IsNullOrEmpty(path))
+            {
+                if (string.IsNullOrEmpty(toolStripStatusLabelPath.Text) || toolStripStatusLabelPath.Text == "경로: -") return;
+                path = toolStripStatusLabelPath.Text.Replace("경로: ", "").Trim();
+            }
+            if (Directory.Exists(path)) _ = LoadCatalogAsync(path);
         }
 
         private void btnToggleTheme_Click(object sender, EventArgs e) => ToggleTheme();
@@ -164,7 +174,7 @@ namespace TeamApp
 
         private void listBoxData_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (listBoxData.SelectedItem == null || currentIndex < 0) return;
+            if (listBoxData.SelectedItem == null) return;
             int idx = listBoxData.SelectedIndex;
             if (idx >= 0 && idx < filteredFrames.Count)
                 SetIndex(idx);
@@ -371,7 +381,11 @@ namespace TeamApp
                 trackBarMain.Value = idx;
 
             var frame = filteredFrames[idx];
-            UpdatePreviewImage(frame.ImagePath);
+
+            // ── 이미지 경로 조합: _currentFolderPath + Name 우선, 하위 images 폴더도 탐색 ──
+            string resolvedImagePath = ResolveImagePath(frame.Name);
+            UpdatePreviewImage(resolvedImagePath);
+
             lblFrameValue.Text = $"Frame: {idx + 1} / {filteredFrames.Count}";
             lblAngleValue.Text = $"조향값: {frame.Angle:0.000}";
             lblThrottleValue.Text = $"스로틀값: {frame.Throttle:0.000}";
@@ -379,11 +393,32 @@ namespace TeamApp
             UpdateStatusLabels();
         }
 
+        /// <summary>
+        /// _currentFolderPath와 파일명을 조합하여 실제 이미지 절대 경로를 찾습니다.
+        /// 1) folderPath 직접 → 2) folderPath\images 하위 폴더
+        /// 둘 다 없으면 빈 문자열 반환
+        /// </summary>
+        private string ResolveImagePath(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(_currentFolderPath))
+                return string.Empty;
+
+            // 1) 카탈로그와 같은 폴더에 있는지
+            string path1 = Path.Combine(_currentFolderPath, fileName);
+            if (File.Exists(path1)) return path1;
+
+            // 2) 하위 images 폴더에 있는지
+            string path2 = Path.Combine(_currentFolderPath, "images", fileName);
+            if (File.Exists(path2)) return path2;
+
+            return string.Empty; // 이미지 없음
+        }
+
         private void UpdatePreviewImage(string path)
         {
             try
             {
-                if (!File.Exists(path))
+                if (string.IsNullOrEmpty(path) || !File.Exists(path))
                 {
                     pbMainPreview.Image?.Dispose();
                     pbMainPreview.Image = null;
@@ -596,17 +631,255 @@ namespace TeamApp
             public string Name { get; set; } = string.Empty;
 
             /// <summary>
-            /// 화면 표시 전용 프로퍼티. ListBox 바인딩에 사용됩니다.
-            /// 삭제된 항목은 [X] 접두어가 붙어 시각적으로 구분됩니다.
-            /// </summary>
-            public string DisplayName => IsDeleted ? $"[X] {Name}" : Name;
-
-            /// <summary>
             /// Soft Delete 플래그.
             /// true이면 삭제 대상으로 마킹되었지만 실제 파일은 보존됩니다.
             /// RestoreAll()로 언제든 false로 되돌릴 수 있습니다.
             /// </summary>
             public bool IsDeleted { get; set; } = false;
+
+            /// <summary>
+            /// 카탈로그 파일(catalog_0.catalog)이 폴더에 없는 경우 true.
+            /// </summary>
+            public bool IsCatalogMissing { get; set; } = false;
+
+            /// <summary>
+            /// 카탈로그 파일은 존재하지만 이 이미지에 대응하는 데이터 행이 없는 경우 true.
+            /// </summary>
+            public bool HasNoData { get; set; } = false;
+
+            /// <summary>
+            /// ListBox 바인딩용 표시 이름.
+            /// 우선순위:
+            ///   1) IsCatalogMissing → "{Name} | [카탈로그 파일 없음]"
+            ///   2) HasNoData        → "{Name} | catalog 파일이 존재하지만 값이 없습니다."
+            ///   3) 정상: Throttle < 0 → "▼ 후진",
+            ///           Angle < -0.1 → "◀ 좌", Angle > 0.1 → "우 ▶", 그 외 → "▲ 직진"
+            ///   4) IsDeleted → "[X] " 접두어
+            /// 출력 예시: "[X] 0_cam-image_array_.jpg | ▼ 후진 (조향: -0.80, 스로틀: -0.50)"
+            /// </summary>
+            public string DisplayName
+            {
+                get
+                {
+                    // ── 예외 상태 우선 ──
+                    if (IsCatalogMissing)
+                        return $"{Name} | [카탈로그 파일 없음]";
+                    if (HasNoData)
+                        return $"{Name} | catalog 파일이 존재하지만 값이 없습니다.";
+
+                    // ── 정상 데이터: 방향 판별 ──
+                    string dir;
+                    if (Throttle < 0)
+                        dir = "▼ 후진";
+                    else if (Angle < -0.1)
+                        dir = "◀ 좌";
+                    else if (Angle > 0.1)
+                        dir = "우 ▶";
+                    else
+                        dir = "▲ 직진";
+
+                    string body = $"{Name} | {dir} (조향: {Angle:0.00}, 스로틀: {Throttle:0.00})";
+                    return IsDeleted ? $"[X] {body}" : body;
+                }
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // [Mock Parser] 이미지 파일 기준 + catalog_0.catalog 병합 파서
+        // 팀원 B의 실제 파서가 완성되기 전까지 임시로 사용하는 DataLoader입니다.
+        // ══════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// 이미지 파일(.jpg) 기준으로 FrameData 리스트를 생성합니다.
+        /// 1) 폴더(및 하위 images 폴더)에서 모든 .jpg 파일을 검색·정렬
+        /// 2) catalog_0.catalog 파일이 있으면 JSON Lines로 파싱하여 Dictionary 구축
+        /// 3) 이미지 목록 기준으로 catalog 데이터 병합
+        ///    - 카탈로그 없음 → IsCatalogMissing = true
+        ///    - 카탈로그는 있으나 이미지에 대응하는 행 없음 → HasNoData = true
+        /// </summary>
+        private List<FrameData> LoadMockData(string folderPath)
+        {
+            // ── 0. 경로 저장 ──────────────────────────────────────────────────────
+            _currentFolderPath = folderPath;
+
+            // ── 1. .jpg 이미지 파일 검색 (folderPath + folderPath\images) ────────
+            var jpgFiles = new List<string>();
+
+            if (Directory.Exists(folderPath))
+            {
+                jpgFiles.AddRange(
+                    Directory.EnumerateFiles(folderPath, "*.jpg")
+                        .Select(Path.GetFileName)!);
+            }
+
+            string imagesSubDir = Path.Combine(folderPath, "images");
+            if (Directory.Exists(imagesSubDir))
+            {
+                // 하위 images 폴더의 파일 중 루트에 없는 것만 추가 (중복 방지)
+                var existing = new HashSet<string>(jpgFiles, StringComparer.OrdinalIgnoreCase);
+                foreach (var f in Directory.EnumerateFiles(imagesSubDir, "*.jpg"))
+                {
+                    string name = Path.GetFileName(f)!;
+                    if (!existing.Contains(name))
+                        jpgFiles.Add(name);
+                }
+            }
+
+            // 자연 정렬: 파일명에 포함된 숫자 기준으로 정렬
+            jpgFiles.Sort((a, b) =>
+            {
+                // 숫자 접두어 추출 시도
+                string numA = new string(a.TakeWhile(char.IsDigit).ToArray());
+                string numB = new string(b.TakeWhile(char.IsDigit).ToArray());
+                if (int.TryParse(numA, out int nA) && int.TryParse(numB, out int nB))
+                    return nA.CompareTo(nB);
+                return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+            });
+
+            if (jpgFiles.Count == 0)
+                return new List<FrameData>();
+
+            // ── 2. catalog_0.catalog 파싱 → Dictionary<이미지명, 데이터> ──────────
+            string catalogPath = Path.Combine(folderPath, "catalog_0.catalog");
+            bool catalogExists = File.Exists(catalogPath);
+
+            // Key: 이미지 파일명, Value: (angle, throttle, mode)
+            var catalogMap = new Dictionary<string, (double angle, double throttle, string mode)>(
+                StringComparer.OrdinalIgnoreCase);
+
+            if (catalogExists)
+            {
+                try
+                {
+                    var lines = File.ReadAllLines(catalogPath, Encoding.UTF8);
+                    foreach (var rawLine in lines)
+                    {
+                        string line = rawLine.Trim();
+                        if (string.IsNullOrEmpty(line)) continue;
+
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(line);
+                            var root = doc.RootElement;
+
+                            // 이미지 파일명
+                            string imageName = string.Empty;
+                            if (root.TryGetProperty("cam/image_array", out var imgEl))
+                                imageName = imgEl.GetString() ?? string.Empty;
+                            if (string.IsNullOrEmpty(imageName)) continue;
+
+                            // Angle (InvariantCulture)
+                            double angle = 0.0;
+                            if (root.TryGetProperty("user/angle", out var angleEl))
+                            {
+                                if (angleEl.ValueKind == JsonValueKind.Number)
+                                    angleEl.TryGetDouble(out angle);
+                                else
+                                    double.TryParse(angleEl.GetString(), NumberStyles.Float,
+                                        CultureInfo.InvariantCulture, out angle);
+                            }
+
+                            // Throttle (InvariantCulture)
+                            double throttle = 0.0;
+                            if (root.TryGetProperty("user/throttle", out var throttleEl))
+                            {
+                                if (throttleEl.ValueKind == JsonValueKind.Number)
+                                    throttleEl.TryGetDouble(out throttle);
+                                else
+                                    double.TryParse(throttleEl.GetString(), NumberStyles.Float,
+                                        CultureInfo.InvariantCulture, out throttle);
+                            }
+
+                            // Mode (없으면 기본값 "-")
+                            string mode = "-";
+                            if (root.TryGetProperty("user/mode", out var modeEl))
+                                mode = modeEl.GetString() ?? "-";
+
+                            catalogMap[imageName] = (angle, throttle, mode);
+                        }
+                        catch { /* 파싱 실패한 줄은 건너뜀 */ }
+                    }
+                }
+                catch { /* catalog 파일 읽기 실패 시 catalogExists를 유지하되 빈 맵 사용 */ }
+            }
+
+            // ── 3. 이미지 목록 기준 FrameData 리스트 구축 ─────────────────────────
+            var result = new List<FrameData>(jpgFiles.Count);
+
+            foreach (var imgName in jpgFiles)
+            {
+                var frame = new FrameData
+                {
+                    Name = imgName,
+                    ImagePath = Path.Combine(folderPath, imgName), // 기본 경로
+                    IsDeleted = false
+                };
+
+                if (!catalogExists)
+                {
+                    // 카탈로그 파일 자체가 없음
+                    frame.IsCatalogMissing = true;
+                }
+                else if (catalogMap.TryGetValue(imgName, out var data))
+                {
+                    // 정상 매칭
+                    frame.Angle = data.angle;
+                    frame.Throttle = data.throttle;
+                    frame.Mode = data.mode;
+                }
+                else
+                {
+                    // 카탈로그는 있으나 이 이미지에 대응하는 행이 없음
+                    frame.HasNoData = true;
+                }
+
+                result.Add(frame);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 이미지 파일 기준 데이터를 비동기로 로드합니다.
+        /// 팀원 B의 파서가 완성되면 이 메서드를 교체하면 됩니다.
+        /// </summary>
+        private async Task LoadCatalogAsync(string folder)
+        {
+            SetLoadingState(true);
+            try
+            {
+                var frames = await Task.Run(() => LoadMockData(folder));
+
+                if (frames.Count == 0)
+                {
+                    MessageBox.Show(
+                        "선택한 폴더에서 .jpg 이미지 파일을 찾을 수 없습니다.\n" +
+                        "이미지가 폴더 루트 또는 하위 'images' 폴더에 있는지 확인해 주세요.",
+                        "이미지 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                originalFrames = frames;
+                filteredFrames = new List<FrameData>(originalFrames);
+
+                numFilterMin.Maximum = Math.Max(100000, originalFrames.Count);
+                numFilterMax.Maximum = Math.Max(100000, originalFrames.Count);
+                numFilterMax.Value = Math.Max(0, originalFrames.Count - 1);
+
+                toolStripStatusLabelPath.Text = "경로: " + folder;
+                _chartDirty = true;
+                RefreshListBinding();
+                SetIndex(0);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("데이터 로드 중 오류: " + ex.Message,
+                    "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                SetLoadingState(false);
+            }
         }
 
         // ══════════════════════════════════════════════════════════════════════════
@@ -733,8 +1006,9 @@ namespace TeamApp
                 sigThrottle.LegendText = "스로틀(Throttle)";
             }
 
-            // ── 3. 삭제 구간 VerticalSpan (붉은 반투명 배경) ─────────────────────
+            // ── 3. 삭제 구간 VerticalSpan (붉은 반투명 세로 영역) ──────────────────
             //    연속된 IsDeleted 구간을 탐지하여 한 번에 하나의 Span으로 추가합니다.
+            //    X축 = 프레임 인덱스(0, 1, 2...) 이므로 startIdx ~ endIdx 그대로 사용.
             bool inDeleted = false;
             int spanStart = 0;
             bool anyDeleted = false;
@@ -745,14 +1019,17 @@ namespace TeamApp
 
                 if (deleted && !inDeleted)
                 {
+                    // 새 삭제 구간 시작
                     spanStart = i;
                     inDeleted = true;
                 }
                 else if (!deleted && inDeleted)
                 {
-                    // 구간 종료: x1 = spanStart-0.5, x2 = i-0.5 (경계가 선과 겹치지 않게)
-                    var span = plot.Add.VerticalSpan(spanStart - 0.5, i - 0.5);
-                    span.FillStyle.Color = ScottPlot.Color.FromHex("#FF4444").WithAlpha(0.25f);
+                    // 구간 종료: [spanStart, i-1] 범위를 세로 영역으로 표시
+                    // VerticalSpan(xMin, xMax) — X축 기준 세로 영역
+                    var span = plot.Add.VerticalSpan(spanStart, i - 1);
+                    // WithAlpha(byte) : 0~255 범위. 50 ≈ 20% 불투명도
+                    span.FillStyle.Color = ScottPlot.Colors.Red.WithAlpha(50);
                     span.LineStyle.Width = 0;   // 테두리 선 숨김
                     if (!anyDeleted)
                     {
