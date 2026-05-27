@@ -1,4 +1,4 @@
-ï»¿namespace TeamApp
+namespace TeamApp
 {
     partial class Form1
     {
@@ -28,685 +28,941 @@
         /// </summary>
         private void InitializeComponent()
         {
-            menuStrip1 = new MenuStrip();
-            íŒŒì¼ToolStripMenuItem = new ToolStripMenuItem();
-            ë°ì´í„°í´ë”ì—´ê¸°ToolStripMenuItem = new ToolStripMenuItem();
-            ë‹¤ì‹œë¶ˆëŸ¬ì˜¤ê¸°ToolStripMenuItem = new ToolStripMenuItem();
-            ì¢…ë£ŒToolStripMenuItem = new ToolStripMenuItem();
-            ë³´ê¸°ToolStripMenuItem = new ToolStripMenuItem();
-            í…Œë§ˆì „í™˜ToolStripMenuItem = new ToolStripMenuItem();
-            ê·¸ëž˜í”„í…ŒToolStripMenuItem = new ToolStripMenuItem();
-            ë„ì›€ë§ToolStripMenuItem = new ToolStripMenuItem();
-            ë‹¨ê³„ë³„ê°€ì´ë“œToolStripMenuItem = new ToolStripMenuItem();
-            tabControl1 = new TabControl();
-            tabPage1 = new TabPage();
-            groupBox2 = new GroupBox();
+            menuStripMain = new MenuStrip();
+            mnuFile = new ToolStripMenuItem();
+            mnuOpenDataFolder = new ToolStripMenuItem();
+            mnuReloadData = new ToolStripMenuItem();
+            mnuExit = new ToolStripMenuItem();
+            mnuView = new ToolStripMenuItem();
+            mnuToggleTheme = new ToolStripMenuItem();
+            mnuOpenGraphStats = new ToolStripMenuItem();
+            mnuHelp = new ToolStripMenuItem();
+            mnuOpenGuide = new ToolStripMenuItem();
+            tabControlMain = new TabControl();
+            tabPageDataViewer = new TabPage();
+            grpTubCleaner = new GroupBox();
             btnRepair = new Button();
             btnReloadTub = new Button();
-            textBox1 = new TextBox();
+            txtTubCleanerPath = new TextBox();
             numFilterMax = new NumericUpDown();
-            label3 = new Label();
-            label2 = new Label();
+            lblFilterMax = new Label();
+            lblFilterMin = new Label();
             numFilterMin = new NumericUpDown();
             btnApplyFilter = new Button();
             btnClearFilter = new Button();
-            groupBox1 = new GroupBox();
-            trackBarMain = new TrackBar();
-            numericUpDownInterval = new NumericUpDown();
+            grpTubExplorer = new GroupBox();
+            trkFramePosition = new TrackBar();
+            numPlaybackInterval = new NumericUpDown();
             btnOpenFolder = new Button();
-            label1 = new Label();
+            lblPlayInterval = new Label();
             btnLast = new Button();
             btnAutoPlay = new Button();
             btnNext = new Button();
             btnPrev = new Button();
-            listBoxData = new ListBox();
+            lstFrameData = new ListBox();
             btnFirst = new Button();
-            pbMainPreview = new PictureBox();
+            picMainPreview = new PictureBox();
             btnReload = new Button();
             lblFrameValue = new Label();
             lblModeValue = new Label();
             btnToggleTheme = new Button();
             lblThrottleValue = new Label();
             btnGuide = new Button();
-            comboBoxFilter = new ComboBox();
+            cbxFrameFilter = new ComboBox();
             lblAngleValue = new Label();
-            tabPage2 = new TabPage();
-            groupBox3 = new GroupBox();
-            tabPage3 = new TabPage();
-            panel1 = new Panel();
+            tabPageTraining = new TabPage();
+            statusStripTraining = new StatusStrip();
+            toolStripStatusLabelTraining = new ToolStripStatusLabel();
+            grpTrainingLog = new GroupBox();
+            rtbTrainingLog = new RichTextBox();
+            grpTrainingSettings = new GroupBox();
+            nudEpoch = new NumericUpDown();
+            cbxModelType = new ComboBox();
+            tbxTubPath = new TextBox();
+            tbxModelPath = new TextBox();
+            tbxMycarPath = new TextBox();
+            tbxPythonPath = new TextBox();
+            lblEpoch = new Label();
+            lblModeType = new Label();
+            lblModelPath = new Label();
+            lblTubPath = new Label();
+            lblMycarPath = new Label();
+            lblPythonPath = new Label();
+            btnSaveSettings = new Button();
+            btnStopTraining = new Button();
+            btnStartTraining = new Button();
+            btnTubPath = new Button();
+            btnMycarPath = new Button();
+            btnPythonPath = new Button();
+            tabPageGraphStats = new TabPage();
+            pnlGraphStats = new Panel();
             lblDescription = new Label();
-            tabPage4 = new TabPage();
-            statusStrip1 = new StatusStrip();
+            statusStripDataViewer = new StatusStrip();
             toolStripStatusLabelPath = new ToolStripStatusLabel();
             toolStripStatusLabelFrames = new ToolStripStatusLabel();
-            menuStrip1.SuspendLayout();
-            tabControl1.SuspendLayout();
-            tabPage1.SuspendLayout();
-            groupBox2.SuspendLayout();
+            menuStripMain.SuspendLayout();
+            tabControlMain.SuspendLayout();
+            tabPageDataViewer.SuspendLayout();
+            grpTubCleaner.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numFilterMax).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numFilterMin).BeginInit();
-            groupBox1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)trackBarMain).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)numericUpDownInterval).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)pbMainPreview).BeginInit();
-            tabPage2.SuspendLayout();
-            tabPage3.SuspendLayout();
-            statusStrip1.SuspendLayout();
+            grpTubExplorer.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)trkFramePosition).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numPlaybackInterval).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)picMainPreview).BeginInit();
+            tabPageTraining.SuspendLayout();
+            statusStripTraining.SuspendLayout();
+            grpTrainingLog.SuspendLayout();
+            grpTrainingSettings.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)nudEpoch).BeginInit();
+            tabPageGraphStats.SuspendLayout();
+            statusStripDataViewer.SuspendLayout();
             SuspendLayout();
             // 
-            // menuStrip1
+            // menuStripMain
             // 
-            menuStrip1.ImageScalingSize = new Size(20, 20);
-            menuStrip1.Items.AddRange(new ToolStripItem[] { íŒŒì¼ToolStripMenuItem, ë³´ê¸°ToolStripMenuItem, ë„ì›€ë§ToolStripMenuItem });
-            menuStrip1.Location = new Point(0, 0);
-            menuStrip1.Name = "menuStrip1";
-            menuStrip1.Padding = new Padding(5, 2, 0, 2);
-            menuStrip1.Size = new Size(1230, 24);
-            menuStrip1.TabIndex = 0;
-            menuStrip1.Text = "menuStrip1";
+            menuStripMain.ImageScalingSize = new Size(20, 20);
+            menuStripMain.Items.AddRange(new ToolStripItem[] { mnuFile, mnuView, mnuHelp });
+            menuStripMain.Location = new Point(0, 0);
+            menuStripMain.Name = "menuStripMain";
+            menuStripMain.Padding = new Padding(6, 3, 0, 3);
+            menuStripMain.Size = new Size(1581, 30);
+            menuStripMain.TabIndex = 0;
+            menuStripMain.Text = "menuStripMain";
             // 
-            // íŒŒì¼ToolStripMenuItem
+            // mnuFile
             // 
-            íŒŒì¼ToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { ë°ì´í„°í´ë”ì—´ê¸°ToolStripMenuItem, ë‹¤ì‹œë¶ˆëŸ¬ì˜¤ê¸°ToolStripMenuItem, ì¢…ë£ŒToolStripMenuItem });
-            íŒŒì¼ToolStripMenuItem.Name = "íŒŒì¼ToolStripMenuItem";
-            íŒŒì¼ToolStripMenuItem.Size = new Size(43, 20);
-            íŒŒì¼ToolStripMenuItem.Text = "íŒŒì¼";
+            mnuFile.DropDownItems.AddRange(new ToolStripItem[] { mnuOpenDataFolder, mnuReloadData, mnuExit });
+            mnuFile.Name = "mnuFile";
+            mnuFile.Size = new Size(53, 24);
+            mnuFile.Text = "ÆÄÀÏ";
             // 
-            // ë°ì´í„°í´ë”ì—´ê¸°ToolStripMenuItem
+            // mnuOpenDataFolder
             // 
-            ë°ì´í„°í´ë”ì—´ê¸°ToolStripMenuItem.Name = "ë°ì´í„°í´ë”ì—´ê¸°ToolStripMenuItem";
-            ë°ì´í„°í´ë”ì—´ê¸°ToolStripMenuItem.Size = new Size(166, 22);
-            ë°ì´í„°í´ë”ì—´ê¸°ToolStripMenuItem.Text = "ë°ì´í„° í´ë” ì—´ê¸°";
+            mnuOpenDataFolder.Name = "mnuOpenDataFolder";
+            mnuOpenDataFolder.Size = new Size(207, 26);
+            mnuOpenDataFolder.Text = "µ¥ÀÌÅÍ Æú´õ ¿­±â";
             // 
-            // ë‹¤ì‹œë¶ˆëŸ¬ì˜¤ê¸°ToolStripMenuItem
+            // mnuReloadData
             // 
-            ë‹¤ì‹œë¶ˆëŸ¬ì˜¤ê¸°ToolStripMenuItem.Name = "ë‹¤ì‹œë¶ˆëŸ¬ì˜¤ê¸°ToolStripMenuItem";
-            ë‹¤ì‹œë¶ˆëŸ¬ì˜¤ê¸°ToolStripMenuItem.Size = new Size(166, 22);
-            ë‹¤ì‹œë¶ˆëŸ¬ì˜¤ê¸°ToolStripMenuItem.Text = "ë‹¤ì‹œ ë¶ˆëŸ¬ì˜¤ê¸°";
+            mnuReloadData.Name = "mnuReloadData";
+            mnuReloadData.Size = new Size(207, 26);
+            mnuReloadData.Text = "´Ù½Ã ºÒ·¯¿À±â";
             // 
-            // ì¢…ë£ŒToolStripMenuItem
+            // mnuExit
             // 
-            ì¢…ë£ŒToolStripMenuItem.Name = "ì¢…ë£ŒToolStripMenuItem";
-            ì¢…ë£ŒToolStripMenuItem.Size = new Size(166, 22);
-            ì¢…ë£ŒToolStripMenuItem.Text = "ì¢…ë£Œ";
+            mnuExit.Name = "mnuExit";
+            mnuExit.Size = new Size(207, 26);
+            mnuExit.Text = "Á¾·á";
             // 
-            // ë³´ê¸°ToolStripMenuItem
+            // mnuView
             // 
-            ë³´ê¸°ToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { í…Œë§ˆì „í™˜ToolStripMenuItem, ê·¸ëž˜í”„í…ŒToolStripMenuItem });
-            ë³´ê¸°ToolStripMenuItem.Name = "ë³´ê¸°ToolStripMenuItem";
-            ë³´ê¸°ToolStripMenuItem.Size = new Size(43, 20);
-            ë³´ê¸°ToolStripMenuItem.Text = "ë³´ê¸°";
+            mnuView.DropDownItems.AddRange(new ToolStripItem[] { mnuToggleTheme, mnuOpenGraphStats });
+            mnuView.Name = "mnuView";
+            mnuView.Size = new Size(53, 24);
+            mnuView.Text = "º¸±â";
             // 
-            // í…Œë§ˆì „í™˜ToolStripMenuItem
+            // mnuToggleTheme
             // 
-            í…Œë§ˆì „í™˜ToolStripMenuItem.Name = "í…Œë§ˆì „í™˜ToolStripMenuItem";
-            í…Œë§ˆì „í™˜ToolStripMenuItem.Size = new Size(207, 22);
-            í…Œë§ˆì „í™˜ToolStripMenuItem.Text = "í…Œë§ˆ ì „í™˜";
+            mnuToggleTheme.Name = "mnuToggleTheme";
+            mnuToggleTheme.Size = new Size(258, 26);
+            mnuToggleTheme.Text = "Å×¸¶ ÀüÈ¯";
             // 
-            // ê·¸ëž˜í”„í…ŒToolStripMenuItem
+            // mnuOpenGraphStats
             // 
-            ê·¸ëž˜í”„í…ŒToolStripMenuItem.Name = "ê·¸ëž˜í”„í…ŒToolStripMenuItem";
-            ê·¸ëž˜í”„í…ŒToolStripMenuItem.Size = new Size(207, 22);
-            ê·¸ëž˜í”„í…ŒToolStripMenuItem.Text = "ê·¸ëž˜í”„/í†µê³„ íƒ­ìœ¼ë¡œ ì´ë™";
-            ê·¸ëž˜í”„í…ŒToolStripMenuItem.Click += ê·¸ëž˜í”„í…ŒToolStripMenuItem_Click;
+            mnuOpenGraphStats.Name = "mnuOpenGraphStats";
+            mnuOpenGraphStats.Size = new Size(258, 26);
+            mnuOpenGraphStats.Text = "±×·¡ÇÁ/Åë°è ÅÇÀ¸·Î ÀÌµ¿";
+            mnuOpenGraphStats.Click += mnuOpenGraphStats_Click;
             // 
-            // ë„ì›€ë§ToolStripMenuItem
+            // mnuHelp
             // 
-            ë„ì›€ë§ToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { ë‹¨ê³„ë³„ê°€ì´ë“œToolStripMenuItem });
-            ë„ì›€ë§ToolStripMenuItem.Name = "ë„ì›€ë§ToolStripMenuItem";
-            ë„ì›€ë§ToolStripMenuItem.Size = new Size(55, 20);
-            ë„ì›€ë§ToolStripMenuItem.Text = "ë„ì›€ë§";
-            ë„ì›€ë§ToolStripMenuItem.Click += ë„ì›€ë§ToolStripMenuItem_Click;
+            mnuHelp.DropDownItems.AddRange(new ToolStripItem[] { mnuOpenGuide });
+            mnuHelp.Name = "mnuHelp";
+            mnuHelp.Size = new Size(68, 24);
+            mnuHelp.Text = "µµ¿ò¸»";
+            mnuHelp.Click += mnuHelp_Click;
             // 
-            // ë‹¨ê³„ë³„ê°€ì´ë“œToolStripMenuItem
+            // mnuOpenGuide
             // 
-            ë‹¨ê³„ë³„ê°€ì´ë“œToolStripMenuItem.Name = "ë‹¨ê³„ë³„ê°€ì´ë“œToolStripMenuItem";
-            ë‹¨ê³„ë³„ê°€ì´ë“œToolStripMenuItem.Size = new Size(150, 22);
-            ë‹¨ê³„ë³„ê°€ì´ë“œToolStripMenuItem.Text = "ë‹¨ê³„ë³„ ê°€ì´ë“œ";
+            mnuOpenGuide.Name = "mnuOpenGuide";
+            mnuOpenGuide.Size = new Size(187, 26);
+            mnuOpenGuide.Text = "´Ü°èº° °¡ÀÌµå";
             // 
-            // tabControl1
+            // tabControlMain
             // 
-            tabControl1.Controls.Add(tabPage1);
-            tabControl1.Controls.Add(tabPage2);
-            tabControl1.Controls.Add(tabPage3);
-            tabControl1.Controls.Add(tabPage4);
-            tabControl1.Location = new Point(2, 23);
-            tabControl1.Margin = new Padding(2);
-            tabControl1.Name = "tabControl1";
-            tabControl1.SelectedIndex = 0;
-            tabControl1.Size = new Size(1229, 690);
-            tabControl1.TabIndex = 1;
+            tabControlMain.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            tabControlMain.Controls.Add(tabPageDataViewer);
+            tabControlMain.Controls.Add(tabPageTraining);
+            tabControlMain.Controls.Add(tabPageGraphStats);
+            tabControlMain.Location = new Point(3, 31);
+            tabControlMain.Name = "tabControlMain";
+            tabControlMain.SelectedIndex = 0;
+            tabControlMain.Size = new Size(1580, 920);
+            tabControlMain.TabIndex = 1;
             // 
-            // tabPage1
+            // tabPageDataViewer
             // 
-            tabPage1.Controls.Add(groupBox2);
-            tabPage1.Controls.Add(groupBox1);
-            tabPage1.Location = new Point(4, 24);
-            tabPage1.Margin = new Padding(2);
-            tabPage1.Name = "tabPage1";
-            tabPage1.Padding = new Padding(2);
-            tabPage1.Size = new Size(1221, 662);
-            tabPage1.TabIndex = 0;
-            tabPage1.Text = "ë°ì´í„° ë·°ì–´";
-            tabPage1.UseVisualStyleBackColor = true;
+            tabPageDataViewer.Controls.Add(grpTubCleaner);
+            tabPageDataViewer.Controls.Add(grpTubExplorer);
+            tabPageDataViewer.Location = new Point(4, 29);
+            tabPageDataViewer.Name = "tabPageDataViewer";
+            tabPageDataViewer.Padding = new Padding(3);
+            tabPageDataViewer.Size = new Size(1572, 887);
+            tabPageDataViewer.TabIndex = 0;
+            tabPageDataViewer.Text = "µ¥ÀÌÅÍ ºä¾î";
+            tabPageDataViewer.UseVisualStyleBackColor = true;
             // 
-            // groupBox2
+            // grpTubCleaner
             // 
-            groupBox2.Controls.Add(btnRepair);
-            groupBox2.Controls.Add(btnReloadTub);
-            groupBox2.Controls.Add(textBox1);
-            groupBox2.Controls.Add(numFilterMax);
-            groupBox2.Controls.Add(label3);
-            groupBox2.Controls.Add(label2);
-            groupBox2.Controls.Add(numFilterMin);
-            groupBox2.Controls.Add(btnApplyFilter);
-            groupBox2.Controls.Add(btnClearFilter);
-            groupBox2.Location = new Point(2, 556);
-            groupBox2.Margin = new Padding(2);
-            groupBox2.Name = "groupBox2";
-            groupBox2.Padding = new Padding(2);
-            groupBox2.Size = new Size(1216, 51);
-            groupBox2.TabIndex = 23;
-            groupBox2.TabStop = false;
-            groupBox2.Text = "í„°ë¸Œ ì •ë¦¬ê¸°";
+            grpTubCleaner.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            grpTubCleaner.Controls.Add(btnRepair);
+            grpTubCleaner.Controls.Add(btnReloadTub);
+            grpTubCleaner.Controls.Add(txtTubCleanerPath);
+            grpTubCleaner.Controls.Add(numFilterMax);
+            grpTubCleaner.Controls.Add(lblFilterMax);
+            grpTubCleaner.Controls.Add(lblFilterMin);
+            grpTubCleaner.Controls.Add(numFilterMin);
+            grpTubCleaner.Controls.Add(btnApplyFilter);
+            grpTubCleaner.Controls.Add(btnClearFilter);
+            grpTubCleaner.Location = new Point(3, 741);
+            grpTubCleaner.Name = "grpTubCleaner";
+            grpTubCleaner.Size = new Size(1563, 68);
+            grpTubCleaner.TabIndex = 23;
+            grpTubCleaner.TabStop = false;
+            grpTubCleaner.Text = "ÅÍºê Á¤¸®±â";
             // 
             // btnRepair
             // 
-            btnRepair.Location = new Point(1017, 19);
-            btnRepair.Margin = new Padding(2);
+            btnRepair.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnRepair.Location = new Point(1308, 25);
             btnRepair.Name = "btnRepair";
-            btnRepair.Size = new Size(93, 22);
+            btnRepair.Size = new Size(120, 29);
             btnRepair.TabIndex = 28;
-            btnRepair.Text = "ë³µì›";
+            btnRepair.Text = "º¹¿ø";
             btnRepair.UseVisualStyleBackColor = true;
             // 
             // btnReloadTub
             // 
-            btnReloadTub.Location = new Point(1116, 19);
-            btnReloadTub.Margin = new Padding(2);
+            btnReloadTub.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnReloadTub.Location = new Point(1435, 25);
             btnReloadTub.Name = "btnReloadTub";
-            btnReloadTub.Size = new Size(93, 22);
+            btnReloadTub.Size = new Size(120, 29);
             btnReloadTub.TabIndex = 29;
-            btnReloadTub.Text = "í„°ë¸Œ ë‹¤ì‹œ ë¡œë“œ";
+            btnReloadTub.Text = "ÅÍºê ´Ù½Ã ·Îµå";
             btnReloadTub.UseVisualStyleBackColor = true;
             // 
-            // textBox1
+            // txtTubCleanerPath
             // 
-            textBox1.Location = new Point(370, 19);
-            textBox1.Margin = new Padding(2);
-            textBox1.Name = "textBox1";
-            textBox1.Size = new Size(447, 23);
-            textBox1.TabIndex = 27;
+            txtTubCleanerPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtTubCleanerPath.Location = new Point(476, 25);
+            txtTubCleanerPath.Name = "txtTubCleanerPath";
+            txtTubCleanerPath.Size = new Size(574, 27);
+            txtTubCleanerPath.TabIndex = 27;
             // 
             // numFilterMax
             // 
-            numFilterMax.Location = new Point(249, 19);
-            numFilterMax.Margin = new Padding(2);
+            numFilterMax.Location = new Point(320, 25);
             numFilterMax.Name = "numFilterMax";
-            numFilterMax.Size = new Size(117, 23);
+            numFilterMax.Size = new Size(150, 27);
             numFilterMax.TabIndex = 25;
             // 
-            // label3
+            // lblFilterMax
             // 
-            label3.AutoSize = true;
-            label3.Font = new Font("ë§‘ì€ ê³ ë”•", 10F);
-            label3.Location = new Point(197, 20);
-            label3.Margin = new Padding(2, 0, 2, 0);
-            label3.Name = "label3";
-            label3.Size = new Size(51, 19);
-            label3.TabIndex = 26;
-            label3.Text = "ìµœëŒ“ê°’";
+            lblFilterMax.AutoSize = true;
+            lblFilterMax.Font = new Font("¸¼Àº °íµñ", 10F);
+            lblFilterMax.Location = new Point(253, 27);
+            lblFilterMax.Name = "lblFilterMax";
+            lblFilterMax.Size = new Size(61, 23);
+            lblFilterMax.TabIndex = 26;
+            lblFilterMax.Text = "ÃÖ´ñ°ª";
             // 
-            // label2
+            // lblFilterMin
             // 
-            label2.AutoSize = true;
-            label2.Font = new Font("ë§‘ì€ ê³ ë”•", 10F);
-            label2.Location = new Point(12, 20);
-            label2.Margin = new Padding(2, 0, 2, 0);
-            label2.Name = "label2";
-            label2.Size = new Size(51, 19);
-            label2.TabIndex = 25;
-            label2.Text = "ìµœì†Ÿê°’";
+            lblFilterMin.AutoSize = true;
+            lblFilterMin.Font = new Font("¸¼Àº °íµñ", 10F);
+            lblFilterMin.Location = new Point(15, 27);
+            lblFilterMin.Name = "lblFilterMin";
+            lblFilterMin.Size = new Size(61, 23);
+            lblFilterMin.TabIndex = 25;
+            lblFilterMin.Text = "ÃÖ¼Ú°ª";
             // 
             // numFilterMin
             // 
-            numFilterMin.Location = new Point(64, 20);
-            numFilterMin.Margin = new Padding(2);
+            numFilterMin.Location = new Point(82, 27);
             numFilterMin.Name = "numFilterMin";
-            numFilterMin.Size = new Size(117, 23);
+            numFilterMin.Size = new Size(150, 27);
             numFilterMin.TabIndex = 24;
             // 
             // btnApplyFilter
             // 
-            btnApplyFilter.Location = new Point(821, 18);
-            btnApplyFilter.Margin = new Padding(2);
+            btnApplyFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnApplyFilter.Location = new Point(1056, 24);
             btnApplyFilter.Name = "btnApplyFilter";
-            btnApplyFilter.Size = new Size(93, 22);
+            btnApplyFilter.Size = new Size(120, 29);
             btnApplyFilter.TabIndex = 12;
-            btnApplyFilter.Text = "í•„í„° ì ìš©";
+            btnApplyFilter.Text = "ÇÊÅÍ Àû¿ë";
             btnApplyFilter.UseVisualStyleBackColor = true;
             btnApplyFilter.Click += btnApplyFilter_Click;
             // 
             // btnClearFilter
             // 
-            btnClearFilter.Location = new Point(919, 18);
-            btnClearFilter.Margin = new Padding(2);
+            btnClearFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnClearFilter.Location = new Point(1182, 24);
             btnClearFilter.Name = "btnClearFilter";
-            btnClearFilter.Size = new Size(93, 22);
+            btnClearFilter.Size = new Size(120, 29);
             btnClearFilter.TabIndex = 19;
-            btnClearFilter.Text = "í•„í„° í•´ì œ";
+            btnClearFilter.Text = "ÇÊÅÍ ÇØÁ¦";
             btnClearFilter.UseVisualStyleBackColor = true;
             // 
-            // groupBox1
+            // grpTubExplorer
             // 
-            groupBox1.Controls.Add(trackBarMain);
-            groupBox1.Controls.Add(numericUpDownInterval);
-            groupBox1.Controls.Add(btnOpenFolder);
-            groupBox1.Controls.Add(label1);
-            groupBox1.Controls.Add(btnLast);
-            groupBox1.Controls.Add(btnAutoPlay);
-            groupBox1.Controls.Add(btnNext);
-            groupBox1.Controls.Add(btnPrev);
-            groupBox1.Controls.Add(listBoxData);
-            groupBox1.Controls.Add(btnFirst);
-            groupBox1.Controls.Add(pbMainPreview);
-            groupBox1.Controls.Add(btnReload);
-            groupBox1.Controls.Add(lblFrameValue);
-            groupBox1.Controls.Add(lblModeValue);
-            groupBox1.Controls.Add(btnToggleTheme);
-            groupBox1.Controls.Add(lblThrottleValue);
-            groupBox1.Controls.Add(btnGuide);
-            groupBox1.Controls.Add(comboBoxFilter);
-            groupBox1.Controls.Add(lblAngleValue);
-            groupBox1.Location = new Point(0, 0);
-            groupBox1.Margin = new Padding(2);
-            groupBox1.Name = "groupBox1";
-            groupBox1.Padding = new Padding(2);
-            groupBox1.Size = new Size(1220, 552);
-            groupBox1.TabIndex = 22;
-            groupBox1.TabStop = false;
-            groupBox1.Text = "í„°ë¸Œ íƒìƒ‰ê¸°";
+            grpTubExplorer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            grpTubExplorer.Controls.Add(trkFramePosition);
+            grpTubExplorer.Controls.Add(numPlaybackInterval);
+            grpTubExplorer.Controls.Add(btnOpenFolder);
+            grpTubExplorer.Controls.Add(lblPlayInterval);
+            grpTubExplorer.Controls.Add(btnLast);
+            grpTubExplorer.Controls.Add(btnAutoPlay);
+            grpTubExplorer.Controls.Add(btnNext);
+            grpTubExplorer.Controls.Add(btnPrev);
+            grpTubExplorer.Controls.Add(lstFrameData);
+            grpTubExplorer.Controls.Add(btnFirst);
+            grpTubExplorer.Controls.Add(picMainPreview);
+            grpTubExplorer.Controls.Add(btnReload);
+            grpTubExplorer.Controls.Add(lblFrameValue);
+            grpTubExplorer.Controls.Add(lblModeValue);
+            grpTubExplorer.Controls.Add(btnToggleTheme);
+            grpTubExplorer.Controls.Add(lblThrottleValue);
+            grpTubExplorer.Controls.Add(btnGuide);
+            grpTubExplorer.Controls.Add(cbxFrameFilter);
+            grpTubExplorer.Controls.Add(lblAngleValue);
+            grpTubExplorer.Location = new Point(0, 0);
+            grpTubExplorer.Name = "grpTubExplorer";
+            grpTubExplorer.Size = new Size(1569, 736);
+            grpTubExplorer.TabIndex = 22;
+            grpTubExplorer.TabStop = false;
+            grpTubExplorer.Text = "ÅÍºê Å½»ö±â";
             // 
-            // trackBarMain
+            // trkFramePosition
             // 
-            trackBarMain.Location = new Point(0, 504);
-            trackBarMain.Margin = new Padding(2);
-            trackBarMain.Maximum = 0;
-            trackBarMain.Name = "trackBarMain";
-            trackBarMain.Size = new Size(1216, 45);
-            trackBarMain.TabIndex = 18;
-            trackBarMain.Scroll += trackBarMain_Scroll;
+            trkFramePosition.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            trkFramePosition.Location = new Point(0, 672);
+            trkFramePosition.Maximum = 0;
+            trkFramePosition.Name = "trkFramePosition";
+            trkFramePosition.Size = new Size(1563, 56);
+            trkFramePosition.TabIndex = 18;
+            trkFramePosition.Scroll += trkFramePosition_Scroll;
             // 
-            // numericUpDownInterval
+            // numPlaybackInterval
             // 
-            numericUpDownInterval.Location = new Point(1091, 247);
-            numericUpDownInterval.Margin = new Padding(2);
-            numericUpDownInterval.Maximum = new decimal(new int[] { 5000, 0, 0, 0 });
-            numericUpDownInterval.Minimum = new decimal(new int[] { 10, 0, 0, 0 });
-            numericUpDownInterval.Name = "numericUpDownInterval";
-            numericUpDownInterval.Size = new Size(121, 23);
-            numericUpDownInterval.TabIndex = 11;
-            numericUpDownInterval.Value = new decimal(new int[] { 200, 0, 0, 0 });
+            numPlaybackInterval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            numPlaybackInterval.Location = new Point(1403, 329);
+            numPlaybackInterval.Maximum = new decimal(new int[] { 5000, 0, 0, 0 });
+            numPlaybackInterval.Minimum = new decimal(new int[] { 10, 0, 0, 0 });
+            numPlaybackInterval.Name = "numPlaybackInterval";
+            numPlaybackInterval.Size = new Size(156, 27);
+            numPlaybackInterval.TabIndex = 11;
+            numPlaybackInterval.Value = new decimal(new int[] { 200, 0, 0, 0 });
             // 
             // btnOpenFolder
             // 
-            btnOpenFolder.Location = new Point(0, 20);
-            btnOpenFolder.Margin = new Padding(2);
+            btnOpenFolder.Location = new Point(0, 27);
             btnOpenFolder.Name = "btnOpenFolder";
-            btnOpenFolder.Size = new Size(109, 22);
+            btnOpenFolder.Size = new Size(140, 29);
             btnOpenFolder.TabIndex = 0;
-            btnOpenFolder.Text = "ë°ì´í„° í´ë” ì—´ê¸°";
+            btnOpenFolder.Text = "µ¥ÀÌÅÍ Æú´õ ¿­±â";
             btnOpenFolder.UseVisualStyleBackColor = true;
             btnOpenFolder.Click += btnOpenFolder_Click;
             // 
-            // label1
+            // lblPlayInterval
             // 
-            label1.Font = new Font("ë§‘ì€ ê³ ë”•", 10.2F, FontStyle.Bold, GraphicsUnit.Point, 129);
-            label1.Location = new Point(999, 246);
-            label1.Margin = new Padding(2, 0, 2, 0);
-            label1.Name = "label1";
-            label1.Size = new Size(99, 23);
-            label1.TabIndex = 21;
-            label1.Text = "ìž¬ìƒê°„ê²©(ms)";
-            label1.Click += label1_Click;
+            lblPlayInterval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            lblPlayInterval.Font = new Font("¸¼Àº °íµñ", 10.2F, FontStyle.Bold, GraphicsUnit.Point, 129);
+            lblPlayInterval.Location = new Point(1284, 328);
+            lblPlayInterval.Name = "lblPlayInterval";
+            lblPlayInterval.Size = new Size(127, 31);
+            lblPlayInterval.TabIndex = 21;
+            lblPlayInterval.Text = "Àç»ý°£°Ý(ms)";
+            lblPlayInterval.Click += lblPlayInterval_Click;
             // 
             // btnLast
             // 
-            btnLast.Location = new Point(1107, 105);
-            btnLast.Margin = new Padding(2);
+            btnLast.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnLast.Location = new Point(1423, 140);
             btnLast.Name = "btnLast";
-            btnLast.Size = new Size(104, 22);
+            btnLast.Size = new Size(134, 29);
             btnLast.TabIndex = 17;
             btnLast.Text = ">>";
             btnLast.Click += btnLast_Click;
             // 
             // btnAutoPlay
             // 
-            btnAutoPlay.Location = new Point(1001, 132);
-            btnAutoPlay.Margin = new Padding(2);
+            btnAutoPlay.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnAutoPlay.Location = new Point(1287, 176);
             btnAutoPlay.Name = "btnAutoPlay";
-            btnAutoPlay.Size = new Size(210, 20);
+            btnAutoPlay.Size = new Size(270, 27);
             btnAutoPlay.TabIndex = 20;
-            btnAutoPlay.Text = "ìžë™ ìž¬ìƒ";
+            btnAutoPlay.Text = "ÀÚµ¿ Àç»ý";
             btnAutoPlay.UseVisualStyleBackColor = true;
-            btnAutoPlay.Click += button3_Click;
+            btnAutoPlay.Click += btnAutoPlay_Click;
             // 
             // btnNext
             // 
-            btnNext.Location = new Point(1107, 78);
-            btnNext.Margin = new Padding(2);
+            btnNext.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnNext.Location = new Point(1423, 104);
             btnNext.Name = "btnNext";
-            btnNext.Size = new Size(104, 22);
+            btnNext.Size = new Size(134, 29);
             btnNext.TabIndex = 16;
             btnNext.Text = ">";
             btnNext.Click += btnNext_Click;
             // 
             // btnPrev
             // 
-            btnPrev.Location = new Point(999, 78);
-            btnPrev.Margin = new Padding(2);
+            btnPrev.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnPrev.Location = new Point(1284, 104);
             btnPrev.Name = "btnPrev";
-            btnPrev.Size = new Size(104, 22);
+            btnPrev.Size = new Size(134, 29);
             btnPrev.TabIndex = 15;
             btnPrev.Text = "<";
             btnPrev.Click += btnPrev_Click;
             // 
-            // listBoxData
+            // lstFrameData
             // 
-            listBoxData.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            listBoxData.Location = new Point(0, 76);
-            listBoxData.Margin = new Padding(2);
-            listBoxData.Name = "listBoxData";
-            listBoxData.Size = new Size(219, 424);
-            listBoxData.TabIndex = 13;
-            listBoxData.SelectedIndexChanged += listBoxData_SelectedIndexChanged;
+            lstFrameData.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
+            lstFrameData.Location = new Point(0, 101);
+            lstFrameData.Name = "lstFrameData";
+            lstFrameData.Size = new Size(280, 564);
+            lstFrameData.TabIndex = 13;
+            lstFrameData.SelectedIndexChanged += lstFrameData_SelectedIndexChanged;
             // 
             // btnFirst
             // 
-            btnFirst.Location = new Point(999, 105);
-            btnFirst.Margin = new Padding(2);
+            btnFirst.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnFirst.Location = new Point(1284, 140);
             btnFirst.Name = "btnFirst";
-            btnFirst.Size = new Size(104, 22);
+            btnFirst.Size = new Size(134, 29);
             btnFirst.TabIndex = 14;
             btnFirst.Text = "<<";
             btnFirst.Click += btnFirst_Click;
             // 
-            // pbMainPreview
+            // picMainPreview
             // 
-            pbMainPreview.BorderStyle = BorderStyle.FixedSingle;
-            pbMainPreview.Location = new Point(223, 46);
-            pbMainPreview.Margin = new Padding(2);
-            pbMainPreview.Name = "pbMainPreview";
-            pbMainPreview.Size = new Size(772, 454);
-            pbMainPreview.SizeMode = PictureBoxSizeMode.StretchImage;
-            pbMainPreview.TabIndex = 4;
-            pbMainPreview.TabStop = false;
+            picMainPreview.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            picMainPreview.BorderStyle = BorderStyle.FixedSingle;
+            picMainPreview.Location = new Point(287, 61);
+            picMainPreview.Name = "picMainPreview";
+            picMainPreview.Size = new Size(992, 605);
+            picMainPreview.SizeMode = PictureBoxSizeMode.StretchImage;
+            picMainPreview.TabIndex = 4;
+            picMainPreview.TabStop = false;
             // 
             // btnReload
             // 
-            btnReload.Location = new Point(114, 20);
-            btnReload.Margin = new Padding(2);
+            btnReload.Location = new Point(147, 27);
             btnReload.Name = "btnReload";
-            btnReload.Size = new Size(109, 22);
+            btnReload.Size = new Size(140, 29);
             btnReload.TabIndex = 1;
-            btnReload.Text = "ë‹¤ì‹œ ë¶ˆëŸ¬ì˜¤ê¸°";
+            btnReload.Text = "´Ù½Ã ºÒ·¯¿À±â";
             btnReload.UseVisualStyleBackColor = true;
             btnReload.Click += btnReload_Click;
             // 
             // lblFrameValue
             // 
-            lblFrameValue.Font = new Font("ë§‘ì€ ê³ ë”•", 13.8F, FontStyle.Regular, GraphicsUnit.Point, 129);
-            lblFrameValue.Location = new Point(999, 46);
-            lblFrameValue.Margin = new Padding(2, 0, 2, 0);
+            lblFrameValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            lblFrameValue.Font = new Font("¸¼Àº °íµñ", 13.8F, FontStyle.Regular, GraphicsUnit.Point, 129);
+            lblFrameValue.Location = new Point(1284, 61);
             lblFrameValue.Name = "lblFrameValue";
-            lblFrameValue.Size = new Size(215, 29);
+            lblFrameValue.Size = new Size(276, 39);
             lblFrameValue.TabIndex = 5;
             lblFrameValue.Text = "Frame: 0/0";
             // 
             // lblModeValue
             // 
-            lblModeValue.Font = new Font("ë§‘ì€ ê³ ë”•", 13.8F);
-            lblModeValue.Location = new Point(1001, 215);
-            lblModeValue.Margin = new Padding(2, 0, 2, 0);
+            lblModeValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            lblModeValue.Font = new Font("¸¼Àº °íµñ", 13.8F);
+            lblModeValue.Location = new Point(1287, 287);
             lblModeValue.Name = "lblModeValue";
-            lblModeValue.Size = new Size(212, 84);
+            lblModeValue.Size = new Size(273, 112);
             lblModeValue.TabIndex = 8;
-            lblModeValue.Text = "ëª¨ë“œ: -";
+            lblModeValue.Text = "¸ðµå: -";
             lblModeValue.Click += lblModeValue_Click;
             // 
             // btnToggleTheme
             // 
-            btnToggleTheme.Location = new Point(227, 20);
-            btnToggleTheme.Margin = new Padding(2);
+            btnToggleTheme.Location = new Point(292, 27);
             btnToggleTheme.Name = "btnToggleTheme";
-            btnToggleTheme.Size = new Size(109, 22);
+            btnToggleTheme.Size = new Size(140, 29);
             btnToggleTheme.TabIndex = 2;
-            btnToggleTheme.Text = "í…Œë§ˆ ì „í™˜";
+            btnToggleTheme.Text = "Å×¸¶ ÀüÈ¯";
             btnToggleTheme.UseVisualStyleBackColor = true;
             btnToggleTheme.Click += btnToggleTheme_Click;
             // 
             // lblThrottleValue
             // 
-            lblThrottleValue.Font = new Font("ë§‘ì€ ê³ ë”•", 13.8F);
-            lblThrottleValue.Location = new Point(1001, 188);
-            lblThrottleValue.Margin = new Padding(2, 0, 2, 0);
+            lblThrottleValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            lblThrottleValue.Font = new Font("¸¼Àº °íµñ", 13.8F);
+            lblThrottleValue.Location = new Point(1287, 251);
             lblThrottleValue.Name = "lblThrottleValue";
-            lblThrottleValue.Size = new Size(212, 28);
+            lblThrottleValue.Size = new Size(273, 37);
             lblThrottleValue.TabIndex = 7;
-            lblThrottleValue.Text = "ìŠ¤ë¡œí‹€ê°’: 0.000";
+            lblThrottleValue.Text = "½º·ÎÆ²°ª: 0.000";
             lblThrottleValue.Click += lblThrottleValue_Click;
             // 
             // btnGuide
             // 
-            btnGuide.Location = new Point(341, 20);
-            btnGuide.Margin = new Padding(2);
+            btnGuide.Location = new Point(438, 27);
             btnGuide.Name = "btnGuide";
-            btnGuide.Size = new Size(109, 22);
+            btnGuide.Size = new Size(140, 29);
             btnGuide.TabIndex = 3;
-            btnGuide.Text = "ë‹¨ê³„ë³„ ê°€ì´ë“œ";
+            btnGuide.Text = "´Ü°èº° °¡ÀÌµå";
             btnGuide.UseVisualStyleBackColor = true;
             btnGuide.Click += btnGuide_Click;
             // 
-            // comboBoxFilter
+            // cbxFrameFilter
             // 
-            comboBoxFilter.DropDownStyle = ComboBoxStyle.DropDownList;
-            comboBoxFilter.Items.AddRange(new object[] { "ì „ì²´ ë³´ê¸°", "ìŠ¤ë¡œí‹€ ìµœì†Œê°’", "ì¡°í–¥ ë²”ìœ„", "ëª¨ë“œ = ì‚¬ìš©ìž", "ì´ë¯¸ì§€ ì—†ëŠ” í”„ë ˆìž„" });
-            comboBoxFilter.Location = new Point(0, 46);
-            comboBoxFilter.Margin = new Padding(2);
-            comboBoxFilter.Name = "comboBoxFilter";
-            comboBoxFilter.Size = new Size(219, 23);
-            comboBoxFilter.TabIndex = 9;
-            comboBoxFilter.SelectedIndexChanged += comboBoxFilter_SelectedIndexChanged;
+            cbxFrameFilter.DropDownStyle = ComboBoxStyle.DropDownList;
+            cbxFrameFilter.Items.AddRange(new object[] { "ÀüÃ¼ º¸±â", "½º·ÎÆ² ÃÖ¼Ò°ª", "Á¶Çâ ¹üÀ§", "¸ðµå = »ç¿ëÀÚ", "ÀÌ¹ÌÁö ¾ø´Â ÇÁ·¹ÀÓ" });
+            cbxFrameFilter.Location = new Point(0, 61);
+            cbxFrameFilter.Name = "cbxFrameFilter";
+            cbxFrameFilter.Size = new Size(280, 28);
+            cbxFrameFilter.TabIndex = 9;
+            cbxFrameFilter.SelectedIndexChanged += cbxFrameFilter_SelectedIndexChanged;
             // 
             // lblAngleValue
             // 
-            lblAngleValue.Font = new Font("ë§‘ì€ ê³ ë”•", 13.8F);
-            lblAngleValue.Location = new Point(1001, 158);
-            lblAngleValue.Margin = new Padding(2, 0, 2, 0);
+            lblAngleValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            lblAngleValue.Font = new Font("¸¼Àº °íµñ", 13.8F);
+            lblAngleValue.Location = new Point(1287, 211);
             lblAngleValue.Name = "lblAngleValue";
-            lblAngleValue.Size = new Size(212, 29);
+            lblAngleValue.Size = new Size(273, 39);
             lblAngleValue.TabIndex = 6;
-            lblAngleValue.Text = "ì¡°í–¥ê°’: 0.000";
+            lblAngleValue.Text = "Á¶Çâ°ª: 0.000";
             lblAngleValue.Click += lblAngleValue_Click;
             // 
-            // tabPage2
+            // tabPageTraining
             // 
-            tabPage2.Controls.Add(groupBox3);
-            tabPage2.Location = new Point(4, 24);
-            tabPage2.Margin = new Padding(2);
-            tabPage2.Name = "tabPage2";
-            tabPage2.Padding = new Padding(2);
-            tabPage2.Size = new Size(1221, 662);
-            tabPage2.TabIndex = 1;
-            tabPage2.Text = "í•™ìŠµ ì‹¤í–‰";
-            tabPage2.UseVisualStyleBackColor = true;
-            tabPage2.Click += tabPage2_Click;
+            tabPageTraining.Controls.Add(statusStripTraining);
+            tabPageTraining.Controls.Add(grpTrainingLog);
+            tabPageTraining.Controls.Add(grpTrainingSettings);
+            tabPageTraining.Location = new Point(4, 29);
+            tabPageTraining.Name = "tabPageTraining";
+            tabPageTraining.Padding = new Padding(3);
+            tabPageTraining.Size = new Size(1572, 887);
+            tabPageTraining.TabIndex = 1;
+            tabPageTraining.Text = "ÇÐ½À ½ÇÇà";
+            tabPageTraining.UseVisualStyleBackColor = true;
+            tabPageTraining.Click += tabPageTraining_Click;
             // 
-            // groupBox3
+            // statusStripTraining
             // 
-            groupBox3.Location = new Point(12, 14);
-            groupBox3.Margin = new Padding(2);
-            groupBox3.Name = "groupBox3";
-            groupBox3.Padding = new Padding(2);
-            groupBox3.Size = new Size(1206, 59);
-            groupBox3.TabIndex = 0;
-            groupBox3.TabStop = false;
-            groupBox3.Text = "groupBox3";
+            statusStripTraining.ImageScalingSize = new Size(20, 20);
+            statusStripTraining.Items.AddRange(new ToolStripItem[] { toolStripStatusLabelTraining });
+            statusStripTraining.Location = new Point(3, 858);
+            statusStripTraining.Name = "statusStripTraining";
+            statusStripTraining.Size = new Size(1566, 26);
+            statusStripTraining.TabIndex = 2;
+            statusStripTraining.Text = "statusStripTraining";
             // 
-            // tabPage3
+            // toolStripStatusLabelTraining
             // 
-            tabPage3.Controls.Add(panel1);
-            tabPage3.Controls.Add(lblDescription);
-            tabPage3.Location = new Point(4, 24);
-            tabPage3.Margin = new Padding(2);
-            tabPage3.Name = "tabPage3";
-            tabPage3.Padding = new Padding(2);
-            tabPage3.Size = new Size(1221, 662);
-            tabPage3.TabIndex = 2;
-            tabPage3.Text = "ê·¸ëž˜í”„/í†µê³„";
-            tabPage3.UseVisualStyleBackColor = true;
+            toolStripStatusLabelTraining.Name = "toolStripStatusLabelTraining";
+            toolStripStatusLabelTraining.Size = new Size(102, 20);
+            toolStripStatusLabelTraining.Text = "Tub °æ·Î: C:\\";
+            toolStripStatusLabelTraining.Click += toolStripStatusLabelTraining_Click;
             // 
-            // panel1
+            // grpTrainingLog
             // 
-            panel1.Location = new Point(57, 56);
-            panel1.Margin = new Padding(2);
-            panel1.Name = "panel1";
-            panel1.Size = new Size(716, 306);
-            panel1.TabIndex = 1;
+            grpTrainingLog.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            grpTrainingLog.Controls.Add(rtbTrainingLog);
+            grpTrainingLog.Location = new Point(15, 462);
+            grpTrainingLog.Margin = new Padding(10);
+            grpTrainingLog.Name = "grpTrainingLog";
+            grpTrainingLog.Size = new Size(1547, 390);
+            grpTrainingLog.TabIndex = 1;
+            grpTrainingLog.TabStop = false;
+            grpTrainingLog.Text = "ÇÐ½À ·Î±×";
+            // 
+            // rtbTrainingLog
+            // 
+            rtbTrainingLog.Dock = DockStyle.Fill;
+            rtbTrainingLog.Location = new Point(3, 23);
+            rtbTrainingLog.Name = "rtbTrainingLog";
+            rtbTrainingLog.Size = new Size(1541, 364);
+            rtbTrainingLog.TabIndex = 0;
+            rtbTrainingLog.Text = "";
+            // 
+            // grpTrainingSettings
+            // 
+            grpTrainingSettings.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            grpTrainingSettings.Controls.Add(nudEpoch);
+            grpTrainingSettings.Controls.Add(cbxModelType);
+            grpTrainingSettings.Controls.Add(tbxTubPath);
+            grpTrainingSettings.Controls.Add(tbxModelPath);
+            grpTrainingSettings.Controls.Add(tbxMycarPath);
+            grpTrainingSettings.Controls.Add(tbxPythonPath);
+            grpTrainingSettings.Controls.Add(lblEpoch);
+            grpTrainingSettings.Controls.Add(lblModeType);
+            grpTrainingSettings.Controls.Add(lblModelPath);
+            grpTrainingSettings.Controls.Add(lblTubPath);
+            grpTrainingSettings.Controls.Add(lblMycarPath);
+            grpTrainingSettings.Controls.Add(lblPythonPath);
+            grpTrainingSettings.Controls.Add(btnSaveSettings);
+            grpTrainingSettings.Controls.Add(btnStopTraining);
+            grpTrainingSettings.Controls.Add(btnStartTraining);
+            grpTrainingSettings.Controls.Add(btnTubPath);
+            grpTrainingSettings.Controls.Add(btnMycarPath);
+            grpTrainingSettings.Controls.Add(btnPythonPath);
+            grpTrainingSettings.Location = new Point(15, 19);
+            grpTrainingSettings.Name = "grpTrainingSettings";
+            grpTrainingSettings.Size = new Size(1547, 437);
+            grpTrainingSettings.TabIndex = 0;
+            grpTrainingSettings.TabStop = false;
+            grpTrainingSettings.Text = "ÇÐ½À ¼³Á¤";
+            // 
+            // nudEpoch
+            // 
+            nudEpoch.Font = new Font("¸¼Àº °íµñ", 12F);
+            nudEpoch.Location = new Point(218, 306);
+            nudEpoch.Name = "nudEpoch";
+            nudEpoch.Size = new Size(391, 34);
+            nudEpoch.TabIndex = 17;
+            // 
+            // cbxModelType
+            // 
+            cbxModelType.Font = new Font("¸¼Àº °íµñ", 12F);
+            cbxModelType.FormattingEnabled = true;
+            cbxModelType.Location = new Point(218, 251);
+            cbxModelType.Name = "cbxModelType";
+            cbxModelType.Size = new Size(391, 36);
+            cbxModelType.TabIndex = 2;
+            // 
+            // tbxTubPath
+            // 
+            tbxTubPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            tbxTubPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            tbxTubPath.Location = new Point(218, 148);
+            tbxTubPath.Name = "tbxTubPath";
+            tbxTubPath.Size = new Size(1092, 34);
+            tbxTubPath.TabIndex = 16;
+            // 
+            // tbxModelPath
+            // 
+            tbxModelPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            tbxModelPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            tbxModelPath.Location = new Point(218, 199);
+            tbxModelPath.Name = "tbxModelPath";
+            tbxModelPath.Size = new Size(1092, 34);
+            tbxModelPath.TabIndex = 14;
+            // 
+            // tbxMycarPath
+            // 
+            tbxMycarPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            tbxMycarPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            tbxMycarPath.Location = new Point(218, 95);
+            tbxMycarPath.Name = "tbxMycarPath";
+            tbxMycarPath.Size = new Size(1092, 34);
+            tbxMycarPath.TabIndex = 13;
+            // 
+            // tbxPythonPath
+            // 
+            tbxPythonPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            tbxPythonPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            tbxPythonPath.Location = new Point(218, 43);
+            tbxPythonPath.Name = "tbxPythonPath";
+            tbxPythonPath.Size = new Size(1092, 34);
+            tbxPythonPath.TabIndex = 12;
+            // 
+            // lblEpoch
+            // 
+            lblEpoch.AutoSize = true;
+            lblEpoch.Font = new Font("¸¼Àº °íµñ", 12F);
+            lblEpoch.Location = new Point(45, 308);
+            lblEpoch.Name = "lblEpoch";
+            lblEpoch.Size = new Size(99, 28);
+            lblEpoch.TabIndex = 11;
+            lblEpoch.Text = "ÇÐ½À È½¼ö";
+            // 
+            // lblModeType
+            // 
+            lblModeType.AutoSize = true;
+            lblModeType.Font = new Font("¸¼Àº °íµñ", 12F);
+            lblModeType.Location = new Point(45, 254);
+            lblModeType.Name = "lblModeType";
+            lblModeType.Size = new Size(99, 28);
+            lblModeType.TabIndex = 10;
+            lblModeType.Text = "¸ðµ¨ Á¾·ù";
+            // 
+            // lblModelPath
+            // 
+            lblModelPath.AutoSize = true;
+            lblModelPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            lblModelPath.Location = new Point(45, 202);
+            lblModelPath.Name = "lblModelPath";
+            lblModelPath.Size = new Size(146, 28);
+            lblModelPath.TabIndex = 9;
+            lblModelPath.Text = "¸ðµ¨ ÀúÀå °æ·Î";
+            // 
+            // lblTubPath
+            // 
+            lblTubPath.AutoSize = true;
+            lblTubPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            lblTubPath.Location = new Point(45, 151);
+            lblTubPath.Name = "lblTubPath";
+            lblTubPath.Size = new Size(94, 28);
+            lblTubPath.TabIndex = 8;
+            lblTubPath.Text = "Tub °æ·Î";
+            // 
+            // lblMycarPath
+            // 
+            lblMycarPath.AutoSize = true;
+            lblMycarPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            lblMycarPath.Location = new Point(45, 98);
+            lblMycarPath.Name = "lblMycarPath";
+            lblMycarPath.Size = new Size(113, 28);
+            lblMycarPath.TabIndex = 7;
+            lblMycarPath.Text = "mycar °æ·Î";
+            // 
+            // lblPythonPath
+            // 
+            lblPythonPath.AutoSize = true;
+            lblPythonPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            lblPythonPath.Location = new Point(45, 46);
+            lblPythonPath.Name = "lblPythonPath";
+            lblPythonPath.Size = new Size(119, 28);
+            lblPythonPath.TabIndex = 6;
+            lblPythonPath.Text = "ÆÄÀÌ½ã °æ·Î";
+            // 
+            // btnSaveSettings
+            // 
+            btnSaveSettings.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnSaveSettings.Location = new Point(1006, 368);
+            btnSaveSettings.Name = "btnSaveSettings";
+            btnSaveSettings.Size = new Size(194, 42);
+            btnSaveSettings.TabIndex = 5;
+            btnSaveSettings.Text = "¼³Á¤ ÀúÀå";
+            btnSaveSettings.UseVisualStyleBackColor = true;
+            // 
+            // btnStopTraining
+            // 
+            btnStopTraining.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnStopTraining.Location = new Point(672, 368);
+            btnStopTraining.Name = "btnStopTraining";
+            btnStopTraining.Size = new Size(194, 42);
+            btnStopTraining.TabIndex = 4;
+            btnStopTraining.Text = "ÇÐ½À ÁßÁö";
+            btnStopTraining.UseVisualStyleBackColor = true;
+            // 
+            // btnStartTraining
+            // 
+            btnStartTraining.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnStartTraining.Location = new Point(337, 368);
+            btnStartTraining.Name = "btnStartTraining";
+            btnStartTraining.Size = new Size(194, 42);
+            btnStartTraining.TabIndex = 3;
+            btnStartTraining.Text = "ÇÐ½À ½ÃÀÛ";
+            btnStartTraining.UseVisualStyleBackColor = true;
+            // 
+            // btnTubPath
+            // 
+            btnTubPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnTubPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnTubPath.Location = new Point(1335, 135);
+            btnTubPath.Name = "btnTubPath";
+            btnTubPath.Size = new Size(123, 42);
+            btnTubPath.TabIndex = 2;
+            btnTubPath.Text = "Tub ¼±ÅÃ";
+            btnTubPath.UseVisualStyleBackColor = true;
+            // 
+            // btnMycarPath
+            // 
+            btnMycarPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnMycarPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnMycarPath.Location = new Point(1335, 87);
+            btnMycarPath.Name = "btnMycarPath";
+            btnMycarPath.Size = new Size(123, 42);
+            btnMycarPath.TabIndex = 1;
+            btnMycarPath.Text = "Ã£±â";
+            btnMycarPath.UseVisualStyleBackColor = true;
+            btnMycarPath.Click += btnMycarPath_Click;
+            // 
+            // btnPythonPath
+            // 
+            btnPythonPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnPythonPath.Font = new Font("¸¼Àº °íµñ", 12F);
+            btnPythonPath.Location = new Point(1335, 39);
+            btnPythonPath.Name = "btnPythonPath";
+            btnPythonPath.Size = new Size(123, 42);
+            btnPythonPath.TabIndex = 0;
+            btnPythonPath.Text = "Ã£±â";
+            btnPythonPath.UseVisualStyleBackColor = true;
+            // 
+            // tabPageGraphStats
+            // 
+            tabPageGraphStats.Controls.Add(pnlGraphStats);
+            tabPageGraphStats.Controls.Add(lblDescription);
+            tabPageGraphStats.Location = new Point(4, 29);
+            tabPageGraphStats.Name = "tabPageGraphStats";
+            tabPageGraphStats.Padding = new Padding(3);
+            tabPageGraphStats.Size = new Size(1572, 887);
+            tabPageGraphStats.TabIndex = 2;
+            tabPageGraphStats.Text = "±×·¡ÇÁ/Åë°è";
+            tabPageGraphStats.UseVisualStyleBackColor = true;
+            // 
+            // pnlGraphStats
+            // 
+            pnlGraphStats.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            pnlGraphStats.Location = new Point(73, 75);
+            pnlGraphStats.Name = "pnlGraphStats";
+            pnlGraphStats.Size = new Size(921, 408);
+            pnlGraphStats.TabIndex = 1;
             // 
             // lblDescription
             // 
+            lblDescription.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             lblDescription.AutoSize = true;
-            lblDescription.Location = new Point(57, 20);
-            lblDescription.Margin = new Padding(2, 0, 2, 0);
+            lblDescription.Location = new Point(73, 27);
             lblDescription.Name = "lblDescription";
-            lblDescription.Size = new Size(739, 15);
+            lblDescription.Size = new Size(921, 20);
             lblDescription.TabIndex = 0;
-            lblDescription.Text = "ì¡°í–¥ê°’ê³¼ ìŠ¤ë¡œí‹€ê°’ ë³€í™” ì¶”ì´ë¥¼ ì‹œê°í™”í•©ë‹ˆë‹¤. íŒŒëž€ìƒ‰ì€ ì¡°í–¥, ì´ˆë¡ìƒ‰ì€ ìŠ¤ë¡œí‹€ìž…ë‹ˆë‹¤. í•„í„° ì ìš© í›„ ë³´ì´ëŠ” ë°ì´í„° ê¸°ì¤€ìœ¼ë¡œ ê°±ì‹ ë©ë‹ˆë‹¤.";
+            lblDescription.Text = "Á¶Çâ°ª°ú ½º·ÎÆ²°ª º¯È­ ÃßÀÌ¸¦ ½Ã°¢È­ÇÕ´Ï´Ù. ÆÄ¶õ»öÀº Á¶Çâ, ÃÊ·Ï»öÀº ½º·ÎÆ²ÀÔ´Ï´Ù. ÇÊÅÍ Àû¿ë ÈÄ º¸ÀÌ´Â µ¥ÀÌÅÍ ±âÁØÀ¸·Î °»½ÅµË´Ï´Ù.";
             // 
-            // tabPage4
+            // statusStripDataViewer
             // 
-            tabPage4.Location = new Point(4, 24);
-            tabPage4.Margin = new Padding(2);
-            tabPage4.Name = "tabPage4";
-            tabPage4.Size = new Size(1221, 662);
-            tabPage4.TabIndex = 3;
-            tabPage4.Text = "tabPage4";
-            tabPage4.UseVisualStyleBackColor = true;
-            // 
-            // statusStrip1
-            // 
-            statusStrip1.ImageScalingSize = new Size(20, 20);
-            statusStrip1.Items.AddRange(new ToolStripItem[] { toolStripStatusLabelPath, toolStripStatusLabelFrames });
-            statusStrip1.Location = new Point(0, 0);
-            statusStrip1.Name = "statusStrip1";
-            statusStrip1.Size = new Size(200, 22);
-            statusStrip1.TabIndex = 0;
+            statusStripDataViewer.ImageScalingSize = new Size(20, 20);
+            statusStripDataViewer.Items.AddRange(new ToolStripItem[] { toolStripStatusLabelPath, toolStripStatusLabelFrames });
+            statusStripDataViewer.Location = new Point(0, 0);
+            statusStripDataViewer.Name = "statusStripDataViewer";
+            statusStripDataViewer.Size = new Size(200, 22);
+            statusStripDataViewer.TabIndex = 0;
             // 
             // toolStripStatusLabelPath
             // 
             toolStripStatusLabelPath.Name = "toolStripStatusLabelPath";
-            toolStripStatusLabelPath.Size = new Size(43, 17);
-            toolStripStatusLabelPath.Text = "ê²½ë¡œ: -";
+            toolStripStatusLabelPath.Size = new Size(53, 16);
+            toolStripStatusLabelPath.Text = "°æ·Î: -";
             // 
             // toolStripStatusLabelFrames
             // 
             toolStripStatusLabelFrames.Name = "toolStripStatusLabelFrames";
-            toolStripStatusLabelFrames.Size = new Size(59, 17);
+            toolStripStatusLabelFrames.Size = new Size(72, 16);
             toolStripStatusLabelFrames.Text = "Frames: 0";
             // 
             // Form1
             // 
-            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleDimensions = new SizeF(9F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1230, 715);
-            Controls.Add(tabControl1);
-            Controls.Add(menuStrip1);
-            MainMenuStrip = menuStrip1;
+            ClientSize = new Size(1581, 953);
+            Controls.Add(tabControlMain);
+            Controls.Add(menuStripMain);
+            MainMenuStrip = menuStripMain;
+            Margin = new Padding(4);
+            MinimumSize = new Size(1000, 700);
             Name = "Form1";
             Text = "Data Manager";
             Load += Form1_Load;
-            menuStrip1.ResumeLayout(false);
-            menuStrip1.PerformLayout();
-            tabControl1.ResumeLayout(false);
-            tabPage1.ResumeLayout(false);
-            groupBox2.ResumeLayout(false);
-            groupBox2.PerformLayout();
+            menuStripMain.ResumeLayout(false);
+            menuStripMain.PerformLayout();
+            tabControlMain.ResumeLayout(false);
+            tabPageDataViewer.ResumeLayout(false);
+            grpTubCleaner.ResumeLayout(false);
+            grpTubCleaner.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)numFilterMax).EndInit();
             ((System.ComponentModel.ISupportInitialize)numFilterMin).EndInit();
-            groupBox1.ResumeLayout(false);
-            groupBox1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)trackBarMain).EndInit();
-            ((System.ComponentModel.ISupportInitialize)numericUpDownInterval).EndInit();
-            ((System.ComponentModel.ISupportInitialize)pbMainPreview).EndInit();
-            tabPage2.ResumeLayout(false);
-            tabPage3.ResumeLayout(false);
-            tabPage3.PerformLayout();
-            statusStrip1.ResumeLayout(false);
-            statusStrip1.PerformLayout();
+            grpTubExplorer.ResumeLayout(false);
+            grpTubExplorer.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)trkFramePosition).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numPlaybackInterval).EndInit();
+            ((System.ComponentModel.ISupportInitialize)picMainPreview).EndInit();
+            tabPageTraining.ResumeLayout(false);
+            tabPageTraining.PerformLayout();
+            statusStripTraining.ResumeLayout(false);
+            statusStripTraining.PerformLayout();
+            grpTrainingLog.ResumeLayout(false);
+            grpTrainingSettings.ResumeLayout(false);
+            grpTrainingSettings.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)nudEpoch).EndInit();
+            tabPageGraphStats.ResumeLayout(false);
+            tabPageGraphStats.PerformLayout();
+            statusStripDataViewer.ResumeLayout(false);
+            statusStripDataViewer.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
 
         #endregion
 
-        private MenuStrip menuStrip1;
-        private ToolStripMenuItem íŒŒì¼ToolStripMenuItem;
-        private ToolStripMenuItem ë³´ê¸°ToolStripMenuItem;
-        private ToolStripMenuItem ë„ì›€ë§ToolStripMenuItem;
-        private TabControl tabControl1;
-        private TabPage tabPage1;
-        private TabPage tabPage3;
-        private PictureBox pictureBox1;
-        private ListBox listBox1;
-        private Label lblStatus;
-        private TrackBar trackBar1;
-        private Button btnStart;
-        private Button btnStop;
-        private CheckBox chkShowImage;
+        private MenuStrip menuStripMain;
+        private ToolStripMenuItem mnuFile;
+        private ToolStripMenuItem mnuView;
+        private ToolStripMenuItem mnuHelp;
+        private TabControl tabControlMain;
+        private TabPage tabPageDataViewer;
+        private TabPage tabPageGraphStats;
         private Button btnOpenFolder;
         private Button btnReload;
         private Button btnToggleTheme;
         private Button btnGuide;
-        private PictureBox pbMainPreview;
+        private PictureBox picMainPreview;
         private Label lblFrameValue;
         private Label lblAngleValue;
+        private ComboBox cbxFrameFilter;
         private Label lblThrottleValue;
         private Label lblModeValue;
-        private ComboBox comboBoxFilter;
-        private NumericUpDown numericUpDownInterval;
+        private NumericUpDown numPlaybackInterval;
         private Button btnApplyFilter;
-        private ListBox listBoxData;
+        private ListBox lstFrameData;
         private Button btnFirst;
         private Button btnPrev;
         private Button btnNext;
         private Button btnLast;
-        private TrackBar trackBarMain;
-        private StatusStrip statusStrip1;
+        private TrackBar trkFramePosition;
+        private StatusStrip statusStripDataViewer;
         private ToolStripStatusLabel toolStripStatusLabelPath;
         private ToolStripStatusLabel toolStripStatusLabelFrames;
         private Button btnClearFilter;
         private Label lblDescription;
-        private Panel panel1;
-        private ToolStripMenuItem í…Œë§ˆì „í™˜ToolStripMenuItem;
-        private ToolStripMenuItem ê·¸ëž˜í”„í…ŒToolStripMenuItem;
-        private ToolStripMenuItem ë‹¨ê³„ë³„ê°€ì´ë“œToolStripMenuItem;
-        private ToolStripMenuItem ë°ì´í„°í´ë”ì—´ê¸°ToolStripMenuItem;
-        private ToolStripMenuItem ë‹¤ì‹œë¶ˆëŸ¬ì˜¤ê¸°ToolStripMenuItem;
-        private ToolStripMenuItem ì¢…ë£ŒToolStripMenuItem;
+        private Panel pnlGraphStats;
+        private ToolStripMenuItem mnuToggleTheme;
+        private ToolStripMenuItem mnuOpenGraphStats;
+        private ToolStripMenuItem mnuOpenGuide;
+        private ToolStripMenuItem mnuOpenDataFolder;
+        private ToolStripMenuItem mnuReloadData;
+        private ToolStripMenuItem mnuExit;
         private Button btnAutoPlay;
-        private Label label1;
-        private GroupBox groupBox1;
-        private GroupBox groupBox2;
+        private Label lblPlayInterval;
+        private GroupBox grpTubExplorer;
+        private GroupBox grpTubCleaner;
         private NumericUpDown numFilterMax;
         private NumericUpDown numFilterMin;
-        private TextBox textBox1;
-        private Label label3;
-        private Label label2;
+        private TextBox txtTubCleanerPath;
+        private Label lblFilterMax;
+        private Label lblFilterMin;
         private Button btnRepair;
         private Button btnReloadTub;
-        private TabPage tabPage4;
-        private TabPage tabPage2;
-        private GroupBox groupBox3;
+        private TabPage tabPageTraining;
+        private GroupBox grpTrainingSettings;
+        private GroupBox grpTrainingLog;
+        private Label lblEpoch;
+        private Label lblModeType;
+        private Label lblModelPath;
+        private Label lblTubPath;
+        private Label lblMycarPath;
+        private Label lblPythonPath;
+        private Button btnSaveSettings;
+        private Button btnStopTraining;
+        private Button btnStartTraining;
+        private Button btnTubPath;
+        private Button btnMycarPath;
+        private Button btnPythonPath;
+        private TextBox tbxTubPath;
+        private TextBox tbxModelPath;
+        private TextBox tbxMycarPath;
+        private TextBox tbxPythonPath;
+        private NumericUpDown nudEpoch;
+        private ComboBox cbxModelType;
+        private RichTextBox rtbTrainingLog;
+        private StatusStrip statusStripTraining;
+        private ToolStripStatusLabel toolStripStatusLabelTraining;
     }
 }
