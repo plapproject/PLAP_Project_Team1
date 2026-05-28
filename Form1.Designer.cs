@@ -66,7 +66,6 @@ namespace TeamApp
             btnApplyFilter = new Button();
             btnClearFilter = new Button();
             grpTubExplorer = new GroupBox();
-            splitContainerFramePreview = new SplitContainer();
             trkFramePosition = new TrackBar();
             numPlaybackInterval = new NumericUpDown();
             btnOpenFolder = new Button();
@@ -75,9 +74,10 @@ namespace TeamApp
             btnAutoPlay = new Button();
             btnNext = new Button();
             btnPrev = new Button();
+            splitContainerFramePreview = new SplitContainer();
             lstFrameData = new ListBox();
-            btnFirst = new Button();
             picMainPreview = new PictureBox();
+            btnFirst = new Button();
             btnReload = new Button();
             lblFrameValue = new Label();
             lblModeValue = new Label();
@@ -96,19 +96,16 @@ namespace TeamApp
             tbxTubPath = new TextBox();
             tbxModelPath = new TextBox();
             tbxMycarPath = new TextBox();
-            tbxPythonPath = new TextBox();
             lblEpoch = new Label();
             lblModeType = new Label();
             lblModelPath = new Label();
             lblTubPath = new Label();
             lblMycarPath = new Label();
-            lblPythonPath = new Label();
             btnSaveSettings = new Button();
             btnStopTraining = new Button();
             btnStartTraining = new Button();
             btnTubPath = new Button();
             btnMycarPath = new Button();
-            btnPythonPath = new Button();
             tabPageGraphStats = new TabPage();
             pnlGraphStats = new Panel();
             lblDescription = new Label();
@@ -121,12 +118,12 @@ namespace TeamApp
             statusStripDataFooter.SuspendLayout();
             grpTubCleaner.SuspendLayout();
             grpTubExplorer.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)trkFramePosition).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numPlaybackInterval).BeginInit();
             ((System.ComponentModel.ISupportInitialize)splitContainerFramePreview).BeginInit();
             splitContainerFramePreview.Panel1.SuspendLayout();
             splitContainerFramePreview.Panel2.SuspendLayout();
             splitContainerFramePreview.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)trkFramePosition).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)numPlaybackInterval).BeginInit();
             ((System.ComponentModel.ISupportInitialize)picMainPreview).BeginInit();
             tabPageTraining.SuspendLayout();
             statusStripTraining.SuspendLayout();
@@ -382,7 +379,7 @@ namespace TeamApp
             // 
             cbxModeFilter.Font = new Font("¸¼Àº °íµñ", 10F);
             cbxModeFilter.FormattingEnabled = true;
-            cbxModeFilter.Items.AddRange(new object[] { "All", "User", "Local", "Local_angel" });
+            cbxModeFilter.Items.AddRange(new object[] { "All", "User", "Local", "Local_angle" });
             cbxModeFilter.Location = new Point(705, 101);
             cbxModeFilter.Name = "cbxModeFilter";
             cbxModeFilter.Size = new Size(277, 31);
@@ -518,18 +515,6 @@ namespace TeamApp
             grpTubExplorer.TabStop = false;
             grpTubExplorer.Text = "ÅÍºê Å½»ö±â";
             // 
-            // splitContainerFramePreview
-            // 
-            splitContainerFramePreview.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            splitContainerFramePreview.Location = new Point(0, 61);
-            splitContainerFramePreview.Name = "splitContainerFramePreview";
-            splitContainerFramePreview.Panel1.Controls.Add(lstFrameData);
-            splitContainerFramePreview.Panel2.Controls.Add(picMainPreview);
-            splitContainerFramePreview.Size = new Size(1278, 503);
-            splitContainerFramePreview.SplitterDistance = 360;
-            splitContainerFramePreview.SplitterWidth = 6;
-            splitContainerFramePreview.TabIndex = 44;
-            // 
             // trkFramePosition
             // 
             trkFramePosition.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -613,6 +598,24 @@ namespace TeamApp
             btnPrev.Text = "<";
             btnPrev.Click += btnPrev_Click;
             // 
+            // splitContainerFramePreview
+            // 
+            splitContainerFramePreview.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            splitContainerFramePreview.Location = new Point(0, 61);
+            splitContainerFramePreview.Name = "splitContainerFramePreview";
+            // 
+            // splitContainerFramePreview.Panel1
+            // 
+            splitContainerFramePreview.Panel1.Controls.Add(lstFrameData);
+            // 
+            // splitContainerFramePreview.Panel2
+            // 
+            splitContainerFramePreview.Panel2.Controls.Add(picMainPreview);
+            splitContainerFramePreview.Size = new Size(1278, 503);
+            splitContainerFramePreview.SplitterDistance = 360;
+            splitContainerFramePreview.SplitterWidth = 6;
+            splitContainerFramePreview.TabIndex = 44;
+            // 
             // lstFrameData
             // 
             lstFrameData.Dock = DockStyle.Fill;
@@ -621,16 +624,6 @@ namespace TeamApp
             lstFrameData.Size = new Size(360, 503);
             lstFrameData.TabIndex = 13;
             lstFrameData.SelectedIndexChanged += lstFrameData_SelectedIndexChanged;
-            // 
-            // btnFirst
-            // 
-            btnFirst.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnFirst.Location = new Point(1284, 140);
-            btnFirst.Name = "btnFirst";
-            btnFirst.Size = new Size(134, 29);
-            btnFirst.TabIndex = 14;
-            btnFirst.Text = "<<";
-            btnFirst.Click += btnFirst_Click;
             // 
             // picMainPreview
             // 
@@ -642,6 +635,16 @@ namespace TeamApp
             picMainPreview.SizeMode = PictureBoxSizeMode.Zoom;
             picMainPreview.TabIndex = 4;
             picMainPreview.TabStop = false;
+            // 
+            // btnFirst
+            // 
+            btnFirst.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnFirst.Location = new Point(1284, 140);
+            btnFirst.Name = "btnFirst";
+            btnFirst.Size = new Size(134, 29);
+            btnFirst.TabIndex = 14;
+            btnFirst.Text = "<<";
+            btnFirst.Click += btnFirst_Click;
             // 
             // btnReload
             // 
@@ -776,19 +779,16 @@ namespace TeamApp
             grpTrainingSettings.Controls.Add(tbxTubPath);
             grpTrainingSettings.Controls.Add(tbxModelPath);
             grpTrainingSettings.Controls.Add(tbxMycarPath);
-            grpTrainingSettings.Controls.Add(tbxPythonPath);
             grpTrainingSettings.Controls.Add(lblEpoch);
             grpTrainingSettings.Controls.Add(lblModeType);
             grpTrainingSettings.Controls.Add(lblModelPath);
             grpTrainingSettings.Controls.Add(lblTubPath);
             grpTrainingSettings.Controls.Add(lblMycarPath);
-            grpTrainingSettings.Controls.Add(lblPythonPath);
             grpTrainingSettings.Controls.Add(btnSaveSettings);
             grpTrainingSettings.Controls.Add(btnStopTraining);
             grpTrainingSettings.Controls.Add(btnStartTraining);
             grpTrainingSettings.Controls.Add(btnTubPath);
             grpTrainingSettings.Controls.Add(btnMycarPath);
-            grpTrainingSettings.Controls.Add(btnPythonPath);
             grpTrainingSettings.Location = new Point(15, 19);
             grpTrainingSettings.Name = "grpTrainingSettings";
             grpTrainingSettings.Size = new Size(1547, 437);
@@ -799,7 +799,7 @@ namespace TeamApp
             // nudEpoch
             // 
             nudEpoch.Font = new Font("¸¼Àº °íµñ", 12F);
-            nudEpoch.Location = new Point(219, 307);
+            nudEpoch.Location = new Point(219, 286);
             nudEpoch.Name = "nudEpoch";
             nudEpoch.Size = new Size(391, 34);
             nudEpoch.TabIndex = 17;
@@ -808,7 +808,7 @@ namespace TeamApp
             // 
             cbxModelType.Font = new Font("¸¼Àº °íµñ", 12F);
             cbxModelType.FormattingEnabled = true;
-            cbxModelType.Location = new Point(219, 251);
+            cbxModelType.Location = new Point(219, 230);
             cbxModelType.Name = "cbxModelType";
             cbxModelType.Size = new Size(391, 36);
             cbxModelType.TabIndex = 2;
@@ -817,7 +817,7 @@ namespace TeamApp
             // 
             tbxTubPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             tbxTubPath.Font = new Font("¸¼Àº °íµñ", 12F);
-            tbxTubPath.Location = new Point(219, 148);
+            tbxTubPath.Location = new Point(219, 127);
             tbxTubPath.Name = "tbxTubPath";
             tbxTubPath.Size = new Size(1092, 34);
             tbxTubPath.TabIndex = 16;
@@ -826,7 +826,7 @@ namespace TeamApp
             // 
             tbxModelPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             tbxModelPath.Font = new Font("¸¼Àº °íµñ", 12F);
-            tbxModelPath.Location = new Point(219, 199);
+            tbxModelPath.Location = new Point(219, 178);
             tbxModelPath.Name = "tbxModelPath";
             tbxModelPath.Size = new Size(1092, 34);
             tbxModelPath.TabIndex = 14;
@@ -835,25 +835,16 @@ namespace TeamApp
             // 
             tbxMycarPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             tbxMycarPath.Font = new Font("¸¼Àº °íµñ", 12F);
-            tbxMycarPath.Location = new Point(219, 95);
+            tbxMycarPath.Location = new Point(219, 74);
             tbxMycarPath.Name = "tbxMycarPath";
             tbxMycarPath.Size = new Size(1092, 34);
             tbxMycarPath.TabIndex = 13;
-            // 
-            // tbxPythonPath
-            // 
-            tbxPythonPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            tbxPythonPath.Font = new Font("¸¼Àº °íµñ", 12F);
-            tbxPythonPath.Location = new Point(219, 43);
-            tbxPythonPath.Name = "tbxPythonPath";
-            tbxPythonPath.Size = new Size(1092, 34);
-            tbxPythonPath.TabIndex = 12;
             // 
             // lblEpoch
             // 
             lblEpoch.AutoSize = true;
             lblEpoch.Font = new Font("¸¼Àº °íµñ", 12F);
-            lblEpoch.Location = new Point(45, 308);
+            lblEpoch.Location = new Point(45, 287);
             lblEpoch.Name = "lblEpoch";
             lblEpoch.Size = new Size(99, 28);
             lblEpoch.TabIndex = 11;
@@ -863,7 +854,7 @@ namespace TeamApp
             // 
             lblModeType.AutoSize = true;
             lblModeType.Font = new Font("¸¼Àº °íµñ", 12F);
-            lblModeType.Location = new Point(45, 253);
+            lblModeType.Location = new Point(45, 232);
             lblModeType.Name = "lblModeType";
             lblModeType.Size = new Size(99, 28);
             lblModeType.TabIndex = 10;
@@ -873,7 +864,7 @@ namespace TeamApp
             // 
             lblModelPath.AutoSize = true;
             lblModelPath.Font = new Font("¸¼Àº °íµñ", 12F);
-            lblModelPath.Location = new Point(45, 203);
+            lblModelPath.Location = new Point(45, 182);
             lblModelPath.Name = "lblModelPath";
             lblModelPath.Size = new Size(146, 28);
             lblModelPath.TabIndex = 9;
@@ -883,7 +874,7 @@ namespace TeamApp
             // 
             lblTubPath.AutoSize = true;
             lblTubPath.Font = new Font("¸¼Àº °íµñ", 12F);
-            lblTubPath.Location = new Point(45, 151);
+            lblTubPath.Location = new Point(45, 130);
             lblTubPath.Name = "lblTubPath";
             lblTubPath.Size = new Size(94, 28);
             lblTubPath.TabIndex = 8;
@@ -893,26 +884,16 @@ namespace TeamApp
             // 
             lblMycarPath.AutoSize = true;
             lblMycarPath.Font = new Font("¸¼Àº °íµñ", 12F);
-            lblMycarPath.Location = new Point(45, 99);
+            lblMycarPath.Location = new Point(45, 78);
             lblMycarPath.Name = "lblMycarPath";
             lblMycarPath.Size = new Size(113, 28);
             lblMycarPath.TabIndex = 7;
             lblMycarPath.Text = "mycar °æ·Î";
             // 
-            // lblPythonPath
-            // 
-            lblPythonPath.AutoSize = true;
-            lblPythonPath.Font = new Font("¸¼Àº °íµñ", 12F);
-            lblPythonPath.Location = new Point(45, 45);
-            lblPythonPath.Name = "lblPythonPath";
-            lblPythonPath.Size = new Size(119, 28);
-            lblPythonPath.TabIndex = 6;
-            lblPythonPath.Text = "ÆÄÀÌ½ã °æ·Î";
-            // 
             // btnSaveSettings
             // 
             btnSaveSettings.Font = new Font("¸¼Àº °íµñ", 12F);
-            btnSaveSettings.Location = new Point(1046, 368);
+            btnSaveSettings.Location = new Point(1046, 347);
             btnSaveSettings.Name = "btnSaveSettings";
             btnSaveSettings.Size = new Size(194, 43);
             btnSaveSettings.TabIndex = 5;
@@ -922,7 +903,7 @@ namespace TeamApp
             // btnStopTraining
             // 
             btnStopTraining.Font = new Font("¸¼Àº °íµñ", 12F);
-            btnStopTraining.Location = new Point(713, 368);
+            btnStopTraining.Location = new Point(713, 347);
             btnStopTraining.Name = "btnStopTraining";
             btnStopTraining.Size = new Size(194, 43);
             btnStopTraining.TabIndex = 4;
@@ -932,7 +913,7 @@ namespace TeamApp
             // btnStartTraining
             // 
             btnStartTraining.Font = new Font("¸¼Àº °íµñ", 12F);
-            btnStartTraining.Location = new Point(378, 368);
+            btnStartTraining.Location = new Point(378, 347);
             btnStartTraining.Name = "btnStartTraining";
             btnStartTraining.Size = new Size(194, 43);
             btnStartTraining.TabIndex = 3;
@@ -943,7 +924,7 @@ namespace TeamApp
             // 
             btnTubPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnTubPath.Font = new Font("¸¼Àº °íµñ", 12F);
-            btnTubPath.Location = new Point(1335, 135);
+            btnTubPath.Location = new Point(1335, 114);
             btnTubPath.Name = "btnTubPath";
             btnTubPath.Size = new Size(123, 43);
             btnTubPath.TabIndex = 2;
@@ -954,24 +935,13 @@ namespace TeamApp
             // 
             btnMycarPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnMycarPath.Font = new Font("¸¼Àº °íµñ", 12F);
-            btnMycarPath.Location = new Point(1335, 87);
+            btnMycarPath.Location = new Point(1335, 66);
             btnMycarPath.Name = "btnMycarPath";
             btnMycarPath.Size = new Size(123, 43);
             btnMycarPath.TabIndex = 1;
             btnMycarPath.Text = "Ã£±â";
             btnMycarPath.UseVisualStyleBackColor = true;
             btnMycarPath.Click += btnMycarPath_Click;
-            // 
-            // btnPythonPath
-            // 
-            btnPythonPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnPythonPath.Font = new Font("¸¼Àº °íµñ", 12F);
-            btnPythonPath.Location = new Point(1335, 39);
-            btnPythonPath.Name = "btnPythonPath";
-            btnPythonPath.Size = new Size(123, 43);
-            btnPythonPath.TabIndex = 0;
-            btnPythonPath.Text = "Ã£±â";
-            btnPythonPath.UseVisualStyleBackColor = true;
             // 
             // tabPageGraphStats
             // 
@@ -1048,12 +1018,12 @@ namespace TeamApp
             grpTubCleaner.PerformLayout();
             grpTubExplorer.ResumeLayout(false);
             grpTubExplorer.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)trkFramePosition).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numPlaybackInterval).EndInit();
             splitContainerFramePreview.Panel1.ResumeLayout(false);
             splitContainerFramePreview.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)splitContainerFramePreview).EndInit();
             splitContainerFramePreview.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)trkFramePosition).EndInit();
-            ((System.ComponentModel.ISupportInitialize)numPlaybackInterval).EndInit();
             ((System.ComponentModel.ISupportInitialize)picMainPreview).EndInit();
             tabPageTraining.ResumeLayout(false);
             tabPageTraining.PerformLayout();
@@ -1124,17 +1094,14 @@ namespace TeamApp
         private Label lblModelPath;
         private Label lblTubPath;
         private Label lblMycarPath;
-        private Label lblPythonPath;
         private Button btnSaveSettings;
         private Button btnStopTraining;
         private Button btnStartTraining;
         private Button btnTubPath;
         private Button btnMycarPath;
-        private Button btnPythonPath;
         private TextBox tbxTubPath;
         private TextBox tbxModelPath;
         private TextBox tbxMycarPath;
-        private TextBox tbxPythonPath;
         private NumericUpDown nudEpoch;
         private ComboBox cbxModelType;
         private RichTextBox rtbTrainingLog;
