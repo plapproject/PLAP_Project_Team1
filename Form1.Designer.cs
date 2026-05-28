@@ -48,6 +48,7 @@
             txtSelectRangeMin = new TextBox();
             lblSelectRange = new Label();
             btnRestoreFrame = new Button();
+            btnFrameSave = new Button();
             btnDeleteFrame = new Button();
             btnExcludeRange = new Button();
             btnExcludeSelectedFrame = new Button();
@@ -253,6 +254,7 @@
             grpTubCleaner.Controls.Add(txtSelectRangeMin);
             grpTubCleaner.Controls.Add(lblSelectRange);
             grpTubCleaner.Controls.Add(btnRestoreFrame);
+            grpTubCleaner.Controls.Add(btnFrameSave);
             grpTubCleaner.Controls.Add(btnDeleteFrame);
             grpTubCleaner.Controls.Add(btnExcludeRange);
             grpTubCleaner.Controls.Add(btnExcludeSelectedFrame);
@@ -324,6 +326,16 @@
             btnRestoreFrame.TabIndex = 43;
             btnRestoreFrame.Text = "복구";
             btnRestoreFrame.UseVisualStyleBackColor = true;
+            // 
+            // btnFrameSave
+            // 
+            btnFrameSave.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnFrameSave.Location = new Point(1265, 180);
+            btnFrameSave.Name = "btnFrameSave";
+            btnFrameSave.Size = new Size(215, 29);
+            btnFrameSave.TabIndex = 48;
+            btnFrameSave.Text = "상태 저장";
+            btnFrameSave.UseVisualStyleBackColor = true;
             // 
             // btnDeleteFrame
             // 
@@ -1121,6 +1133,7 @@
         private ComboBox cbxModeFilter;
         private Label lblModeFilter;
         private Button btnRestoreFrame;
+        private Button btnFrameSave;
         private Button btnDeleteFrame;
         private Button btnExcludeRange;
         private Button btnExcludeSelectedFrame;
