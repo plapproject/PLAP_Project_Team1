@@ -318,7 +318,7 @@ namespace TeamApp
             // btnRestoreFrame
             // 
             btnRestoreFrame.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnRestoreFrame.Location = new Point(1264, 143);
+            btnRestoreFrame.Location = new Point(1265, 143);
             btnRestoreFrame.Name = "btnRestoreFrame";
             btnRestoreFrame.Size = new Size(215, 29);
             btnRestoreFrame.TabIndex = 43;
@@ -328,7 +328,7 @@ namespace TeamApp
             // btnDeleteFrame
             // 
             btnDeleteFrame.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnDeleteFrame.Location = new Point(1033, 141);
+            btnDeleteFrame.Location = new Point(1034, 141);
             btnDeleteFrame.Name = "btnDeleteFrame";
             btnDeleteFrame.Size = new Size(215, 29);
             btnDeleteFrame.TabIndex = 42;
@@ -338,7 +338,7 @@ namespace TeamApp
             // btnExcludeRange
             // 
             btnExcludeRange.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnExcludeRange.Location = new Point(1033, 66);
+            btnExcludeRange.Location = new Point(1034, 66);
             btnExcludeRange.Name = "btnExcludeRange";
             btnExcludeRange.Size = new Size(215, 29);
             btnExcludeRange.TabIndex = 40;
@@ -348,7 +348,7 @@ namespace TeamApp
             // btnExcludeSelectedFrame
             // 
             btnExcludeSelectedFrame.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnExcludeSelectedFrame.Location = new Point(1264, 68);
+            btnExcludeSelectedFrame.Location = new Point(1265, 68);
             btnExcludeSelectedFrame.Name = "btnExcludeSelectedFrame";
             btnExcludeSelectedFrame.Size = new Size(215, 29);
             btnExcludeSelectedFrame.TabIndex = 41;
@@ -470,7 +470,7 @@ namespace TeamApp
             // btnApplyFilter
             // 
             btnApplyFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnApplyFilter.Location = new Point(1034, 103);
+            btnApplyFilter.Location = new Point(1035, 103);
             btnApplyFilter.Name = "btnApplyFilter";
             btnApplyFilter.Size = new Size(215, 29);
             btnApplyFilter.TabIndex = 12;
@@ -481,7 +481,7 @@ namespace TeamApp
             // btnClearFilter
             // 
             btnClearFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnClearFilter.Location = new Point(1264, 105);
+            btnClearFilter.Location = new Point(1265, 105);
             btnClearFilter.Name = "btnClearFilter";
             btnClearFilter.Size = new Size(215, 29);
             btnClearFilter.TabIndex = 19;
