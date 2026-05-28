@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Diagnostics;
 using ScottPlot;
 using ScottPlot.WinForms;
 
@@ -15,10 +16,6 @@ namespace TeamApp
 {
     public partial class Form1 : Form
     {
-        // _originalFrames : 濡쒕뱶??紐⑤뱺 ?꾨젅??(??젣??寃??ы븿, ?쒖꽌 遺덈?)
-        // _currentDisplayedFrames : ?꾩옱 ListBox???쒖떆 以묒씤 紐⑸줉
-        //   - ?꾪꽣 ?댁젣 ?? _originalFrames 洹몃?濡?
-        //   - ?꾪꽣 ?곸슜 ?? IsDeleted == false ??寃껊쭔
         private List<FrameData> _originalFrames = new List<FrameData>();
         private List<FrameData> _currentDisplayedFrames = new List<FrameData>();
 
@@ -32,7 +29,7 @@ namespace TeamApp
         private FormsPlot? _formsPlot;
         private bool _chartDirty = true;
 
-        // ?앹꽦??/ 珥덇린??
+        private Process trainingProcess;
 
         public Form1()
         {
@@ -53,21 +50,21 @@ namespace TeamApp
         private void Form1_Load(object sender, EventArgs e)
         {
             // 버튼 이벤트를 코드에서 연결합니다.
-            btnClearFilter.Click      += BtnClearFilter_Click;
+            btnClearFilter.Click += BtnClearFilter_Click;
             btnExcludeSelectedFrame.Click += BtnRepair_Click;
-            btnRestoreFrame.Click     += BtnReloadTub_Click;
+            btnRestoreFrame.Click += BtnReloadTub_Click;
 
-            mnuOpenDataFolder.Click   += (s, _) => btnOpenFolder_Click(s!, EventArgs.Empty);
-            mnuReloadData.Click       += (s, _) => btnReload_Click(s!, EventArgs.Empty);
-            mnuExit.Click             += (s, _) => Application.Exit();
-            mnuOpenGuide.Click        += (s, _) => btnGuide_Click(s!, EventArgs.Empty);
+            mnuOpenDataFolder.Click += (s, _) => btnOpenFolder_Click(s!, EventArgs.Empty);
+            mnuReloadData.Click += (s, _) => btnReload_Click(s!, EventArgs.Empty);
+            mnuExit.Click += (s, _) => Application.Exit();
+            mnuOpenGuide.Click += (s, _) => btnGuide_Click(s!, EventArgs.Empty);
 
             tabControlMain.SelectedIndexChanged += TabControl1_SelectedIndexChanged;
 
             btnExcludeSelectedFrame.Text = "구간 제외";
-            btnRestoreFrame.Text         = "복원";
-            txtAngleMin.Text    = "-1";
-            txtAngleMax.Text    = "1";
+            btnRestoreFrame.Text = "복원";
+            txtAngleMin.Text = "-1";
+            txtAngleMax.Text = "1";
             txtThrottleMin.Text = "0";
             txtThrottleMax.Text = "1";
 
@@ -143,7 +140,7 @@ namespace TeamApp
             if (selectedOriginalIndices.Count == 0) return;
 
             int from = selectedOriginalIndices.Min();
-            int to   = selectedOriginalIndices.Max();
+            int to = selectedOriginalIndices.Max();
 
             var confirm = MessageBox.Show(
                 $"원본 인덱스 {from} ~ {to} 구간을 제외(Soft Delete) 처리합니다.\n" +
@@ -182,9 +179,9 @@ namespace TeamApp
         }
 
         private void btnFirst_Click(object sender, EventArgs e) => SetIndex(0);
-        private void btnPrev_Click(object sender, EventArgs e)  => SetIndex(Math.Max(0, currentIndex - 1));
-        private void btnNext_Click(object sender, EventArgs e)  => SetIndex(Math.Min(_currentDisplayedFrames.Count - 1, currentIndex + 1));
-        private void btnLast_Click(object sender, EventArgs e)  => SetIndex(_currentDisplayedFrames.Count - 1);
+        private void btnPrev_Click(object sender, EventArgs e) => SetIndex(Math.Max(0, currentIndex - 1));
+        private void btnNext_Click(object sender, EventArgs e) => SetIndex(Math.Min(_currentDisplayedFrames.Count - 1, currentIndex + 1));
+        private void btnLast_Click(object sender, EventArgs e) => SetIndex(_currentDisplayedFrames.Count - 1);
 
         // 자동 재생 타이머 처리
         private void PlayTimer_Tick(object? sender, EventArgs e)
@@ -210,10 +207,10 @@ namespace TeamApp
             switch (e.KeyCode)
             {
                 case Keys.Right: btnNext_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.Left:  btnPrev_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.Left: btnPrev_Click(this, EventArgs.Empty); e.Handled = true; break;
                 case Keys.Space: TogglePlayPause(); e.Handled = true; break;
-                case Keys.Home:  btnFirst_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.End:   btnLast_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.Home: btnFirst_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.End: btnLast_Click(this, EventArgs.Empty); e.Handled = true; break;
             }
         }
 
@@ -232,7 +229,7 @@ namespace TeamApp
 
             var frame = _currentDisplayedFrames[e.Index];
             bool isSelected = (e.State & DrawItemState.Selected) != 0;
-            bool isDeleted  = frame.IsDeleted;
+            bool isDeleted = frame.IsDeleted;
 
             // 삭제 여부와 선택 상태에 따라 배경색을 정합니다.
             System.Drawing.Color backColor;
@@ -247,17 +244,17 @@ namespace TeamApp
                 e.Graphics.FillRectangle(backBrush, e.Bounds);
 
             // 삭제된 항목은 굵은 빨간 글씨로 표시합니다.
-            Font  font;
+            Font font;
             System.Drawing.Color foreColor;
 
             if (isDeleted)
             {
-                font      = new Font(e.Font ?? lstFrameData.Font, System.Drawing.FontStyle.Bold);
+                font = new Font(e.Font ?? lstFrameData.Font, System.Drawing.FontStyle.Bold);
                 foreColor = isSelected ? System.Drawing.Color.DarkRed : System.Drawing.Color.Red;
             }
             else
             {
-                font      = e.Font ?? lstFrameData.Font;
+                font = e.Font ?? lstFrameData.Font;
                 foreColor = isSelected ? SystemColors.HighlightText : e.ForeColor;
             }
 
@@ -282,12 +279,12 @@ namespace TeamApp
         /// </summary>
         private void SetLoadingState(bool loading)
         {
-            btnOpenFolder.Enabled           = !loading;
-            btnReload.Enabled               = !loading;
-            btnApplyFilter.Enabled          = !loading;
-            btnClearFilter.Enabled          = !loading;
+            btnOpenFolder.Enabled = !loading;
+            btnReload.Enabled = !loading;
+            btnApplyFilter.Enabled = !loading;
+            btnClearFilter.Enabled = !loading;
             btnExcludeSelectedFrame.Enabled = !loading;
-            btnRestoreFrame.Enabled         = !loading;
+            btnRestoreFrame.Enabled = !loading;
             this.Cursor = loading ? Cursors.WaitCursor : Cursors.Default;
             if (loading) toolStripStatusLabelFrames.Text = "로딩 중...";
         }
@@ -311,8 +308,8 @@ namespace TeamApp
             }
 
             // 2) ListBox 利됱떆 媛깆떊 (BeginUpdate/EndUpdate ?놁씠 DataSource 援먯껜濡?媛뺤젣 媛깆떊)
-            lstFrameData.DataSource    = null;
-            lstFrameData.DataSource    = _currentDisplayedFrames;
+            lstFrameData.DataSource = null;
+            lstFrameData.DataSource = _currentDisplayedFrames;
             lstFrameData.DisplayMember = "DisplayName";
 
             // 3) TrackBar 踰붿쐞 媛깆떊
@@ -351,10 +348,10 @@ namespace TeamApp
             string resolvedPath = ResolveImagePath(frame.Name);
             UpdatePreviewImage(resolvedPath);
 
-            lblFrameValue.Text    = $"Frame: {idx + 1} / {_currentDisplayedFrames.Count}";
-            lblAngleValue.Text    = $"조향값: {frame.Angle:0.000}";
+            lblFrameValue.Text = $"Frame: {idx + 1} / {_currentDisplayedFrames.Count}";
+            lblAngleValue.Text = $"조향값: {frame.Angle:0.000}";
             lblThrottleValue.Text = $"스로틀값: {frame.Throttle:0.000}";
-            lblModeValue.Text     = $"모드: {frame.Mode}";
+            lblModeValue.Text = $"모드: {frame.Mode}";
             UpdateStatusLabels();
         }
 
@@ -386,7 +383,7 @@ namespace TeamApp
                     picMainPreview.Image = null;
                     return;
                 }
-                using var fs  = File.OpenRead(path);
+                using var fs = File.OpenRead(path);
                 using var img = System.Drawing.Image.FromStream(fs);
                 var bmp = new Bitmap(img);
 
@@ -459,7 +456,7 @@ namespace TeamApp
             // 제외되지 않은 프레임 중 범위 조건에 맞는 항목만 남깁니다.
             _currentDisplayedFrames = _originalFrames
                 .Where(f => !f.IsDeleted &&
-                            f.Angle    >= angleMin && f.Angle    <= angleMax &&
+                            f.Angle >= angleMin && f.Angle <= angleMax &&
                             f.Throttle >= throttleMin && f.Throttle <= throttleMax)
                 .ToList();
 
@@ -474,10 +471,10 @@ namespace TeamApp
             angleMin = angleMax = throttleMin = throttleMax = 0;
 
             bool ok =
-                double.TryParse(txtAngleMin.Text.Trim(),   NumberStyles.Float, CultureInfo.InvariantCulture, out angleMin) &&
-                double.TryParse(txtAngleMax.Text.Trim(),   NumberStyles.Float, CultureInfo.InvariantCulture, out angleMax) &&
-                double.TryParse(txtThrottleMin.Text.Trim(),NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMin) &&
-                double.TryParse(txtThrottleMax.Text.Trim(),NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMax);
+                double.TryParse(txtAngleMin.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out angleMin) &&
+                double.TryParse(txtAngleMax.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out angleMax) &&
+                double.TryParse(txtThrottleMin.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMin) &&
+                double.TryParse(txtThrottleMax.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMax);
 
             if (!ok)
             {
@@ -514,7 +511,7 @@ namespace TeamApp
             if (_originalFrames == null || _originalFrames.Count == 0) return;
 
             int safeFrom = Math.Max(0, from);
-            int safeTo   = Math.Min(_originalFrames.Count - 1, to);
+            int safeTo = Math.Min(_originalFrames.Count - 1, to);
 
             if (safeFrom > safeTo)
             {
@@ -569,9 +566,9 @@ namespace TeamApp
 
         private void UpdateStatusLabels()
         {
-            int total   = _originalFrames?.Count ?? 0;
+            int total = _originalFrames?.Count ?? 0;
             int deleted = _originalFrames?.Count(f => f.IsDeleted) ?? 0;
-            int shown   = _currentDisplayedFrames?.Count ?? 0;
+            int shown = _currentDisplayedFrames?.Count ?? 0;
             toolStripStatusLabelFrames.Text =
                 $"전체: {total}  |  제외됨: {deleted}  |  표시 중: {shown}";
         }
@@ -580,11 +577,11 @@ namespace TeamApp
 
         private class FrameData
         {
-            public string ImagePath  { get; set; } = string.Empty;
-            public double Angle      { get; set; }
-            public double Throttle   { get; set; }
-            public string Mode       { get; set; } = "-";
-            public string Name       { get; set; } = string.Empty;
+            public string ImagePath { get; set; } = string.Empty;
+            public double Angle { get; set; }
+            public double Throttle { get; set; }
+            public string Mode { get; set; } = "-";
+            public string Name { get; set; } = string.Empty;
 
             /// <summary>
             /// true이면 학습에서 제외하지만 실제 파일은 보존합니다.
@@ -704,7 +701,7 @@ namespace TeamApp
                         if (string.IsNullOrEmpty(line)) continue;
                         try
                         {
-                            using var doc  = JsonDocument.Parse(line);
+                            using var doc = JsonDocument.Parse(line);
                             var root = doc.RootElement;
 
                             string imgName = string.Empty;
@@ -746,7 +743,7 @@ namespace TeamApp
             {
                 var frame = new FrameData
                 {
-                    Name      = imgName,
+                    Name = imgName,
                     ImagePath = Path.Combine(folderPath, imgName),
                     IsDeleted = false
                 };
@@ -755,9 +752,9 @@ namespace TeamApp
                     frame.IsCatalogMissing = true;
                 else if (catalogMap.TryGetValue(imgName, out var data))
                 {
-                    frame.Angle    = data.angle;
+                    frame.Angle = data.angle;
                     frame.Throttle = data.throttle;
-                    frame.Mode     = data.mode;
+                    frame.Mode = data.mode;
                 }
                 else
                     frame.HasNoData = true;
@@ -816,7 +813,6 @@ namespace TeamApp
         private void lblPlayInterval_Click(object sender, EventArgs e) { }
         private void lblThrottleValue_Click(object sender, EventArgs e) { }
         private void toolStripStatusLabelTraining_Click(object sender, EventArgs e) { }
-        private void btnMycarPath_Click(object sender, EventArgs e) { }
         private void grpTubCleaner_Enter(object sender, EventArgs e) { }
 
         // ScottPlot 차트를 필요할 때 생성합니다.
@@ -832,7 +828,7 @@ namespace TeamApp
             _formsPlot = new FormsPlot
             {
                 Location = new System.Drawing.Point(0, 42),
-                Size     = new System.Drawing.Size(
+                Size = new System.Drawing.Size(
                     tabPageGraphStats.ClientSize.Width,
                     tabPageGraphStats.ClientSize.Height - 42),
                 Anchor = AnchorStyles.Top | AnchorStyles.Bottom |
@@ -841,7 +837,7 @@ namespace TeamApp
             };
 
             _formsPlot.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1e1e1e");
-            _formsPlot.Plot.DataBackground.Color   = ScottPlot.Color.FromHex("#2d2d30");
+            _formsPlot.Plot.DataBackground.Color = ScottPlot.Color.FromHex("#2d2d30");
 
             tabPageGraphStats.Controls.Add(_formsPlot);
             _formsPlot.BringToFront();
@@ -866,11 +862,11 @@ namespace TeamApp
             var plot = _formsPlot!.Plot;
 
             // 한글 폰트를 지정해 차트 라벨이 깨지지 않도록 합니다.
-            _formsPlot.Plot.Axes.Title.Label.FontName           = "Malgun Gothic";
-            _formsPlot.Plot.Axes.Bottom.Label.FontName          = "Malgun Gothic";
-            _formsPlot.Plot.Axes.Left.Label.FontName            = "Malgun Gothic";
+            _formsPlot.Plot.Axes.Title.Label.FontName = "Malgun Gothic";
+            _formsPlot.Plot.Axes.Bottom.Label.FontName = "Malgun Gothic";
+            _formsPlot.Plot.Axes.Left.Label.FontName = "Malgun Gothic";
             _formsPlot.Plot.Axes.Bottom.TickLabelStyle.FontName = "Malgun Gothic";
-            _formsPlot.Plot.Axes.Left.TickLabelStyle.FontName   = "Malgun Gothic";
+            _formsPlot.Plot.Axes.Left.TickLabelStyle.FontName = "Malgun Gothic";
 
             plot.Clear();
 
@@ -886,20 +882,20 @@ namespace TeamApp
             }
 
             int n = validFrames.Count;
-            double[] xs        = Enumerable.Range(0, n).Select(i => (double)i).ToArray();
-            double[] angleYs   = validFrames.Select(f => f.Angle).ToArray();
+            double[] xs = Enumerable.Range(0, n).Select(i => (double)i).ToArray();
+            double[] angleYs = validFrames.Select(f => f.Angle).ToArray();
             double[] throttleYs = validFrames.Select(f => f.Throttle).ToArray();
 
             // Angle 라인
             var sigAngle = plot.Add.SignalXY(xs, angleYs);
-            sigAngle.Color       = ScottPlot.Color.FromHex("#4FC3F7");  // 하늘색
-            sigAngle.LineWidth   = 1.5f;
-            sigAngle.LegendText  = "조향(Angle)";
+            sigAngle.Color = ScottPlot.Color.FromHex("#4FC3F7");  // 하늘색
+            sigAngle.LineWidth = 1.5f;
+            sigAngle.LegendText = "조향(Angle)";
 
             // Throttle 라인
             var sigThrottle = plot.Add.SignalXY(xs, throttleYs);
-            sigThrottle.Color      = ScottPlot.Color.FromHex("#81C784");  // 연초록
-            sigThrottle.LineWidth  = 1.5f;
+            sigThrottle.Color = ScottPlot.Color.FromHex("#81C784");  // 연초록
+            sigThrottle.LineWidth = 1.5f;
             sigThrottle.LegendText = "스로틀(Throttle)";
 
             // 축 라벨과 제목
@@ -913,6 +909,101 @@ namespace TeamApp
 
             _formsPlot.Refresh();
             _chartDirty = false;
+        }
+
+        private async void btnStartTraining_Click(object sender, EventArgs e)
+        {
+            string pythonPath = txtPythonPath.Text.Trim();
+            string modelType = cbxModelType.Text.ToLower();
+
+            if (string.IsNullOrWhiteSpace(pythonPath))
+            {
+                MessageBox.Show("가상환경 이름을 지정해주세요.", "경고", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(modelType))
+            {
+                MessageBox.Show("Model Type을 선택해 주세요.", "경고", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            btnStartTraining.Enabled = false;
+            btnStopTraining.Enabled = true;
+
+            rtbTrainingLog.Clear();
+
+            try
+            {
+                trainingProcess = new Process();
+
+                trainingProcess.StartInfo = new ProcessStartInfo
+                {
+                    FileName = "wsl",
+
+                    Arguments=
+    "bash -c " +
+    "\"cd ~/mycar && " +
+    $"~/miniconda3/bin/conda run -n {pythonPath} " +
+    "python train.py " +
+    "--tub=data " +
+    "--model=models/pilot.keras " +
+    $"--type={modelType}\"",
+
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                trainingProcess.OutputDataReceived +=
+                    (s, ev) =>
+                    {
+                        if (!string.IsNullOrEmpty(ev.Data))
+                        {
+                            rtbTrainingLog.AppendText(ev.Data + Environment.NewLine);
+                        }
+                    };
+
+                trainingProcess.ErrorDataReceived +=
+                    (s, ev) =>
+                    {
+                        if (!string.IsNullOrEmpty(ev.Data))
+                        {
+                            rtbTrainingLog.AppendText("[e] " + ev.Data + Environment.NewLine);
+                        }
+                    };
+
+                trainingProcess.Start();
+
+                trainingProcess.BeginOutputReadLine();
+                trainingProcess.BeginErrorReadLine();
+
+                rtbTrainingLog.AppendText("학습 시작..." + Environment.NewLine);
+                rtbTrainingLog.AppendText(Environment.NewLine);
+
+                await Task.Run(() =>
+                {
+                    trainingProcess.WaitForExit();
+                });
+
+                rtbTrainingLog.AppendText(Environment.NewLine);
+                rtbTrainingLog.AppendText("프로세스 종료" + Environment.NewLine);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+            finally
+            {
+                btnStartTraining.Enabled = true;
+                btnStopTraining.Enabled = false;
+            }
+        }
+
+        private void lblModeType_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }
