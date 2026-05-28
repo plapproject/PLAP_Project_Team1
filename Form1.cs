@@ -864,7 +864,7 @@ namespace TeamApp
             if (_formsPlot == null) InitFormsPlot();
 
             var plot = _formsPlot!.Plot;
-
+            ??
             // 한글 폰트를 지정해 차트 라벨이 깨지지 않도록 합니다.
             _formsPlot.Plot.Axes.Title.Label.FontName           = "Malgun Gothic";
             _formsPlot.Plot.Axes.Bottom.Label.FontName          = "Malgun Gothic";
