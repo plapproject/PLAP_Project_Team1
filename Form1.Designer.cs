@@ -66,6 +66,7 @@ namespace TeamApp
             btnApplyFilter = new Button();
             btnClearFilter = new Button();
             grpTubExplorer = new GroupBox();
+            splitContainerFramePreview = new SplitContainer();
             trkFramePosition = new TrackBar();
             numPlaybackInterval = new NumericUpDown();
             btnOpenFolder = new Button();
@@ -120,6 +121,10 @@ namespace TeamApp
             statusStripDataFooter.SuspendLayout();
             grpTubCleaner.SuspendLayout();
             grpTubExplorer.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)splitContainerFramePreview).BeginInit();
+            splitContainerFramePreview.Panel1.SuspendLayout();
+            splitContainerFramePreview.Panel2.SuspendLayout();
+            splitContainerFramePreview.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)trkFramePosition).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numPlaybackInterval).BeginInit();
             ((System.ComponentModel.ISupportInitialize)picMainPreview).BeginInit();
@@ -497,9 +502,8 @@ namespace TeamApp
             grpTubExplorer.Controls.Add(btnAutoPlay);
             grpTubExplorer.Controls.Add(btnNext);
             grpTubExplorer.Controls.Add(btnPrev);
-            grpTubExplorer.Controls.Add(lstFrameData);
+            grpTubExplorer.Controls.Add(splitContainerFramePreview);
             grpTubExplorer.Controls.Add(btnFirst);
-            grpTubExplorer.Controls.Add(picMainPreview);
             grpTubExplorer.Controls.Add(btnReload);
             grpTubExplorer.Controls.Add(lblFrameValue);
             grpTubExplorer.Controls.Add(lblModeValue);
@@ -513,6 +517,18 @@ namespace TeamApp
             grpTubExplorer.TabIndex = 22;
             grpTubExplorer.TabStop = false;
             grpTubExplorer.Text = "ÅÍºê Å½»ö±â";
+            // 
+            // splitContainerFramePreview
+            // 
+            splitContainerFramePreview.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            splitContainerFramePreview.Location = new Point(0, 61);
+            splitContainerFramePreview.Name = "splitContainerFramePreview";
+            splitContainerFramePreview.Panel1.Controls.Add(lstFrameData);
+            splitContainerFramePreview.Panel2.Controls.Add(picMainPreview);
+            splitContainerFramePreview.Size = new Size(1278, 503);
+            splitContainerFramePreview.SplitterDistance = 360;
+            splitContainerFramePreview.SplitterWidth = 6;
+            splitContainerFramePreview.TabIndex = 44;
             // 
             // trkFramePosition
             // 
@@ -599,10 +615,10 @@ namespace TeamApp
             // 
             // lstFrameData
             // 
-            lstFrameData.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
-            lstFrameData.Location = new Point(0, 61);
+            lstFrameData.Dock = DockStyle.Fill;
+            lstFrameData.Location = new Point(0, 0);
             lstFrameData.Name = "lstFrameData";
-            lstFrameData.Size = new Size(360, 504);
+            lstFrameData.Size = new Size(360, 503);
             lstFrameData.TabIndex = 13;
             lstFrameData.SelectedIndexChanged += lstFrameData_SelectedIndexChanged;
             // 
@@ -618,12 +634,12 @@ namespace TeamApp
             // 
             // picMainPreview
             // 
-            picMainPreview.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             picMainPreview.BorderStyle = BorderStyle.FixedSingle;
-            picMainPreview.Location = new Point(366, 61);
+            picMainPreview.Dock = DockStyle.Fill;
+            picMainPreview.Location = new Point(0, 0);
             picMainPreview.Name = "picMainPreview";
             picMainPreview.Size = new Size(912, 503);
-            picMainPreview.SizeMode = PictureBoxSizeMode.StretchImage;
+            picMainPreview.SizeMode = PictureBoxSizeMode.Zoom;
             picMainPreview.TabIndex = 4;
             picMainPreview.TabStop = false;
             // 
@@ -1032,6 +1048,10 @@ namespace TeamApp
             grpTubCleaner.PerformLayout();
             grpTubExplorer.ResumeLayout(false);
             grpTubExplorer.PerformLayout();
+            splitContainerFramePreview.Panel1.ResumeLayout(false);
+            splitContainerFramePreview.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)splitContainerFramePreview).EndInit();
+            splitContainerFramePreview.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)trkFramePosition).EndInit();
             ((System.ComponentModel.ISupportInitialize)numPlaybackInterval).EndInit();
             ((System.ComponentModel.ISupportInitialize)picMainPreview).EndInit();
@@ -1092,6 +1112,7 @@ namespace TeamApp
         private Button btnAutoPlay;
         private Label lblPlayInterval;
         private GroupBox grpTubExplorer;
+        private SplitContainer splitContainerFramePreview;
         private GroupBox grpTubCleaner;
         private Label lblThrottleRange;
         private Label lblAngleRange;
