@@ -31,9 +31,25 @@ namespace TeamApp
 
         private FormsPlot? _formsPlot;
         private bool _chartDirty = true;
+        private bool _tutorialRunning = false;
 
-        // ?앹꽦??/ 珥덇린??
+        private sealed class TutorialStep
+        {
+            public TutorialStep(string section, string title, string description, Control? target, TabPage? tabPage)
+            {
+                Section = section;
+                Title = title;
+                Description = description;
+                Target = target;
+                TabPage = tabPage;
+            }
 
+            public string Section { get; }
+            public string Title { get; }
+            public string Description { get; }
+            public Control? Target { get; }
+            public TabPage? TabPage { get; }
+        }
         public Form1()
         {
             InitializeComponent();
@@ -54,13 +70,15 @@ namespace TeamApp
         {
             // 버튼 이벤트를 코드에서 연결합니다.
             btnClearFilter.Click      += BtnClearFilter_Click;
+            btnExcludeRange.Click     += BtnExcludeRange_Click;
             btnExcludeSelectedFrame.Click += BtnRepair_Click;
+            btnDeleteFrame.Click      += BtnDeleteFrame_Click;
             btnRestoreFrame.Click     += BtnReloadTub_Click;
 
             mnuOpenDataFolder.Click   += (s, _) => btnOpenFolder_Click(s!, EventArgs.Empty);
             mnuReloadData.Click       += (s, _) => btnReload_Click(s!, EventArgs.Empty);
             mnuExit.Click             += (s, _) => Application.Exit();
-            mnuOpenGuide.Click        += (s, _) => btnGuide_Click(s!, EventArgs.Empty);
+            mnuOpenGuide.Click        += (s, _) => RunFeatureTutorial("도움말");
 
             tabControlMain.SelectedIndexChanged += TabControl1_SelectedIndexChanged;
 
@@ -68,7 +86,7 @@ namespace TeamApp
             btnRestoreFrame.Text         = "복원";
             txtAngleMin.Text    = "-1";
             txtAngleMax.Text    = "1";
-            txtThrottleMin.Text = "0";
+            txtThrottleMin.Text = "-1";
             txtThrottleMax.Text = "1";
 
             // 삭제된 프레임을 다른 색으로 표시하기 위해 직접 그립니다.
@@ -76,8 +94,8 @@ namespace TeamApp
             lstFrameData.DrawItem += lstFrameData_DrawItem;
 
             UpdateStatusLabels();
+            BeginInvoke(new Action(AskFirstUseTutorial));
         }
-
         // UI 이벤트 처리
 
         private void btnOpenFolder_Click(object sender, EventArgs e)
@@ -104,14 +122,270 @@ namespace TeamApp
         private void btnGuide_Click(object sender, EventArgs e)
         {
             MessageBox.Show(
-                "Data Manager 사용 순서\n\n" +
-                "1. 데이터 뷰어 탭에서 data 폴더를 엽니다.\n" +
-                "2. 이미지, Angle, Throttle 값을 확인합니다.\n" +
-                "3. 필터로 학습 데이터에 포함할 프레임을 찾습니다.\n" +
-                "4. 제외할 프레임을 선택 후 '구간 제외'를 실행합니다.\n" +
-                "5. '복원'으로 언제든 제외 표시를 되돌릴 수 있습니다.\n" +
-                "6. 그래프/통계 탭에서 Angle/Throttle 분포를 확인합니다.",
+                "단계별 가이드 버튼은 다음 안내 기능을 위해 비워두었습니다.\n\n현재 기능별 튜토리얼은 상단 도움말 메뉴에서 볼 수 있습니다.",
                 "단계별 가이드", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void AskFirstUseTutorial()
+        {
+            if (HasSeenFirstUseTutorial()) return;
+
+            var answer = MessageBox.Show(
+                "처음 사용하시나요?\n\n기능별 튜토리얼을 시작할까요?\n(튜토리얼 중 X를 누르면 스킵됩니다.)",
+                "첫 사용자 안내",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            MarkFirstUseTutorialSeen();
+
+            if (answer == DialogResult.Yes)
+            {
+                RunFeatureTutorial("기능별 튜토리얼");
+                return;
+            }
+
+            MessageBox.Show(
+                "만약 튜토리얼을 다시 보고 싶으면 상단 도움말 메뉴를 눌러주세요.",
+                "튜토리얼 안내",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        private bool HasSeenFirstUseTutorial()
+        {
+            try
+            {
+                return File.Exists(GetTutorialSeenPath());
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void MarkFirstUseTutorialSeen()
+        {
+            try
+            {
+                Directory.CreateDirectory(Application.UserAppDataPath);
+                File.WriteAllText(GetTutorialSeenPath(), DateTime.Now.ToString("O"));
+            }
+            catch
+            {
+                // 설정 저장 실패는 튜토리얼 실행 자체를 막지 않습니다.
+            }
+        }
+
+        private string GetTutorialSeenPath()
+        {
+            return Path.Combine(Application.UserAppDataPath, "tutorial_seen.txt");
+        }
+        private void RunFeatureTutorial(string title)
+        {
+            if (_tutorialRunning)
+            {
+                MessageBox.Show("튜토리얼이 이미 진행 중입니다.", "튜토리얼", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            _tutorialRunning = true;
+            try
+            {
+                var steps = CreateTutorialSteps();
+                string? selectedSection = SelectTutorialSection(title);
+                if (string.IsNullOrEmpty(selectedSection)) return;
+
+                foreach (var step in steps.Where(step => step.Section == selectedSection))
+                {
+                    if (!ShowTutorialStep(title, step)) break;
+                }
+            }
+            finally
+            {
+                _tutorialRunning = false;
+            }
+        }
+
+        private string? SelectTutorialSection(string tutorialTitle)
+        {
+            using var dialog = new Form
+            {
+                Text = tutorialTitle + " - 섹션 선택",
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MinimizeBox = false,
+                MaximizeBox = false,
+                ShowInTaskbar = false,
+                ClientSize = new Size(430, 230)
+            };
+
+            var titleLabel = new System.Windows.Forms.Label
+            {
+                AutoSize = false,
+                Location = new Point(18, 18),
+                Size = new Size(394, 46),
+                Text = "보고 싶은 튜토리얼 섹션을 선택하세요.\nX를 누르면 튜토리얼을 시작하지 않습니다.",
+                Font = new Font("맑은 고딕", 10F),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            string? selectedSection = null;
+            var sections = new[] { "데이터 보기", "정리", "학습", "그래프" };
+            for (int i = 0; i < sections.Length; i++)
+            {
+                string section = sections[i];
+                var button = new Button
+                {
+                    Text = section,
+                    Location = new Point(32 + (i % 2) * 190, 82 + (i / 2) * 58),
+                    Size = new Size(168, 38),
+                    Tag = section
+                };
+                button.Click += (_, _) =>
+                {
+                    selectedSection = section;
+                    dialog.DialogResult = DialogResult.OK;
+                    dialog.Close();
+                };
+                dialog.Controls.Add(button);
+            }
+
+            dialog.Controls.Add(titleLabel);
+            return dialog.ShowDialog(this) == DialogResult.OK ? selectedSection : null;
+        }
+        private List<TutorialStep> CreateTutorialSteps()
+        {
+            return new List<TutorialStep>
+            {
+                new TutorialStep("데이터 보기", "데이터 폴더 열기", "DonkeyCar tub 또는 mock data 폴더를 선택합니다. 이미지와 catalog_0.catalog를 읽어 프레임 목록을 만듭니다.", btnOpenFolder, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "다시 불러오기", "현재 선택된 데이터 폴더를 다시 읽습니다. 파일을 추가하거나 catalog를 수정한 뒤 갱신할 때 사용합니다.", btnReload, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "테마 전환", "화면 색상을 밝은 테마와 어두운 테마로 전환합니다.", btnToggleTheme, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "단계별 가이드", "이 튜토리얼을 다시 실행합니다. 기능을 잊었을 때 언제든 다시 누르면 됩니다.", btnGuide, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "프레임 목록", "왼쪽 목록에서 프레임을 선택합니다. 제외된 프레임은 다른 색과 [XXXX] 표시로 구분됩니다.", lstFrameData, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "이미지 미리보기", "선택한 프레임의 이미지를 보여줍니다. 비율을 유지하는 Zoom 방식이라 이미지가 왜곡되지 않습니다.", picMainPreview, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "처음으로", "현재 필터 결과의 첫 번째 프레임으로 이동합니다.", btnFirst, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "이전 프레임", "현재 프레임 바로 앞 프레임으로 이동합니다.", btnPrev, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "다음 프레임", "현재 프레임 바로 다음 프레임으로 이동합니다.", btnNext, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "마지막으로", "현재 필터 결과의 마지막 프레임으로 이동합니다.", btnLast, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "자동 재생", "프레임을 지정한 간격으로 자동 재생합니다. 재생 중에는 버튼이 일시정지로 바뀝니다.", btnAutoPlay, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "재생 간격", "자동 재생 속도를 ms 단위로 조절합니다. 숫자가 작을수록 더 빠르게 넘어갑니다.", numPlaybackInterval, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "현재 프레임 위치를 빠르게 이동합니다. 많은 프레임을 훑어볼 때 사용합니다.", trkFramePosition, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "조향값", "선택한 프레임의 Angle 값을 표시합니다. 왼쪽/오른쪽 조향 상태를 확인할 때 봅니다.", lblAngleValue, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "스로틀값", "선택한 프레임의 Throttle 값을 표시합니다. 전진/정지/후진 정도를 확인할 때 봅니다.", lblThrottleValue, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "모드", "선택한 프레임의 주행 모드 정보를 표시합니다. user/local 같은 상태를 확인합니다.", lblModeValue, tabPageDataViewer),
+                new TutorialStep("정리", "조향각 범위", "필터에 사용할 조향각 최소값과 최대값을 입력합니다. 예: -1부터 1까지.", txtAngleMin, tabPageDataViewer),
+                new TutorialStep("정리", "스로틀 범위", "필터에 사용할 스로틀 최소값과 최대값을 입력합니다. 예: -1부터 1까지.", txtThrottleMin, tabPageDataViewer),
+                new TutorialStep("정리", "모드 필터", "user, local 등 특정 주행 모드만 보고 싶을 때 선택합니다.", cbxModeFilter, tabPageDataViewer),
+                new TutorialStep("정리", "시나리오 필터", "normal, night, turn 같은 시나리오별로 프레임을 좁혀 봅니다.", cbxScenarioFilter, tabPageDataViewer),
+                new TutorialStep("정리", "필터 적용", "입력한 범위와 선택한 모드/시나리오 조건으로 목록을 필터링합니다.", btnApplyFilter, tabPageDataViewer),
+                new TutorialStep("정리", "필터 해제", "필터 조건을 풀고 원본 프레임 목록을 다시 표시합니다.", btnClearFilter, tabPageDataViewer),
+                new TutorialStep("정리", "구간 선택", "제외하고 싶은 시작/끝 프레임 번호를 입력하는 영역입니다.", txtSelectRangeMin, tabPageDataViewer),
+                new TutorialStep("정리", "구간 제외", "선택한 프레임 범위를 Soft Delete 처리합니다. 실제 파일은 삭제하지 않고 학습 제외 표시만 합니다.", btnExcludeRange, tabPageDataViewer),
+                new TutorialStep("정리", "선택 프레임 제외", "목록에서 선택한 프레임들을 기준으로 제외 범위를 만들고 Soft Delete 처리합니다.", btnExcludeSelectedFrame, tabPageDataViewer),
+                new TutorialStep("정리", "복원", "Soft Delete 처리된 프레임을 모두 다시 사용 가능 상태로 되돌립니다.", btnRestoreFrame, tabPageDataViewer),
+                new TutorialStep("정리", "삭제", "현재 화면에는 있지만 실제 삭제 기능은 연결되어 있지 않습니다. 파일 삭제가 필요하면 별도 확인 과정을 넣어 구현하는 것이 안전합니다.", btnDeleteFrame, tabPageDataViewer),
+                new TutorialStep("그래프", "그래프/통계", "필터와 제외 상태를 반영한 조향값/스로틀값 분포 그래프를 확인합니다.", tabControlMain, tabPageGraphStats),
+                new TutorialStep("학습", "학습 설정", "Python, mycar, Tub, 모델 저장 경로와 학습 횟수를 입력하는 영역입니다. 학습 실행 기능을 연결할 때 사용합니다.", grpTrainingSettings, tabPageTraining),
+                new TutorialStep("학습", "학습 로그", "학습 실행 과정의 로그를 표시할 영역입니다.", grpTrainingLog, tabPageTraining)
+            };
+        }
+
+        private bool ShowTutorialStep(string tutorialTitle, TutorialStep step)
+        {
+            if (step.TabPage != null)
+                tabControlMain.SelectedTab = step.TabPage;
+
+            step.Target?.BringToFront();
+            return HighlightControlDuringDialog(step.Target, step.Title, step.Description, tutorialTitle);
+        }
+
+        private bool HighlightControlDuringDialog(Control? target, string stepTitle, string description, string tutorialTitle)
+        {
+            if (target == null)
+                return ShowTutorialDialog(tutorialTitle, stepTitle, description);
+
+            var originalBackColor = target.BackColor;
+            var originalForeColor = target.ForeColor;
+            bool? originalUseVisualStyleBackColor = null;
+            if (target is Button button)
+            {
+                originalUseVisualStyleBackColor = button.UseVisualStyleBackColor;
+                button.UseVisualStyleBackColor = false;
+            }
+
+            bool isBlack = false;
+            using var blinkTimer = new System.Windows.Forms.Timer { Interval = 260 };
+            blinkTimer.Tick += (_, _) =>
+            {
+                isBlack = !isBlack;
+                target.BackColor = isBlack ? System.Drawing.Color.Black : System.Drawing.Color.White;
+                target.ForeColor = isBlack ? System.Drawing.Color.White : System.Drawing.Color.Black;
+                target.Refresh();
+            };
+
+            try
+            {
+                target.Focus();
+                blinkTimer.Start();
+                return ShowTutorialDialog(tutorialTitle, stepTitle, description);
+            }
+            finally
+            {
+                blinkTimer.Stop();
+                target.BackColor = originalBackColor;
+                target.ForeColor = originalForeColor;
+                if (target is Button restoreButton && originalUseVisualStyleBackColor.HasValue)
+                    restoreButton.UseVisualStyleBackColor = originalUseVisualStyleBackColor.Value;
+                target.Refresh();
+            }
+        }
+
+        private bool ShowTutorialDialog(string tutorialTitle, string stepTitle, string description)
+        {
+            using var dialog = new Form
+            {
+                Text = tutorialTitle + " - " + stepTitle,
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MinimizeBox = false,
+                MaximizeBox = false,
+                ShowInTaskbar = false,
+                ClientSize = new Size(520, 210)
+            };
+
+            var descriptionLabel = new System.Windows.Forms.Label
+            {
+                AutoSize = false,
+                Location = new Point(18, 18),
+                Size = new Size(484, 120),
+                Text = description + "\n\n다음 버튼을 누르면 다음 기능으로 넘어갑니다. X 또는 스킵을 누르면 튜토리얼을 종료합니다.",
+                Font = new Font("맑은 고딕", 10F),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            var nextButton = new Button
+            {
+                Text = "다음",
+                DialogResult = DialogResult.OK,
+                Location = new Point(308, 158),
+                Size = new Size(92, 32)
+            };
+
+            var skipButton = new Button
+            {
+                Text = "스킵",
+                DialogResult = DialogResult.Cancel,
+                Location = new Point(410, 158),
+                Size = new Size(92, 32)
+            };
+
+            dialog.Controls.Add(descriptionLabel);
+            dialog.Controls.Add(nextButton);
+            dialog.Controls.Add(skipButton);
+            dialog.AcceptButton = nextButton;
+            dialog.CancelButton = skipButton;
+
+            return dialog.ShowDialog(this) == DialogResult.OK;
         }
 
         private void btnApplyFilter_Click(object sender, EventArgs e) => ApplyFilter();
@@ -119,6 +393,46 @@ namespace TeamApp
         private void BtnClearFilter_Click(object? sender, EventArgs e) => ClearFilter();
 
         // 선택한 구간을 Soft Delete 처리합니다.
+        private void BtnExcludeRange_Click(object? sender, EventArgs e)
+        {
+            if (!int.TryParse(txtSelectRangeMin.Text.Trim(), out int from) ||
+                !int.TryParse(txtSelectRangeMax.Text.Trim(), out int to))
+            {
+                MessageBox.Show("구간 시작과 끝은 숫자로 입력해 주세요.",
+                    "입력 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (from > to)
+            {
+                MessageBox.Show("구간 시작 번호는 끝 번호보다 클 수 없습니다.",
+                    "범위 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            SoftDeleteRange(from, to);
+        }
+
+        private void BtnDeleteFrame_Click(object? sender, EventArgs e)
+        {
+            if (lstFrameData.SelectedItem is not FrameData selectedFrame)
+            {
+                MessageBox.Show("삭제할 프레임을 먼저 선택해 주세요.",
+                    "선택 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            int originalIndex = _originalFrames.IndexOf(selectedFrame);
+            if (originalIndex < 0)
+            {
+                MessageBox.Show("선택한 프레임의 원본 위치를 찾을 수 없습니다.",
+                    "삭제 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            SoftDeleteRange(originalIndex, originalIndex);
+        }
+
         private void BtnRepair_Click(object? sender, EventArgs e)
         {
             // 현재 ListBox에서 선택한 항목의 원본 프레임 인덱스를 구합니다.
@@ -320,8 +634,8 @@ namespace TeamApp
             trkFramePosition.Maximum = Math.Max(0, _currentDisplayedFrames.Count - 1);
 
             UpdateStatusLabels();
+            BeginInvoke(new Action(AskFirstUseTutorial));
         }
-
         /// <summary>
         /// 전체 원본 프레임을 다시 표시 상태로 복원합니다.
         /// UpdateUIState를 호출해 화면 상태도 함께 갱신합니다.
@@ -356,8 +670,8 @@ namespace TeamApp
             lblThrottleValue.Text = $"스로틀값: {frame.Throttle:0.000}";
             lblModeValue.Text     = $"모드: {frame.Mode}";
             UpdateStatusLabels();
+            BeginInvoke(new Action(AskFirstUseTutorial));
         }
-
         /// <summary>
         /// 현재 폴더와 파일명으로 실제 이미지 경로를 찾습니다.
         /// 폴더 루트와 하위 images 폴더를 모두 확인합니다.
@@ -806,7 +1120,7 @@ namespace TeamApp
 
         private void tabPageTraining_Click(object sender, EventArgs e) { }
         private void lblFilterMin_Click(object sender, EventArgs e) { }
-        private void mnuHelp_Click(object sender, EventArgs e) { }
+        private void mnuHelp_Click(object sender, EventArgs e) => RunFeatureTutorial("도움말");
         private void mnuOpenGraphStats_Click(object sender, EventArgs e)
         {
             tabControlMain.SelectedTab = tabPageGraphStats;
@@ -864,7 +1178,6 @@ namespace TeamApp
             if (_formsPlot == null) InitFormsPlot();
 
             var plot = _formsPlot!.Plot;
-            ??
             // 한글 폰트를 지정해 차트 라벨이 깨지지 않도록 합니다.
             _formsPlot.Plot.Axes.Title.Label.FontName           = "Malgun Gothic";
             _formsPlot.Plot.Axes.Bottom.Label.FontName          = "Malgun Gothic";

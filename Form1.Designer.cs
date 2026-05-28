@@ -150,44 +150,44 @@
             mnuFile.DropDownItems.AddRange(new ToolStripItem[] { mnuOpenDataFolder, mnuReloadData, mnuExit });
             mnuFile.Name = "mnuFile";
             mnuFile.Size = new Size(53, 24);
-            mnuFile.Text = "占쏙옙占쏙옙";
+            mnuFile.Text = "파일";
             // 
             // mnuOpenDataFolder
             // 
             mnuOpenDataFolder.Name = "mnuOpenDataFolder";
             mnuOpenDataFolder.Size = new Size(207, 26);
-            mnuOpenDataFolder.Text = "占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙";
+            mnuOpenDataFolder.Text = "데이터 폴더 열기";
             // 
             // mnuReloadData
             // 
             mnuReloadData.Name = "mnuReloadData";
             mnuReloadData.Size = new Size(207, 26);
-            mnuReloadData.Text = "占쌕쏙옙 占쌀뤄옙占쏙옙占쏙옙";
+            mnuReloadData.Text = "다시 불러오기";
             // 
             // mnuExit
             // 
             mnuExit.Name = "mnuExit";
             mnuExit.Size = new Size(207, 26);
-            mnuExit.Text = "占쏙옙占쏙옙";
+            mnuExit.Text = "종료";
             // 
             // mnuView
             // 
             mnuView.DropDownItems.AddRange(new ToolStripItem[] { mnuToggleTheme, mnuOpenGraphStats });
             mnuView.Name = "mnuView";
             mnuView.Size = new Size(53, 24);
-            mnuView.Text = "占쏙옙占쏙옙";
+            mnuView.Text = "보기";
             // 
             // mnuToggleTheme
             // 
             mnuToggleTheme.Name = "mnuToggleTheme";
             mnuToggleTheme.Size = new Size(258, 26);
-            mnuToggleTheme.Text = "占쌓몌옙 占쏙옙환";
+            mnuToggleTheme.Text = "테마 전환";
             // 
             // mnuOpenGraphStats
             // 
             mnuOpenGraphStats.Name = "mnuOpenGraphStats";
             mnuOpenGraphStats.Size = new Size(258, 26);
-            mnuOpenGraphStats.Text = "占쌓뤄옙占쏙옙/占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占싱듸옙";
+            mnuOpenGraphStats.Text = "그래프/통계 탭으로 이동";
             mnuOpenGraphStats.Click += mnuOpenGraphStats_Click;
             // 
             // mnuHelp
@@ -195,14 +195,14 @@
             mnuHelp.DropDownItems.AddRange(new ToolStripItem[] { mnuOpenGuide });
             mnuHelp.Name = "mnuHelp";
             mnuHelp.Size = new Size(68, 24);
-            mnuHelp.Text = "占쏙옙占쏙옙占쏙옙";
+            mnuHelp.Text = "도움말";
             mnuHelp.Click += mnuHelp_Click;
             // 
             // mnuOpenGuide
             // 
             mnuOpenGuide.Name = "mnuOpenGuide";
-            mnuOpenGuide.Size = new Size(187, 26);
-            mnuOpenGuide.Text = "占쌤계별 占쏙옙占싱듸옙";
+            mnuOpenGuide.Size = new Size(202, 26);
+            mnuOpenGuide.Text = "기능별 튜토리얼";
             // 
             // tabControlMain
             // 
@@ -226,7 +226,7 @@
             tabPageDataViewer.Padding = new Padding(3);
             tabPageDataViewer.Size = new Size(1572, 887);
             tabPageDataViewer.TabIndex = 0;
-            tabPageDataViewer.Text = "占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙";
+            tabPageDataViewer.Text = "데이터 뷰어";
             tabPageDataViewer.UseVisualStyleBackColor = true;
             // 
             // statusStripDataFooter
@@ -275,18 +275,18 @@
             grpTubCleaner.Size = new Size(1563, 220);
             grpTubCleaner.TabIndex = 23;
             grpTubCleaner.TabStop = false;
-            grpTubCleaner.Text = "占싶븝옙 占쏙옙占쏙옙占쏙옙";
+            grpTubCleaner.Text = "터브 정리기";
             grpTubCleaner.Enter += grpTubCleaner_Enter;
             // 
             // lblSelectRangeSeparator
             // 
             lblSelectRangeSeparator.AutoSize = true;
-            lblSelectRangeSeparator.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            lblSelectRangeSeparator.Font = new Font("맑은 고딕", 10F);
             lblSelectRangeSeparator.Location = new Point(402, 69);
             lblSelectRangeSeparator.Name = "lblSelectRangeSeparator";
             lblSelectRangeSeparator.Size = new Size(27, 23);
             lblSelectRangeSeparator.TabIndex = 47;
-            lblSelectRangeSeparator.Text = "占쏙옙";
+            lblSelectRangeSeparator.Text = "～";
             // 
             // txtSelectRangeMax
             // 
@@ -307,57 +307,57 @@
             // lblSelectRange
             // 
             lblSelectRange.AutoSize = true;
-            lblSelectRange.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            lblSelectRange.Font = new Font("맑은 고딕", 10F);
             lblSelectRange.Location = new Point(96, 70);
             lblSelectRange.Margin = new Padding(4, 0, 4, 0);
             lblSelectRange.Name = "lblSelectRange";
             lblSelectRange.Size = new Size(84, 23);
             lblSelectRange.TabIndex = 44;
-            lblSelectRange.Text = "占쏙옙占쏙옙 占쏙옙占쏙옙";
+            lblSelectRange.Text = "구간 선택";
             // 
             // btnRestoreFrame
             // 
             btnRestoreFrame.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnRestoreFrame.Location = new Point(1264, 143);
+            btnRestoreFrame.Location = new Point(1265, 143);
             btnRestoreFrame.Name = "btnRestoreFrame";
             btnRestoreFrame.Size = new Size(215, 29);
             btnRestoreFrame.TabIndex = 43;
-            btnRestoreFrame.Text = "占쏙옙占쏙옙";
+            btnRestoreFrame.Text = "복구";
             btnRestoreFrame.UseVisualStyleBackColor = true;
             // 
             // btnDeleteFrame
             // 
             btnDeleteFrame.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnDeleteFrame.Location = new Point(1033, 141);
+            btnDeleteFrame.Location = new Point(1034, 141);
             btnDeleteFrame.Name = "btnDeleteFrame";
             btnDeleteFrame.Size = new Size(215, 29);
             btnDeleteFrame.TabIndex = 42;
-            btnDeleteFrame.Text = "占쏙옙占쏙옙";
+            btnDeleteFrame.Text = "삭제";
             btnDeleteFrame.UseVisualStyleBackColor = true;
             // 
             // btnExcludeRange
             // 
             btnExcludeRange.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnExcludeRange.Location = new Point(1033, 66);
+            btnExcludeRange.Location = new Point(1034, 66);
             btnExcludeRange.Name = "btnExcludeRange";
             btnExcludeRange.Size = new Size(215, 29);
             btnExcludeRange.TabIndex = 40;
-            btnExcludeRange.Text = "占쏙옙占쏙옙 占쏙옙占쏙옙";
+            btnExcludeRange.Text = "구간 제외";
             btnExcludeRange.UseVisualStyleBackColor = true;
             // 
             // btnExcludeSelectedFrame
             // 
             btnExcludeSelectedFrame.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnExcludeSelectedFrame.Location = new Point(1264, 68);
+            btnExcludeSelectedFrame.Location = new Point(1265, 68);
             btnExcludeSelectedFrame.Name = "btnExcludeSelectedFrame";
             btnExcludeSelectedFrame.Size = new Size(215, 29);
             btnExcludeSelectedFrame.TabIndex = 41;
-            btnExcludeSelectedFrame.Text = "占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙";
+            btnExcludeSelectedFrame.Text = "선택 프레임 제외";
             btnExcludeSelectedFrame.UseVisualStyleBackColor = true;
             // 
             // cbxScenarioFilter
             // 
-            cbxScenarioFilter.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            cbxScenarioFilter.Font = new Font("맑은 고딕", 10F);
             cbxScenarioFilter.FormattingEnabled = true;
             cbxScenarioFilter.Items.AddRange(new object[] { "All", "Normal", "Night", "Left_turn", "Right_turn", "Out_of_bound" });
             cbxScenarioFilter.Location = new Point(705, 142);
@@ -368,16 +368,16 @@
             // lblScenarioFilter
             // 
             lblScenarioFilter.AutoSize = true;
-            lblScenarioFilter.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            lblScenarioFilter.Font = new Font("맑은 고딕", 10F);
             lblScenarioFilter.Location = new Point(612, 142);
             lblScenarioFilter.Name = "lblScenarioFilter";
             lblScenarioFilter.Size = new Size(88, 23);
             lblScenarioFilter.TabIndex = 38;
-            lblScenarioFilter.Text = "占시놂옙占쏙옙占쏙옙: ";
+            lblScenarioFilter.Text = "시나리오: ";
             // 
             // cbxModeFilter
             // 
-            cbxModeFilter.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            cbxModeFilter.Font = new Font("맑은 고딕", 10F);
             cbxModeFilter.FormattingEnabled = true;
             cbxModeFilter.Items.AddRange(new object[] { "All", "User", "Local", "Local_angle" });
             cbxModeFilter.Location = new Point(705, 101);
@@ -388,36 +388,36 @@
             // lblModeFilter
             // 
             lblModeFilter.AutoSize = true;
-            lblModeFilter.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            lblModeFilter.Font = new Font("맑은 고딕", 10F);
             lblModeFilter.Location = new Point(612, 103);
             lblModeFilter.Name = "lblModeFilter";
             lblModeFilter.Size = new Size(84, 23);
             lblModeFilter.TabIndex = 36;
-            lblModeFilter.Text = "占쏙옙占쏙옙      :";
+            lblModeFilter.Text = "모드      :";
             // 
             // lblAngleRangeSeparator
             // 
             lblAngleRangeSeparator.AutoSize = true;
-            lblAngleRangeSeparator.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            lblAngleRangeSeparator.Font = new Font("맑은 고딕", 10F);
             lblAngleRangeSeparator.Location = new Point(402, 109);
             lblAngleRangeSeparator.Name = "lblAngleRangeSeparator";
             lblAngleRangeSeparator.Size = new Size(27, 23);
             lblAngleRangeSeparator.TabIndex = 35;
-            lblAngleRangeSeparator.Text = "占쏙옙";
+            lblAngleRangeSeparator.Text = "～";
             // 
             // lblThrottleRangeSeparator
             // 
             lblThrottleRangeSeparator.AutoSize = true;
-            lblThrottleRangeSeparator.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            lblThrottleRangeSeparator.Font = new Font("맑은 고딕", 10F);
             lblThrottleRangeSeparator.Location = new Point(402, 150);
             lblThrottleRangeSeparator.Name = "lblThrottleRangeSeparator";
             lblThrottleRangeSeparator.Size = new Size(27, 23);
             lblThrottleRangeSeparator.TabIndex = 34;
-            lblThrottleRangeSeparator.Text = "占쏙옙";
+            lblThrottleRangeSeparator.Text = "～";
             // 
             // txtThrottleMax
             // 
-            txtThrottleMax.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            txtThrottleMax.Font = new Font("맑은 고딕", 10F);
             txtThrottleMax.Location = new Point(435, 147);
             txtThrottleMax.Name = "txtThrottleMax";
             txtThrottleMax.Size = new Size(130, 30);
@@ -425,7 +425,7 @@
             // 
             // txtAngleMax
             // 
-            txtAngleMax.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            txtAngleMax.Font = new Font("맑은 고딕", 10F);
             txtAngleMax.Location = new Point(435, 105);
             txtAngleMax.Name = "txtAngleMax";
             txtAngleMax.Size = new Size(130, 30);
@@ -433,7 +433,7 @@
             // 
             // txtThrottleMin
             // 
-            txtThrottleMin.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            txtThrottleMin.Font = new Font("맑은 고딕", 10F);
             txtThrottleMin.Location = new Point(266, 147);
             txtThrottleMin.Name = "txtThrottleMin";
             txtThrottleMin.Size = new Size(130, 30);
@@ -441,7 +441,7 @@
             // 
             // txtAngleMin
             // 
-            txtAngleMin.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            txtAngleMin.Font = new Font("맑은 고딕", 10F);
             txtAngleMin.Location = new Point(266, 105);
             txtAngleMin.Name = "txtAngleMin";
             txtAngleMin.Size = new Size(130, 30);
@@ -450,42 +450,42 @@
             // lblThrottleRange
             // 
             lblThrottleRange.AutoSize = true;
-            lblThrottleRange.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            lblThrottleRange.Font = new Font("맑은 고딕", 10F);
             lblThrottleRange.Location = new Point(96, 150);
             lblThrottleRange.Name = "lblThrottleRange";
-            lblThrottleRange.Size = new Size(168, 23);
+            lblThrottleRange.Size = new Size(175, 23);
             lblThrottleRange.TabIndex = 26;
-            lblThrottleRange.Text = "占쏙옙占쏙옙틀占쏙옙 占쏙옙占쏙옙(0~1): ";
+            lblThrottleRange.Text = "스로틀값 범위(-1~1): ";
             // 
             // lblAngleRange
             // 
             lblAngleRange.AutoSize = true;
-            lblAngleRange.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10F);
+            lblAngleRange.Font = new Font("맑은 고딕", 10F);
             lblAngleRange.Location = new Point(96, 109);
             lblAngleRange.Name = "lblAngleRange";
             lblAngleRange.Size = new Size(164, 23);
             lblAngleRange.TabIndex = 25;
-            lblAngleRange.Text = "占쏙옙占썩각 占쏙옙占쏙옙 (-1~1): ";
+            lblAngleRange.Text = "조향각 범위 (-1~1): ";
             // 
             // btnApplyFilter
             // 
             btnApplyFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnApplyFilter.Location = new Point(1034, 103);
+            btnApplyFilter.Location = new Point(1035, 103);
             btnApplyFilter.Name = "btnApplyFilter";
             btnApplyFilter.Size = new Size(215, 29);
             btnApplyFilter.TabIndex = 12;
-            btnApplyFilter.Text = "占쏙옙占쏙옙 占쏙옙占쏙옙";
+            btnApplyFilter.Text = "필터 적용";
             btnApplyFilter.UseVisualStyleBackColor = true;
             btnApplyFilter.Click += btnApplyFilter_Click;
             // 
             // btnClearFilter
             // 
             btnClearFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnClearFilter.Location = new Point(1264, 105);
+            btnClearFilter.Location = new Point(1265, 105);
             btnClearFilter.Name = "btnClearFilter";
             btnClearFilter.Size = new Size(215, 29);
             btnClearFilter.TabIndex = 19;
-            btnClearFilter.Text = "占쏙옙占쏙옙 占쏙옙占쏙옙";
+            btnClearFilter.Text = "필터 해제";
             btnClearFilter.UseVisualStyleBackColor = true;
             // 
             // grpTubExplorer
@@ -513,7 +513,7 @@
             grpTubExplorer.Size = new Size(1569, 635);
             grpTubExplorer.TabIndex = 22;
             grpTubExplorer.TabStop = false;
-            grpTubExplorer.Text = "占싶븝옙 탐占쏙옙占쏙옙";
+            grpTubExplorer.Text = "터브 탐색기";
             // 
             // trkFramePosition
             // 
@@ -542,19 +542,19 @@
             btnOpenFolder.Name = "btnOpenFolder";
             btnOpenFolder.Size = new Size(140, 29);
             btnOpenFolder.TabIndex = 0;
-            btnOpenFolder.Text = "占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙";
+            btnOpenFolder.Text = "데이터 폴더 열기";
             btnOpenFolder.UseVisualStyleBackColor = true;
             btnOpenFolder.Click += btnOpenFolder_Click;
             // 
             // lblPlayInterval
             // 
             lblPlayInterval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            lblPlayInterval.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 10.2F, FontStyle.Bold, GraphicsUnit.Point, 129);
+            lblPlayInterval.Font = new Font("맑은 고딕", 10.2F, FontStyle.Bold, GraphicsUnit.Point, 129);
             lblPlayInterval.Location = new Point(1284, 328);
             lblPlayInterval.Name = "lblPlayInterval";
             lblPlayInterval.Size = new Size(127, 31);
             lblPlayInterval.TabIndex = 21;
-            lblPlayInterval.Text = "占쏙옙占쏙옙占쏙옙占쏙옙(ms)";
+            lblPlayInterval.Text = "재생간격(ms)";
             lblPlayInterval.Click += lblPlayInterval_Click;
             // 
             // btnLast
@@ -574,7 +574,7 @@
             btnAutoPlay.Name = "btnAutoPlay";
             btnAutoPlay.Size = new Size(270, 27);
             btnAutoPlay.TabIndex = 20;
-            btnAutoPlay.Text = "占쌘듸옙 占쏙옙占쏙옙";
+            btnAutoPlay.Text = "자동 재생";
             btnAutoPlay.UseVisualStyleBackColor = true;
             btnAutoPlay.Click += btnAutoPlay_Click;
             // 
@@ -618,6 +618,7 @@
             // 
             // lstFrameData
             // 
+            lstFrameData.BorderStyle = BorderStyle.FixedSingle;
             lstFrameData.Dock = DockStyle.Fill;
             lstFrameData.Location = new Point(0, 0);
             lstFrameData.Name = "lstFrameData";
@@ -652,14 +653,14 @@
             btnReload.Name = "btnReload";
             btnReload.Size = new Size(140, 29);
             btnReload.TabIndex = 1;
-            btnReload.Text = "占쌕쏙옙 占쌀뤄옙占쏙옙占쏙옙";
+            btnReload.Text = "다시 불러오기";
             btnReload.UseVisualStyleBackColor = true;
             btnReload.Click += btnReload_Click;
             // 
             // lblFrameValue
             // 
             lblFrameValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            lblFrameValue.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 13.8F, FontStyle.Regular, GraphicsUnit.Point, 129);
+            lblFrameValue.Font = new Font("맑은 고딕", 13.8F, FontStyle.Regular, GraphicsUnit.Point, 129);
             lblFrameValue.Location = new Point(1284, 61);
             lblFrameValue.Name = "lblFrameValue";
             lblFrameValue.Size = new Size(276, 39);
@@ -669,12 +670,12 @@
             // lblModeValue
             // 
             lblModeValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            lblModeValue.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 13.8F);
+            lblModeValue.Font = new Font("맑은 고딕", 13.8F);
             lblModeValue.Location = new Point(1287, 287);
             lblModeValue.Name = "lblModeValue";
-            lblModeValue.Size = new Size(273, 112);
+            lblModeValue.Size = new Size(273, 39);
             lblModeValue.TabIndex = 8;
-            lblModeValue.Text = "占쏙옙占쏙옙: -";
+            lblModeValue.Text = "모드: -";
             lblModeValue.Click += lblModeValue_Click;
             // 
             // btnToggleTheme
@@ -683,19 +684,19 @@
             btnToggleTheme.Name = "btnToggleTheme";
             btnToggleTheme.Size = new Size(140, 29);
             btnToggleTheme.TabIndex = 2;
-            btnToggleTheme.Text = "占쌓몌옙 占쏙옙환";
+            btnToggleTheme.Text = "테마 전환";
             btnToggleTheme.UseVisualStyleBackColor = true;
             btnToggleTheme.Click += btnToggleTheme_Click;
             // 
             // lblThrottleValue
             // 
             lblThrottleValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            lblThrottleValue.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 13.8F);
+            lblThrottleValue.Font = new Font("맑은 고딕", 13.8F);
             lblThrottleValue.Location = new Point(1287, 251);
             lblThrottleValue.Name = "lblThrottleValue";
             lblThrottleValue.Size = new Size(273, 37);
             lblThrottleValue.TabIndex = 7;
-            lblThrottleValue.Text = "占쏙옙占쏙옙틀占쏙옙: 0.000";
+            lblThrottleValue.Text = "스로틀값: 0.000";
             lblThrottleValue.Click += lblThrottleValue_Click;
             // 
             // btnGuide
@@ -704,19 +705,19 @@
             btnGuide.Name = "btnGuide";
             btnGuide.Size = new Size(140, 29);
             btnGuide.TabIndex = 3;
-            btnGuide.Text = "占쌤계별 占쏙옙占싱듸옙";
+            btnGuide.Text = "단계별 가이드";
             btnGuide.UseVisualStyleBackColor = true;
             btnGuide.Click += btnGuide_Click;
             // 
             // lblAngleValue
             // 
             lblAngleValue.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            lblAngleValue.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 13.8F);
+            lblAngleValue.Font = new Font("맑은 고딕", 13.8F);
             lblAngleValue.Location = new Point(1287, 211);
             lblAngleValue.Name = "lblAngleValue";
             lblAngleValue.Size = new Size(273, 39);
             lblAngleValue.TabIndex = 6;
-            lblAngleValue.Text = "占쏙옙占썩값: 0.000";
+            lblAngleValue.Text = "조향값: 0.000";
             lblAngleValue.Click += lblAngleValue_Click;
             // 
             // tabPageTraining
@@ -729,7 +730,7 @@
             tabPageTraining.Padding = new Padding(3);
             tabPageTraining.Size = new Size(1572, 887);
             tabPageTraining.TabIndex = 1;
-            tabPageTraining.Text = "占싻쏙옙 占쏙옙占쏙옙";
+            tabPageTraining.Text = "학습 실행";
             tabPageTraining.UseVisualStyleBackColor = true;
             tabPageTraining.Click += tabPageTraining_Click;
             // 
@@ -747,7 +748,7 @@
             // 
             toolStripStatusLabelTraining.Name = "toolStripStatusLabelTraining";
             toolStripStatusLabelTraining.Size = new Size(102, 20);
-            toolStripStatusLabelTraining.Text = "Tub 占쏙옙占쏙옙: C:\\";
+            toolStripStatusLabelTraining.Text = "Tub 경로: C:\\";
             toolStripStatusLabelTraining.Click += toolStripStatusLabelTraining_Click;
             // 
             // grpTrainingLog
@@ -760,7 +761,7 @@
             grpTrainingLog.Size = new Size(1547, 389);
             grpTrainingLog.TabIndex = 1;
             grpTrainingLog.TabStop = false;
-            grpTrainingLog.Text = "占싻쏙옙 占싸깍옙";
+            grpTrainingLog.Text = "학습 로그";
             // 
             // rtbTrainingLog
             // 
@@ -794,11 +795,11 @@
             grpTrainingSettings.Size = new Size(1547, 437);
             grpTrainingSettings.TabIndex = 0;
             grpTrainingSettings.TabStop = false;
-            grpTrainingSettings.Text = "占싻쏙옙 占쏙옙占쏙옙";
+            grpTrainingSettings.Text = "학습 설정";
             // 
             // nudEpoch
             // 
-            nudEpoch.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            nudEpoch.Font = new Font("맑은 고딕", 12F);
             nudEpoch.Location = new Point(219, 286);
             nudEpoch.Name = "nudEpoch";
             nudEpoch.Size = new Size(391, 34);
@@ -806,7 +807,7 @@
             // 
             // cbxModelType
             // 
-            cbxModelType.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            cbxModelType.Font = new Font("맑은 고딕", 12F);
             cbxModelType.FormattingEnabled = true;
             cbxModelType.Location = new Point(219, 230);
             cbxModelType.Name = "cbxModelType";
@@ -816,7 +817,7 @@
             // tbxTubPath
             // 
             tbxTubPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            tbxTubPath.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            tbxTubPath.Font = new Font("맑은 고딕", 12F);
             tbxTubPath.Location = new Point(219, 127);
             tbxTubPath.Name = "tbxTubPath";
             tbxTubPath.Size = new Size(1092, 34);
@@ -825,7 +826,7 @@
             // tbxModelPath
             // 
             tbxModelPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            tbxModelPath.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            tbxModelPath.Font = new Font("맑은 고딕", 12F);
             tbxModelPath.Location = new Point(219, 178);
             tbxModelPath.Name = "tbxModelPath";
             tbxModelPath.Size = new Size(1092, 34);
@@ -834,7 +835,7 @@
             // tbxMycarPath
             // 
             tbxMycarPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            tbxMycarPath.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            tbxMycarPath.Font = new Font("맑은 고딕", 12F);
             tbxMycarPath.Location = new Point(219, 74);
             tbxMycarPath.Name = "tbxMycarPath";
             tbxMycarPath.Size = new Size(1092, 34);
@@ -843,103 +844,103 @@
             // lblEpoch
             // 
             lblEpoch.AutoSize = true;
-            lblEpoch.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            lblEpoch.Font = new Font("맑은 고딕", 12F);
             lblEpoch.Location = new Point(45, 287);
             lblEpoch.Name = "lblEpoch";
             lblEpoch.Size = new Size(99, 28);
             lblEpoch.TabIndex = 11;
-            lblEpoch.Text = "占싻쏙옙 횟占쏙옙";
+            lblEpoch.Text = "학습 횟수";
             // 
             // lblModeType
             // 
             lblModeType.AutoSize = true;
-            lblModeType.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            lblModeType.Font = new Font("맑은 고딕", 12F);
             lblModeType.Location = new Point(45, 232);
             lblModeType.Name = "lblModeType";
             lblModeType.Size = new Size(99, 28);
             lblModeType.TabIndex = 10;
-            lblModeType.Text = "占쏙옙占쏙옙 占쏙옙占쏙옙";
+            lblModeType.Text = "모델 종류";
             // 
             // lblModelPath
             // 
             lblModelPath.AutoSize = true;
-            lblModelPath.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            lblModelPath.Font = new Font("맑은 고딕", 12F);
             lblModelPath.Location = new Point(45, 182);
             lblModelPath.Name = "lblModelPath";
             lblModelPath.Size = new Size(146, 28);
             lblModelPath.TabIndex = 9;
-            lblModelPath.Text = "占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙";
+            lblModelPath.Text = "모델 저장 경로";
             // 
             // lblTubPath
             // 
             lblTubPath.AutoSize = true;
-            lblTubPath.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            lblTubPath.Font = new Font("맑은 고딕", 12F);
             lblTubPath.Location = new Point(45, 130);
             lblTubPath.Name = "lblTubPath";
             lblTubPath.Size = new Size(94, 28);
             lblTubPath.TabIndex = 8;
-            lblTubPath.Text = "Tub 占쏙옙占쏙옙";
+            lblTubPath.Text = "Tub 경로";
             // 
             // lblMycarPath
             // 
             lblMycarPath.AutoSize = true;
-            lblMycarPath.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            lblMycarPath.Font = new Font("맑은 고딕", 12F);
             lblMycarPath.Location = new Point(45, 78);
             lblMycarPath.Name = "lblMycarPath";
             lblMycarPath.Size = new Size(113, 28);
             lblMycarPath.TabIndex = 7;
-            lblMycarPath.Text = "mycar 占쏙옙占쏙옙";
+            lblMycarPath.Text = "mycar 경로";
             // 
             // btnSaveSettings
             // 
-            btnSaveSettings.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            btnSaveSettings.Font = new Font("맑은 고딕", 12F);
             btnSaveSettings.Location = new Point(1046, 347);
             btnSaveSettings.Name = "btnSaveSettings";
             btnSaveSettings.Size = new Size(194, 43);
             btnSaveSettings.TabIndex = 5;
-            btnSaveSettings.Text = "占쏙옙占쏙옙 占쏙옙占쏙옙";
+            btnSaveSettings.Text = "설정 저장";
             btnSaveSettings.UseVisualStyleBackColor = true;
             // 
             // btnStopTraining
             // 
-            btnStopTraining.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            btnStopTraining.Font = new Font("맑은 고딕", 12F);
             btnStopTraining.Location = new Point(713, 347);
             btnStopTraining.Name = "btnStopTraining";
             btnStopTraining.Size = new Size(194, 43);
             btnStopTraining.TabIndex = 4;
-            btnStopTraining.Text = "占싻쏙옙 占쏙옙占쏙옙";
+            btnStopTraining.Text = "학습 중지";
             btnStopTraining.UseVisualStyleBackColor = true;
             // 
             // btnStartTraining
             // 
-            btnStartTraining.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            btnStartTraining.Font = new Font("맑은 고딕", 12F);
             btnStartTraining.Location = new Point(378, 347);
             btnStartTraining.Name = "btnStartTraining";
             btnStartTraining.Size = new Size(194, 43);
             btnStartTraining.TabIndex = 3;
-            btnStartTraining.Text = "占싻쏙옙 占쏙옙占쏙옙";
+            btnStartTraining.Text = "학습 시작";
             btnStartTraining.UseVisualStyleBackColor = true;
             // 
             // btnTubPath
             // 
             btnTubPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnTubPath.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            btnTubPath.Font = new Font("맑은 고딕", 12F);
             btnTubPath.Location = new Point(1335, 114);
             btnTubPath.Name = "btnTubPath";
             btnTubPath.Size = new Size(123, 43);
             btnTubPath.TabIndex = 2;
-            btnTubPath.Text = "Tub 占쏙옙占쏙옙";
+            btnTubPath.Text = "Tub 선택";
             btnTubPath.UseVisualStyleBackColor = true;
             // 
             // btnMycarPath
             // 
             btnMycarPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnMycarPath.Font = new Font("占쏙옙占쏙옙 占쏙옙占쏙옙", 12F);
+            btnMycarPath.Font = new Font("맑은 고딕", 12F);
             btnMycarPath.Location = new Point(1335, 66);
             btnMycarPath.Name = "btnMycarPath";
             btnMycarPath.Size = new Size(123, 43);
             btnMycarPath.TabIndex = 1;
-            btnMycarPath.Text = "찾占쏙옙";
+            btnMycarPath.Text = "찾기";
             btnMycarPath.UseVisualStyleBackColor = true;
             btnMycarPath.Click += btnMycarPath_Click;
             // 
@@ -952,7 +953,7 @@
             tabPageGraphStats.Padding = new Padding(3);
             tabPageGraphStats.Size = new Size(1572, 887);
             tabPageGraphStats.TabIndex = 2;
-            tabPageGraphStats.Text = "占쌓뤄옙占쏙옙/占쏙옙占쏙옙";
+            tabPageGraphStats.Text = "그래프/통계";
             tabPageGraphStats.UseVisualStyleBackColor = true;
             // 
             // pnlGraphStats
@@ -971,7 +972,7 @@
             lblDescription.Name = "lblDescription";
             lblDescription.Size = new Size(921, 20);
             lblDescription.TabIndex = 0;
-            lblDescription.Text = "占쏙옙占썩값占쏙옙 占쏙옙占쏙옙틀占쏙옙 占쏙옙화 占쏙옙占싱몌옙 占시곤옙화占쌌니댐옙. 占식띰옙占쏙옙占쏙옙 占쏙옙占쏙옙, 占십록삼옙占쏙옙 占쏙옙占쏙옙틀占쌉니댐옙. 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙 占쏙옙占싱댐옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙 占쏙옙占신됩니댐옙.";
+            lblDescription.Text = "조향값과 스로틀값 변화 추이를 시각화합니다. 파란색은 조향, 초록색은 스로틀입니다. 필터 적용 후 보이는 데이터 기준으로 갱신됩니다.";
             // 
             // statusStripDataViewer
             // 
@@ -986,7 +987,7 @@
             // 
             toolStripStatusLabelPath.Name = "toolStripStatusLabelPath";
             toolStripStatusLabelPath.Size = new Size(53, 16);
-            toolStripStatusLabelPath.Text = "占쏙옙占쏙옙: -";
+            toolStripStatusLabelPath.Text = "경로: -";
             // 
             // toolStripStatusLabelFrames
             // 
