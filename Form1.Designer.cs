@@ -76,7 +76,7 @@
             btnNext = new Button();
             btnPrev = new Button();
             splitContainerFramePreview = new SplitContainer();
-            lstFrameData = new ListBox();
+            lstFrameData = new DataGridView();
             picMainPreview = new PictureBox();
             btnFirst = new Button();
             btnReload = new Button();
@@ -125,6 +125,7 @@
             splitContainerFramePreview.Panel1.SuspendLayout();
             splitContainerFramePreview.Panel2.SuspendLayout();
             splitContainerFramePreview.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)lstFrameData).BeginInit();
             ((System.ComponentModel.ISupportInitialize)picMainPreview).BeginInit();
             tabPageTraining.SuspendLayout();
             statusStripTraining.SuspendLayout();
@@ -630,13 +631,22 @@
             // 
             // lstFrameData
             // 
+            lstFrameData.AllowUserToAddRows = false;
+            lstFrameData.AllowUserToDeleteRows = false;
+            lstFrameData.AllowUserToResizeRows = false;
             lstFrameData.BorderStyle = BorderStyle.FixedSingle;
+            lstFrameData.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             lstFrameData.Dock = DockStyle.Fill;
             lstFrameData.Location = new Point(0, 0);
+            lstFrameData.MultiSelect = true;
             lstFrameData.Name = "lstFrameData";
+            lstFrameData.ReadOnly = true;
+            lstFrameData.RowHeadersVisible = false;
+            lstFrameData.RowHeadersWidth = 51;
+            lstFrameData.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             lstFrameData.Size = new Size(360, 503);
             lstFrameData.TabIndex = 13;
-            lstFrameData.SelectedIndexChanged += lstFrameData_SelectedIndexChanged;
+            lstFrameData.SelectionChanged += lstFrameData_SelectedIndexChanged;
             // 
             // picMainPreview
             // 
@@ -1037,6 +1047,7 @@
             splitContainerFramePreview.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)splitContainerFramePreview).EndInit();
             splitContainerFramePreview.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)lstFrameData).EndInit();
             ((System.ComponentModel.ISupportInitialize)picMainPreview).EndInit();
             tabPageTraining.ResumeLayout(false);
             tabPageTraining.PerformLayout();
@@ -1074,7 +1085,7 @@
         private Label lblModeValue;
         private NumericUpDown numPlaybackInterval;
         private Button btnApplyFilter;
-        private ListBox lstFrameData;
+        private DataGridView lstFrameData;
         private Button btnFirst;
         private Button btnPrev;
         private Button btnNext;
