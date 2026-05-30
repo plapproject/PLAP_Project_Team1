@@ -65,6 +65,7 @@
             lblThrottleRange = new Label();
             lblAngleRange = new Label();
             btnApplyFrameFilter = new Button();
+            btnShowReviewCandidates = new Button();
             btnClearFrameFilter = new Button();
             grpDataExplorer = new GroupBox();
             trkFrameTimeline = new TrackBar();
@@ -196,10 +197,9 @@
             //
             // mnuHelp
             //
-            mnuHelp.DropDownItems.AddRange(new ToolStripItem[] { mnuHelpOpenTutorial });
             mnuHelp.Name = "mnuHelp";
-            mnuHelp.Size = new Size(68, 24);
-            mnuHelp.Text = "도움말";
+            mnuHelp.Size = new Size(83, 24);
+            mnuHelp.Text = "튜토리얼";
             mnuHelp.Click += MnuHelp_Click;
             //
             // mnuHelpOpenTutorial
@@ -273,6 +273,7 @@
             grpDataCleaner.Controls.Add(txtAngleMinFilter);
             grpDataCleaner.Controls.Add(lblThrottleRange);
             grpDataCleaner.Controls.Add(lblAngleRange);
+            grpDataCleaner.Controls.Add(btnShowReviewCandidates);
             grpDataCleaner.Controls.Add(btnApplyFrameFilter);
             grpDataCleaner.Controls.Add(btnClearFrameFilter);
             grpDataCleaner.Location = new Point(3, 635);
@@ -492,6 +493,17 @@
             btnApplyFrameFilter.Text = "필터 적용";
             btnApplyFrameFilter.UseVisualStyleBackColor = true;
             btnApplyFrameFilter.Click += BtnApplyFrameFilter_Click;
+            //
+            // btnShowReviewCandidates
+            //
+            btnShowReviewCandidates.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnShowReviewCandidates.Location = new Point(1265, 65);
+            btnShowReviewCandidates.Name = "btnShowReviewCandidates";
+            btnShowReviewCandidates.Size = new Size(215, 29);
+            btnShowReviewCandidates.TabIndex = 49;
+            btnShowReviewCandidates.Text = "이상 후보 보기";
+            btnShowReviewCandidates.UseVisualStyleBackColor = true;
+            btnShowReviewCandidates.Click += BtnShowReviewCandidates_Click;
             //
             // btnClearFrameFilter
             //
@@ -1107,6 +1119,7 @@
         private Label lblModeValue;
         private NumericUpDown numPlaybackIntervalMs;
         private Button btnApplyFrameFilter;
+        private Button btnShowReviewCandidates;
         private DataGridView dgvFrameCatalog;
         private Button btnFirst;
         private Button btnPrev;
