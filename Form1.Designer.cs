@@ -94,11 +94,13 @@
             grpTrainingSettings = new GroupBox();
             nudEpoch = new NumericUpDown();
             cbxModelType = new ComboBox();
+            txtPythonEnvName = new TextBox();
             tbxTubPath = new TextBox();
             tbxModelPath = new TextBox();
             tbxMycarPath = new TextBox();
             lblEpoch = new Label();
             lblModeType = new Label();
+            lblPythonEnvName = new Label();
             lblModelPath = new Label();
             lblTubPath = new Label();
             lblMycarPath = new Label();
@@ -630,7 +632,7 @@
             splitContainerFramePreview.TabIndex = 44;
             // 
             // lstFrameData
-            // 
+            //
             lstFrameData.AllowUserToAddRows = false;
             lstFrameData.AllowUserToDeleteRows = false;
             lstFrameData.AllowUserToResizeRows = false;
@@ -799,11 +801,13 @@
             grpTrainingSettings.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             grpTrainingSettings.Controls.Add(nudEpoch);
             grpTrainingSettings.Controls.Add(cbxModelType);
+            grpTrainingSettings.Controls.Add(txtPythonEnvName);
             grpTrainingSettings.Controls.Add(tbxTubPath);
             grpTrainingSettings.Controls.Add(tbxModelPath);
             grpTrainingSettings.Controls.Add(tbxMycarPath);
             grpTrainingSettings.Controls.Add(lblEpoch);
             grpTrainingSettings.Controls.Add(lblModeType);
+            grpTrainingSettings.Controls.Add(lblPythonEnvName);
             grpTrainingSettings.Controls.Add(lblModelPath);
             grpTrainingSettings.Controls.Add(lblTubPath);
             grpTrainingSettings.Controls.Add(lblMycarPath);
@@ -820,9 +824,9 @@
             grpTrainingSettings.Text = "학습 설정";
             // 
             // nudEpoch
-            // 
+            //
             nudEpoch.Font = new Font("맑은 고딕", 12F);
-            nudEpoch.Location = new Point(219, 286);
+            nudEpoch.Location = new Point(219, 321);
             nudEpoch.Name = "nudEpoch";
             nudEpoch.Size = new Size(391, 34);
             nudEpoch.TabIndex = 17;
@@ -835,6 +839,14 @@
             cbxModelType.Name = "cbxModelType";
             cbxModelType.Size = new Size(391, 36);
             cbxModelType.TabIndex = 2;
+            //
+            // txtPythonEnvName
+            //
+            txtPythonEnvName.Font = new Font("맑은 고딕", 12F);
+            txtPythonEnvName.Location = new Point(219, 278);
+            txtPythonEnvName.Name = "txtPythonEnvName";
+            txtPythonEnvName.Size = new Size(391, 34);
+            txtPythonEnvName.TabIndex = 18;
             // 
             // tbxTubPath
             // 
@@ -864,10 +876,10 @@
             tbxMycarPath.TabIndex = 13;
             // 
             // lblEpoch
-            // 
+            //
             lblEpoch.AutoSize = true;
             lblEpoch.Font = new Font("맑은 고딕", 12F);
-            lblEpoch.Location = new Point(45, 287);
+            lblEpoch.Location = new Point(45, 322);
             lblEpoch.Name = "lblEpoch";
             lblEpoch.Size = new Size(99, 28);
             lblEpoch.TabIndex = 11;
@@ -882,6 +894,16 @@
             lblModeType.Size = new Size(99, 28);
             lblModeType.TabIndex = 10;
             lblModeType.Text = "모델 종류";
+            //
+            // lblPythonEnvName
+            //
+            lblPythonEnvName.AutoSize = true;
+            lblPythonEnvName.Font = new Font("맑은 고딕", 12F);
+            lblPythonEnvName.Location = new Point(45, 281);
+            lblPythonEnvName.Name = "lblPythonEnvName";
+            lblPythonEnvName.Size = new Size(149, 28);
+            lblPythonEnvName.TabIndex = 19;
+            lblPythonEnvName.Text = "Python 환경명";
             // 
             // lblModelPath
             // 
@@ -916,7 +938,7 @@
             // btnSaveSettings
             // 
             btnSaveSettings.Font = new Font("맑은 고딕", 12F);
-            btnSaveSettings.Location = new Point(1046, 347);
+            btnSaveSettings.Location = new Point(1046, 368);
             btnSaveSettings.Name = "btnSaveSettings";
             btnSaveSettings.Size = new Size(194, 43);
             btnSaveSettings.TabIndex = 5;
@@ -926,7 +948,7 @@
             // btnStopTraining
             // 
             btnStopTraining.Font = new Font("맑은 고딕", 12F);
-            btnStopTraining.Location = new Point(713, 347);
+            btnStopTraining.Location = new Point(713, 368);
             btnStopTraining.Name = "btnStopTraining";
             btnStopTraining.Size = new Size(194, 43);
             btnStopTraining.TabIndex = 4;
@@ -936,7 +958,7 @@
             // btnStartTraining
             // 
             btnStartTraining.Font = new Font("맑은 고딕", 12F);
-            btnStartTraining.Location = new Point(378, 347);
+            btnStartTraining.Location = new Point(378, 368);
             btnStartTraining.Name = "btnStartTraining";
             btnStartTraining.Size = new Size(194, 43);
             btnStartTraining.TabIndex = 3;
@@ -1115,6 +1137,7 @@
         private GroupBox grpTrainingLog;
         private Label lblEpoch;
         private Label lblModeType;
+        private Label lblPythonEnvName;
         private Label lblModelPath;
         private Label lblTubPath;
         private Label lblMycarPath;
@@ -1126,6 +1149,7 @@
         private TextBox tbxTubPath;
         private TextBox tbxModelPath;
         private TextBox tbxMycarPath;
+        private TextBox txtPythonEnvName;
         private NumericUpDown nudEpoch;
         private ComboBox cbxModelType;
         private RichTextBox rtbTrainingLog;

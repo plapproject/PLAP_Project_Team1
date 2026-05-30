@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -34,7 +35,9 @@ namespace TeamApp
         private bool _tutorialRunning = false;
         private bool _isFilterActive = false;
         private bool _isUpdatingFrameSelection = false;
+        private Process? _trainingProcess;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
+        private const string TrainingSettingsFileName = "training_settings.json";
 
         private sealed class TutorialStep
         {
@@ -78,6 +81,10 @@ namespace TeamApp
             btnDeleteFrame.Click      += btnExportClean_Click;
             btnRestoreFrame.Click     += BtnRestoreFrame_Click;
             btnFrameSave.Click        += btnFrameSave_Click;
+            btnStartTraining.Click    += BtnStartTraining_Click;
+            btnStopTraining.Click     += BtnStopTraining_Click;
+            btnSaveSettings.Click     += BtnSaveTrainingSettings_Click;
+            btnTubPath.Click          += (_, _) => SelectFolderInto(tbxTubPath, "Tub 폴더 선택");
 
             mnuOpenDataFolder.Click   += (s, _) => btnOpenFolder_Click(s!, EventArgs.Empty);
             mnuReloadData.Click       += (s, _) => btnReload_Click(s!, EventArgs.Empty);
@@ -97,6 +104,8 @@ namespace TeamApp
             txtThrottleMin.Text = "-1";
             txtThrottleMax.Text = "1";
 
+            InitializeTrainingControls();
+            LoadTrainingSettings();
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
         }
@@ -1489,6 +1498,300 @@ namespace TeamApp
             }
         }
 
+        // 학습 실행 기능
+
+        /// <summary>
+        /// develop_CHS 브랜치의 학습 실행 흐름을 feature_test UI에 맞춰 초기화합니다.
+        /// 실제 학습 엔진은 수정하지 않고, WSL에서 DonkeyCar train.py를 실행하고 로그만 관찰합니다.
+        /// </summary>
+        private void InitializeTrainingControls()
+        {
+            cbxModelType.Items.Clear();
+            cbxModelType.Items.AddRange(new object[] { "linear", "categorical", "rnn", "3d", "imu", "behavior" });
+            if (string.IsNullOrWhiteSpace(cbxModelType.Text))
+                cbxModelType.Text = "linear";
+
+            if (string.IsNullOrWhiteSpace(txtPythonEnvName.Text))
+                txtPythonEnvName.Text = "donkey";
+
+            if (string.IsNullOrWhiteSpace(tbxMycarPath.Text))
+                tbxMycarPath.Text = "~/mycar";
+
+            if (string.IsNullOrWhiteSpace(tbxTubPath.Text))
+                tbxTubPath.Text = "data";
+
+            if (string.IsNullOrWhiteSpace(tbxModelPath.Text))
+                tbxModelPath.Text = "models/pilot.keras";
+
+            nudEpoch.Minimum = 1;
+            nudEpoch.Maximum = 10000;
+            if (nudEpoch.Value < 1)
+                nudEpoch.Value = 10;
+
+            btnStopTraining.Enabled = false;
+            toolStripStatusLabelTraining.Text = "학습 상태: 대기";
+        }
+
+        private async void BtnStartTraining_Click(object? sender, EventArgs e)
+        {
+            if (_trainingProcess is { HasExited: false })
+            {
+                MessageBox.Show("이미 학습 프로세스가 실행 중입니다.",
+                    "학습 실행", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            if (!TryBuildTrainingCommand(out string arguments)) return;
+
+            btnStartTraining.Enabled = false;
+            btnStopTraining.Enabled = true;
+            toolStripStatusLabelTraining.Text = "학습 상태: 실행 중";
+            rtbTrainingLog.Clear();
+
+            try
+            {
+                _trainingProcess = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "wsl",
+                        Arguments = arguments,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        StandardOutputEncoding = Encoding.UTF8,
+                        StandardErrorEncoding = Encoding.UTF8
+                    },
+                    EnableRaisingEvents = true
+                };
+
+                _trainingProcess.OutputDataReceived += (_, ev) =>
+                {
+                    if (!string.IsNullOrWhiteSpace(ev.Data))
+                        AppendTrainingLog(ev.Data);
+                };
+                _trainingProcess.ErrorDataReceived += (_, ev) =>
+                {
+                    if (!string.IsNullOrWhiteSpace(ev.Data))
+                        AppendTrainingLog("[error] " + ev.Data);
+                };
+
+                AppendTrainingLog("학습 프로세스를 시작합니다.");
+                AppendTrainingLog("실행 명령: wsl " + arguments);
+
+                _trainingProcess.Start();
+                _trainingProcess.BeginOutputReadLine();
+                _trainingProcess.BeginErrorReadLine();
+
+                await _trainingProcess.WaitForExitAsync();
+
+                AppendTrainingLog("");
+                AppendTrainingLog($"학습 프로세스가 종료되었습니다. 종료 코드: {_trainingProcess.ExitCode}");
+                toolStripStatusLabelTraining.Text = $"학습 상태: 종료 코드 {_trainingProcess.ExitCode}";
+            }
+            catch (Exception ex)
+            {
+                toolStripStatusLabelTraining.Text = "학습 상태: 오류";
+                MessageBox.Show(
+                    "학습 실행 중 오류가 발생했습니다.\n\n" +
+                    "WSL, conda 환경명, mycar 경로가 올바른지 확인해 주세요.\n\n" +
+                    "오류 내용: " + ex.Message,
+                    "학습 실행 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnStartTraining.Enabled = true;
+                btnStopTraining.Enabled = false;
+            }
+        }
+
+        private void BtnStopTraining_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (_trainingProcess == null || _trainingProcess.HasExited)
+                {
+                    MessageBox.Show("중지할 학습 프로세스가 없습니다.",
+                        "학습 중지", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                _trainingProcess.Kill(entireProcessTree: true);
+                AppendTrainingLog("사용자 요청으로 학습 프로세스를 중지했습니다.");
+                toolStripStatusLabelTraining.Text = "학습 상태: 중지됨";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("학습 프로세스를 중지하지 못했습니다.\n\n오류 내용: " + ex.Message,
+                    "학습 중지 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private bool TryBuildTrainingCommand(out string arguments)
+        {
+            arguments = string.Empty;
+
+            string envName = txtPythonEnvName.Text.Trim();
+            string modelType = cbxModelType.Text.Trim().ToLowerInvariant();
+            string mycarPath = tbxMycarPath.Text.Trim();
+            string tubPath = tbxTubPath.Text.Trim();
+            string modelPath = tbxModelPath.Text.Trim();
+            int epochs = (int)nudEpoch.Value;
+
+            if (string.IsNullOrWhiteSpace(envName))
+            {
+                MessageBox.Show("Python 환경명을 입력해 주세요. 예: donkey",
+                    "입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(modelType))
+            {
+                MessageBox.Show("모델 종류를 입력하거나 선택해 주세요.",
+                    "입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(mycarPath))
+                mycarPath = "~/mycar";
+            if (string.IsNullOrWhiteSpace(tubPath))
+                tubPath = "data";
+            if (string.IsNullOrWhiteSpace(modelPath))
+                modelPath = "models/pilot.keras";
+
+            string command =
+                "cd " + QuoteForBash(ToWslPath(mycarPath)) + " && " +
+                "~/miniconda3/bin/conda run -n " + QuoteForBash(envName) + " " +
+                "python train.py " +
+                "--tub=" + QuoteForBash(ToWslPath(tubPath)) + " " +
+                "--model=" + QuoteForBash(ToWslPath(modelPath)) + " " +
+                "--type=" + QuoteForBash(modelType) + " " +
+                "--epochs=" + epochs.ToString(CultureInfo.InvariantCulture);
+
+            arguments = "bash -lc " + QuoteForBash(command);
+            return true;
+        }
+
+        private string ToWslPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return path;
+            path = path.Trim();
+
+            if (path.StartsWith("~/") || path.StartsWith("/"))
+                return path.Replace("\\", "/");
+
+            if (path.Length >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
+            {
+                char drive = char.ToLowerInvariant(path[0]);
+                string rest = path.Substring(3).Replace("\\", "/");
+                return $"/mnt/{drive}/{rest}";
+            }
+
+            return path.Replace("\\", "/");
+        }
+
+        private string QuoteForBash(string value)
+        {
+            return "'" + value.Replace("'", "'\"'\"'") + "'";
+        }
+
+        private void AppendTrainingLog(string text)
+        {
+            if (rtbTrainingLog.IsDisposed) return;
+
+            void Append()
+            {
+                rtbTrainingLog.AppendText(text + Environment.NewLine);
+                rtbTrainingLog.SelectionStart = rtbTrainingLog.TextLength;
+                rtbTrainingLog.ScrollToCaret();
+            }
+
+            if (rtbTrainingLog.InvokeRequired)
+                rtbTrainingLog.BeginInvoke(new Action(Append));
+            else
+                Append();
+        }
+
+        private void SelectFolderInto(TextBox targetTextBox, string title)
+        {
+            using var dialog = new FolderBrowserDialog
+            {
+                Description = title,
+                SelectedPath = Directory.Exists(targetTextBox.Text) ? targetTextBox.Text : string.Empty
+            };
+
+            if (dialog.ShowDialog(this) == DialogResult.OK)
+                targetTextBox.Text = dialog.SelectedPath;
+        }
+
+        private void BtnSaveTrainingSettings_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                Directory.CreateDirectory(Application.UserAppDataPath);
+                var settings = new TrainingSettings
+                {
+                    MycarPath = tbxMycarPath.Text.Trim(),
+                    TubPath = tbxTubPath.Text.Trim(),
+                    ModelPath = tbxModelPath.Text.Trim(),
+                    ModelType = cbxModelType.Text.Trim(),
+                    PythonEnvName = txtPythonEnvName.Text.Trim(),
+                    Epochs = (int)nudEpoch.Value
+                };
+
+                string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(GetTrainingSettingsPath(), json, Encoding.UTF8);
+                MessageBox.Show("학습 설정이 저장되었습니다.",
+                    "설정 저장", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("학습 설정 저장 중 오류가 발생했습니다.\n\n오류 내용: " + ex.Message,
+                    "설정 저장 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void LoadTrainingSettings()
+        {
+            try
+            {
+                string path = GetTrainingSettingsPath();
+                if (!File.Exists(path)) return;
+
+                string json = File.ReadAllText(path, Encoding.UTF8);
+                var settings = JsonSerializer.Deserialize<TrainingSettings>(json);
+                if (settings == null) return;
+
+                tbxMycarPath.Text = settings.MycarPath;
+                tbxTubPath.Text = settings.TubPath;
+                tbxModelPath.Text = settings.ModelPath;
+                cbxModelType.Text = settings.ModelType;
+                txtPythonEnvName.Text = settings.PythonEnvName;
+                if (settings.Epochs >= nudEpoch.Minimum && settings.Epochs <= nudEpoch.Maximum)
+                    nudEpoch.Value = settings.Epochs;
+            }
+            catch
+            {
+                // 설정 파일이 손상되어도 프로그램 실행은 계속되어야 합니다.
+            }
+        }
+
+        private string GetTrainingSettingsPath()
+        {
+            return Path.Combine(Application.UserAppDataPath, TrainingSettingsFileName);
+        }
+
+        private sealed class TrainingSettings
+        {
+            public string MycarPath { get; set; } = "~/mycar";
+            public string TubPath { get; set; } = "data";
+            public string ModelPath { get; set; } = "models/pilot.keras";
+            public string ModelType { get; set; } = "linear";
+            public string PythonEnvName { get; set; } = "donkey";
+            public int Epochs { get; set; } = 10;
+        }
+
         // Designer 연결 스텁
 
         private void tabPageTraining_Click(object sender, EventArgs e) { }
@@ -1503,7 +1806,7 @@ namespace TeamApp
         private void lblPlayInterval_Click(object sender, EventArgs e) { }
         private void lblThrottleValue_Click(object sender, EventArgs e) { }
         private void toolStripStatusLabelTraining_Click(object sender, EventArgs e) { }
-        private void btnMycarPath_Click(object sender, EventArgs e) { }
+        private void btnMycarPath_Click(object sender, EventArgs e) => SelectFolderInto(tbxMycarPath, "mycar 폴더 선택");
         private void grpTubCleaner_Enter(object sender, EventArgs e) { }
 
         // ScottPlot 차트를 필요할 때 생성합니다.
