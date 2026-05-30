@@ -40,6 +40,10 @@ namespace TeamApp
         private bool _showDriveOverlay = true;
         private GroupBox? _grpFrameInfo;
         private FlowLayoutPanel? _thumbnailStrip;
+        private System.Windows.Forms.Label? _lblFrameImageName;
+        private System.Windows.Forms.Label? _lblFrameReviewHint;
+        private System.Windows.Forms.Label? _lblThumbnailStripTitle;
+        private ToolTip? _screenTip;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
 
@@ -111,12 +115,12 @@ namespace TeamApp
             txtThrottleMinFilter.Text = "-1";
             txtThrottleMaxFilter.Text = "1";
 
-            var screenTip = new ToolTip();
-            screenTip.SetToolTip(btnOpenDataFolder, "catalog_*.catalog가 있는 tub 폴더를 선택합니다.");
-            screenTip.SetToolTip(btnShowReviewCandidates, "급조향, 정지, 차선 이탈 등 자동 검토 후보만 표시합니다.");
-            screenTip.SetToolTip(btnApplyFrameFilter, "조향각/스로틀/모드/시나리오 조건으로 프레임을 좁힙니다.");
-            screenTip.SetToolTip(btnExcludeFrameRange, "원본 프레임 번호 기준으로 구간을 제외합니다.");
-            screenTip.SetToolTip(btnSaveCleanupState, "제외/복원 상태를 deleted_frames_meta.txt로 저장합니다.");
+            _screenTip = new ToolTip();
+            _screenTip.SetToolTip(btnOpenDataFolder, "catalog_*.catalog가 있는 tub 폴더를 선택합니다.");
+            _screenTip.SetToolTip(btnShowReviewCandidates, "급조향, 정지, 차선 이탈 등 자동 검토 후보만 표시합니다.");
+            _screenTip.SetToolTip(btnApplyFrameFilter, "조향각/스로틀/모드/시나리오 조건으로 프레임을 좁힙니다.");
+            _screenTip.SetToolTip(btnExcludeFrameRange, "원본 프레임 번호 기준으로 구간을 제외합니다.");
+            _screenTip.SetToolTip(btnSaveCleanupState, "제외/복원 상태를 deleted_frames_meta.txt로 저장합니다.");
 
             InitializeTrainingControls();
             LoadTrainingSettings();
@@ -545,22 +549,24 @@ namespace TeamApp
                 Text = "프레임 정보",
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Location = new Point(1284, 61),
-                Size = new Size(276, 322)
+                Size = new Size(276, 420)
             };
 
             grpDataExplorer.Controls.Add(_grpFrameInfo);
 
             MoveToFrameInfoGroup(lblFrameValue, 12, 28, 252, 30);
-            MoveToFrameInfoGroup(lblAngleValue, 12, 66, 252, 30);
-            MoveToFrameInfoGroup(lblThrottleValue, 12, 101, 252, 30);
-            MoveToFrameInfoGroup(lblModeValue, 12, 136, 252, 30);
-            MoveToFrameInfoGroup(btnPrev, 12, 178, 120, 29);
-            MoveToFrameInfoGroup(btnNext, 144, 178, 120, 29);
-            MoveToFrameInfoGroup(btnFirst, 12, 213, 120, 29);
-            MoveToFrameInfoGroup(btnLast, 144, 213, 120, 29);
-            MoveToFrameInfoGroup(btnAutoPlay, 12, 248, 252, 29);
-            MoveToFrameInfoGroup(lblPlayInterval, 12, 282, 118, 25);
-            MoveToFrameInfoGroup(numPlaybackIntervalMs, 132, 282, 132, 27);
+            _lblFrameImageName = CreateFrameInfoLabel(12, 61, 252, 25, "이미지: -");
+            MoveToFrameInfoGroup(lblAngleValue, 12, 93, 252, 28);
+            MoveToFrameInfoGroup(lblThrottleValue, 12, 126, 252, 28);
+            MoveToFrameInfoGroup(lblModeValue, 12, 159, 252, 28);
+            _lblFrameReviewHint = CreateFrameInfoLabel(12, 192, 252, 44, "검토: -");
+            MoveToFrameInfoGroup(btnPrev, 12, 248, 120, 29);
+            MoveToFrameInfoGroup(btnNext, 144, 248, 120, 29);
+            MoveToFrameInfoGroup(btnFirst, 12, 283, 120, 29);
+            MoveToFrameInfoGroup(btnLast, 144, 283, 120, 29);
+            MoveToFrameInfoGroup(btnAutoPlay, 12, 318, 252, 29);
+            MoveToFrameInfoGroup(lblPlayInterval, 12, 356, 118, 25);
+            MoveToFrameInfoGroup(numPlaybackIntervalMs, 132, 356, 132, 27);
 
             lblFrameValue.Font = new Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             lblAngleValue.Font = new Font("맑은 고딕", 10F);
@@ -570,6 +576,16 @@ namespace TeamApp
 
             splitContainerFramePreview.Size = new Size(1278, 445);
             trkFrameTimeline.Location = new Point(-1, 571);
+
+            _lblThumbnailStripTitle = new System.Windows.Forms.Label
+            {
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left,
+                Location = new Point(4, 490),
+                Size = new Size(260, 20),
+                Text = "주변 프레임 미리보기",
+                Font = new Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold)
+            };
+            grpDataExplorer.Controls.Add(_lblThumbnailStripTitle);
 
             _thumbnailStrip = new FlowLayoutPanel
             {
@@ -585,6 +601,20 @@ namespace TeamApp
             };
             grpDataExplorer.Controls.Add(_thumbnailStrip);
             _thumbnailStrip.BringToFront();
+        }
+
+        private System.Windows.Forms.Label CreateFrameInfoLabel(int x, int y, int width, int height, string text)
+        {
+            var label = new System.Windows.Forms.Label
+            {
+                Location = new Point(x, y),
+                Size = new Size(width, height),
+                Text = text,
+                Font = new Font("맑은 고딕", 9F),
+                AutoEllipsis = true
+            };
+            _grpFrameInfo?.Controls.Add(label);
+            return label;
         }
 
         private void MoveToFrameInfoGroup(Control control, int x, int y, int width, int height)
@@ -720,6 +750,7 @@ namespace TeamApp
             dgvFrameCatalog.DataSource = null;
             dgvFrameCatalog.DataSource = _visibleFrames;
             ApplyFrameCatalogRowStyle();
+            UpdateNavigationButtons();
 
             trkFrameTimeline.Minimum = 0;
             trkFrameTimeline.Maximum = Math.Max(0, _visibleFrames.Count - 1);
@@ -767,9 +798,33 @@ namespace TeamApp
             lblAngleValue.Text    = $"조향: {frame.Angle:0.000} ({frame.SteeringText})";
             lblThrottleValue.Text = $"스로틀: {frame.Throttle:0.000} ({frame.ThrottleText})";
             lblModeValue.Text     = $"모드: {frame.ModeDescription}";
+            if (_lblFrameImageName != null)
+            {
+                _lblFrameImageName.Text = $"이미지: {frame.Name}";
+                _screenTip?.SetToolTip(_lblFrameImageName, frame.Name);
+            }
+            if (_lblFrameReviewHint != null)
+            {
+                _lblFrameReviewHint.Text = $"검토: {frame.ReviewHint}";
+                _screenTip?.SetToolTip(_lblFrameReviewHint, frame.ReviewHint);
+            }
             UpdateThumbnailStrip();
+            UpdateNavigationButtons();
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
+        }
+
+        private void UpdateNavigationButtons()
+        {
+            int count = _visibleFrames?.Count ?? 0;
+            bool hasFrames = count > 0 && _currentFrameIndex >= 0;
+            btnFirst.Enabled = hasFrames && _currentFrameIndex > 0;
+            btnPrev.Enabled = hasFrames && _currentFrameIndex > 0;
+            btnNext.Enabled = hasFrames && _currentFrameIndex < count - 1;
+            btnLast.Enabled = hasFrames && _currentFrameIndex < count - 1;
+            btnAutoPlay.Enabled = hasFrames && count > 1;
+            trkFrameTimeline.Enabled = hasFrames;
+            numPlaybackIntervalMs.Enabled = hasFrames;
         }
         /// <summary>
         /// 현재 폴더와 파일명으로 실제 이미지 경로를 찾습니다.
@@ -819,13 +874,13 @@ namespace TeamApp
 
             int centerX = bitmap.Width / 2;
             int baseY = Math.Max(30, bitmap.Height - Math.Max(55, bitmap.Height / 7));
-            int length = Math.Max(50, Math.Min(bitmap.Width, bitmap.Height) / 5);
+            int length = Math.Max(25, Math.Min(bitmap.Width, bitmap.Height) / 10);
             int endX = centerX + (int)(frame.Angle * length);
             int endY = baseY - length;
 
-            using var arrowPen = new Pen(System.Drawing.Color.FromArgb(230, 255, 193, 7), Math.Max(4, bitmap.Width / 150))
+            using var arrowPen = new Pen(System.Drawing.Color.FromArgb(210, 255, 193, 7), Math.Max(2, bitmap.Width / 300))
             {
-                CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(7, 9)
+                CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(4, 5)
             };
             graphics.DrawLine(arrowPen, centerX, baseY, endX, endY);
 
@@ -833,13 +888,13 @@ namespace TeamApp
             if (frame.NeedsReview)
                 overlayText += " | 검토";
 
-            using var font = new Font("맑은 고딕", Math.Max(8, bitmap.Width / 90f), System.Drawing.FontStyle.Bold);
+            using var font = new Font("맑은 고딕", Math.Max(6, bitmap.Width / 180f), System.Drawing.FontStyle.Bold);
             SizeF textSize = graphics.MeasureString(overlayText, font);
-            var textRect = new RectangleF(10, 10, textSize.Width + 14, textSize.Height + 8);
-            using var backBrush = new SolidBrush(System.Drawing.Color.FromArgb(130, 0, 0, 0));
+            var textRect = new RectangleF(8, 8, textSize.Width + 8, textSize.Height + 4);
+            using var backBrush = new SolidBrush(System.Drawing.Color.FromArgb(105, 0, 0, 0));
             using var textBrush = new SolidBrush(frame.NeedsReview ? System.Drawing.Color.Gold : System.Drawing.Color.White);
             graphics.FillRectangle(backBrush, textRect);
-            graphics.DrawString(overlayText, font, textBrush, textRect.X + 7, textRect.Y + 4);
+            graphics.DrawString(overlayText, font, textBrush, textRect.X + 4, textRect.Y + 2);
         }
 
         private void UpdateThumbnailStrip()
@@ -1187,6 +1242,13 @@ namespace TeamApp
             lblAngleValue.Text = "조향값: 0.000";
             lblThrottleValue.Text = "스로틀값: 0.000";
             lblModeValue.Text = "모드: -";
+            if (_lblFrameImageName != null)
+                _lblFrameImageName.Text = "이미지: -";
+            if (_lblFrameReviewHint != null)
+                _lblFrameReviewHint.Text = "검토: -";
+            if (_thumbnailStrip != null)
+                _thumbnailStrip.Controls.Clear();
+            UpdateNavigationButtons();
         }
 
         private void BtnSaveCleanupState_Click(object? sender, EventArgs e)
