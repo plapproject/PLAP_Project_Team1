@@ -38,6 +38,8 @@ namespace TeamApp
         private Process? _trainingProcess;
         private bool _hasUnsavedCleanupChanges = false;
         private bool _showDriveOverlay = true;
+        private GroupBox? _grpFrameInfo;
+        private FlowLayoutPanel? _thumbnailStrip;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
 
@@ -98,6 +100,7 @@ namespace TeamApp
             FormClosing += Form1_FormClosing;
 
             ConfigureFrameCatalogGrid();
+            ConfigureDataExplorerLayout();
             ApplyDataManagerUiStyle();
 
             btnExcludeSelectedFrames.Text = "선택 프레임 제외";
@@ -528,48 +531,69 @@ namespace TeamApp
                 AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
                 MinimumWidth = 220
             });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.Angle),
-                HeaderText = "조향각 (-좌/0직/+우)",
-                Width = 135,
-                DefaultCellStyle = new DataGridViewCellStyle { Format = "0.000" }
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.Throttle),
-                HeaderText = "스로틀 (-후/0정/+전)",
-                Width = 135,
-                DefaultCellStyle = new DataGridViewCellStyle { Format = "0.000" }
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.ModeDescription),
-                HeaderText = "모드 의미",
-                Width = 130
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.ScenarioDescription),
-                HeaderText = "시나리오 의미",
-                Width = 145
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.ReviewHint),
-                HeaderText = "검토 힌트",
-                Width = 170
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.StateText),
-                HeaderText = "상태",
-                Width = 80
-            });
 
             dgvFrameCatalog.RowTemplate.Height = 26;
             dgvFrameCatalog.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(248, 250, 252);
             dgvFrameCatalog.DataBindingComplete += (_, _) => ApplyFrameCatalogRowStyle();
+        }
+
+        private void ConfigureDataExplorerLayout()
+        {
+            // 기존 우측 정보/재생 컨트롤을 그룹박스로 묶어 화면을 읽기 쉽게 만듭니다.
+            _grpFrameInfo = new GroupBox
+            {
+                Text = "프레임 정보",
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(1284, 61),
+                Size = new Size(276, 322)
+            };
+
+            grpDataExplorer.Controls.Add(_grpFrameInfo);
+
+            MoveToFrameInfoGroup(lblFrameValue, 12, 28, 252, 30);
+            MoveToFrameInfoGroup(lblAngleValue, 12, 66, 252, 30);
+            MoveToFrameInfoGroup(lblThrottleValue, 12, 101, 252, 30);
+            MoveToFrameInfoGroup(lblModeValue, 12, 136, 252, 30);
+            MoveToFrameInfoGroup(btnPrev, 12, 178, 120, 29);
+            MoveToFrameInfoGroup(btnNext, 144, 178, 120, 29);
+            MoveToFrameInfoGroup(btnFirst, 12, 213, 120, 29);
+            MoveToFrameInfoGroup(btnLast, 144, 213, 120, 29);
+            MoveToFrameInfoGroup(btnAutoPlay, 12, 248, 252, 29);
+            MoveToFrameInfoGroup(lblPlayInterval, 12, 282, 118, 25);
+            MoveToFrameInfoGroup(numPlaybackIntervalMs, 132, 282, 132, 27);
+
+            lblFrameValue.Font = new Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            lblAngleValue.Font = new Font("맑은 고딕", 10F);
+            lblThrottleValue.Font = new Font("맑은 고딕", 10F);
+            lblModeValue.Font = new Font("맑은 고딕", 10F);
+            lblPlayInterval.Font = new Font("맑은 고딕", 9F);
+
+            splitContainerFramePreview.Size = new Size(1278, 445);
+            trkFrameTimeline.Location = new Point(-1, 571);
+
+            _thumbnailStrip = new FlowLayoutPanel
+            {
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                Location = new Point(0, 512),
+                Size = new Size(1278, 54),
+                BorderStyle = BorderStyle.FixedSingle,
+                AutoScroll = true,
+                WrapContents = false,
+                FlowDirection = FlowDirection.LeftToRight,
+                BackColor = System.Drawing.Color.FromArgb(245, 245, 245),
+                Padding = new Padding(4, 3, 4, 3)
+            };
+            grpDataExplorer.Controls.Add(_thumbnailStrip);
+            _thumbnailStrip.BringToFront();
+        }
+
+        private void MoveToFrameInfoGroup(Control control, int x, int y, int width, int height)
+        {
+            control.Parent?.Controls.Remove(control);
+            control.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            control.Location = new Point(x, y);
+            control.Size = new Size(width, height);
+            _grpFrameInfo?.Controls.Add(control);
         }
 
         /// <summary>
@@ -743,6 +767,7 @@ namespace TeamApp
             lblAngleValue.Text    = $"조향: {frame.Angle:0.000} ({frame.SteeringText})";
             lblThrottleValue.Text = $"스로틀: {frame.Throttle:0.000} ({frame.ThrottleText})";
             lblModeValue.Text     = $"모드: {frame.ModeDescription}";
+            UpdateThumbnailStrip();
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
         }
@@ -804,17 +829,81 @@ namespace TeamApp
             };
             graphics.DrawLine(arrowPen, centerX, baseY, endX, endY);
 
-            string overlayText = $"{frame.SteeringText} / {frame.ThrottleText}";
+            string overlayText = $"{frame.SteeringText} | {frame.ThrottleText}";
             if (frame.NeedsReview)
-                overlayText += " / 검토 필요";
+                overlayText += " | 검토";
 
-            using var font = new Font("맑은 고딕", Math.Max(12, bitmap.Width / 42f), System.Drawing.FontStyle.Bold);
+            using var font = new Font("맑은 고딕", Math.Max(8, bitmap.Width / 90f), System.Drawing.FontStyle.Bold);
             SizeF textSize = graphics.MeasureString(overlayText, font);
-            var textRect = new RectangleF(12, 12, textSize.Width + 20, textSize.Height + 12);
-            using var backBrush = new SolidBrush(System.Drawing.Color.FromArgb(175, 0, 0, 0));
+            var textRect = new RectangleF(10, 10, textSize.Width + 14, textSize.Height + 8);
+            using var backBrush = new SolidBrush(System.Drawing.Color.FromArgb(130, 0, 0, 0));
             using var textBrush = new SolidBrush(frame.NeedsReview ? System.Drawing.Color.Gold : System.Drawing.Color.White);
             graphics.FillRectangle(backBrush, textRect);
-            graphics.DrawString(overlayText, font, textBrush, textRect.X + 10, textRect.Y + 6);
+            graphics.DrawString(overlayText, font, textBrush, textRect.X + 7, textRect.Y + 4);
+        }
+
+        private void UpdateThumbnailStrip()
+        {
+            if (_thumbnailStrip == null || _visibleFrames == null || _visibleFrames.Count == 0) return;
+
+            _thumbnailStrip.SuspendLayout();
+            try
+            {
+                foreach (Control control in _thumbnailStrip.Controls)
+                {
+                    if (control is PictureBox pictureBox)
+                        pictureBox.Image?.Dispose();
+                    control.Dispose();
+                }
+                _thumbnailStrip.Controls.Clear();
+
+                int start = Math.Max(0, _currentFrameIndex - 10);
+                int end = Math.Min(_visibleFrames.Count - 1, start + 24);
+                start = Math.Max(0, end - 24);
+
+                for (int i = start; i <= end; i++)
+                {
+                    FrameData frame = _visibleFrames[i];
+                    string imagePath = ResolveImagePath(frame.Name);
+                    var thumbnailBox = new PictureBox
+                    {
+                        Size = new Size(74, 42),
+                        Margin = new Padding(2),
+                        SizeMode = PictureBoxSizeMode.Zoom,
+                        BorderStyle = i == _currentFrameIndex ? BorderStyle.Fixed3D : BorderStyle.FixedSingle,
+                        BackColor = frame.IsDeleted
+                            ? System.Drawing.Color.FromArgb(235, 210, 210)
+                            : frame.NeedsReview
+                                ? System.Drawing.Color.FromArgb(255, 243, 186)
+                                : System.Drawing.Color.White,
+                        Tag = i
+                    };
+
+                    if (File.Exists(imagePath))
+                    {
+                        try
+                        {
+                            using var sourceImage = System.Drawing.Image.FromFile(imagePath);
+                            thumbnailBox.Image = new Bitmap(sourceImage, thumbnailBox.Width, thumbnailBox.Height);
+                        }
+                        catch
+                        {
+                            thumbnailBox.Image = null;
+                        }
+                    }
+
+                    thumbnailBox.Click += (_, _) =>
+                    {
+                        if (thumbnailBox.Tag is int frameIndex)
+                            SetIndex(frameIndex);
+                    };
+                    _thumbnailStrip.Controls.Add(thumbnailBox);
+                }
+            }
+            finally
+            {
+                _thumbnailStrip.ResumeLayout();
+            }
         }
 
         private void TogglePlayPause()
