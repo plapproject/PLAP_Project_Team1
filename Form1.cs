@@ -16,25 +16,25 @@ namespace TeamApp
 {
     public partial class Form1 : Form
     {
-        // _originalFrames : 로드된 모든 프레임입니다. 삭제된 항목도 포함하며 원본 순서를 유지합니다.
-        // _currentDisplayedFrames : 현재 데이터 표에 표시 중인 목록입니다.
-        //   - 필터 해제 시 _originalFrames 전체를 표시합니다.
+        // _allFrames : 로드된 모든 프레임입니다. 삭제된 항목도 포함하며 원본 순서를 유지합니다.
+        // _visibleFrames : 현재 데이터 표에 표시 중인 목록입니다.
+        //   - 필터 해제 시 _allFrames 전체를 표시합니다.
         //   - 필터 적용 시 조건에 맞는 항목만 표시합니다.
-        private List<FrameData> _originalFrames = new List<FrameData>();
-        private List<FrameData> _currentDisplayedFrames = new List<FrameData>();
+        private List<FrameData> _allFrames = new List<FrameData>();
+        private List<FrameData> _visibleFrames = new List<FrameData>();
 
-        private int currentIndex = -1;
-        private System.Windows.Forms.Timer playTimer;
-        private bool isPlaying = false;
-        private bool isDarkTheme = false;
+        private int _currentFrameIndex = -1;
+        private System.Windows.Forms.Timer _playbackTimer;
+        private bool _isPlaybackRunning = false;
+        private bool _isDarkThemeEnabled = false;
 
-        private string _currentFolderPath = "";
+        private string _currentDataFolderPath = "";
 
-        private FormsPlot? _formsPlot;
-        private bool _chartDirty = true;
+        private FormsPlot? _frameChart;
+        private bool _isChartDirty = true;
         private bool _tutorialRunning = false;
-        private bool _isFilterActive = false;
-        private bool _isUpdatingFrameSelection = false;
+        private bool _isFrameFilterActive = false;
+        private bool _isFrameSelectionUpdating = false;
         private Process? _trainingProcess;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
@@ -62,8 +62,8 @@ namespace TeamApp
             this.KeyPreview = true;
             this.KeyDown += Form1_KeyDown;
 
-            playTimer = new System.Windows.Forms.Timer();
-            playTimer.Tick += PlayTimer_Tick;
+            _playbackTimer = new System.Windows.Forms.Timer();
+            _playbackTimer.Tick += PlayTimer_Tick;
 
             if (statusStripDataViewer != null && !this.Controls.Contains(statusStripDataViewer))
             {
@@ -75,34 +75,34 @@ namespace TeamApp
         private void Form1_Load(object sender, EventArgs e)
         {
             // 버튼 이벤트를 코드에서 연결합니다.
-            btnClearFilter.Click      += BtnClearFilter_Click;
-            btnExcludeRange.Click     += BtnExcludeRange_Click;
-            btnExcludeSelectedFrame.Click += BtnExcludeSelectedFrame_Click;
-            btnDeleteFrame.Click      += btnExportClean_Click;
-            btnRestoreFrame.Click     += BtnRestoreFrame_Click;
-            btnFrameSave.Click        += btnFrameSave_Click;
-            btnStartTraining.Click    += BtnStartTraining_Click;
-            btnStopTraining.Click     += BtnStopTraining_Click;
-            btnSaveSettings.Click     += BtnSaveTrainingSettings_Click;
-            btnTubPath.Click          += (_, _) => SelectFolderInto(tbxTubPath, "Tub 폴더 선택");
+            btnClearFrameFilter.Click      += BtnClearFrameFilter_Click;
+            btnExcludeFrameRange.Click     += BtnExcludeFrameRange_Click;
+            btnExcludeSelectedFrames.Click += BtnExcludeSelectedFrames_Click;
+            btnExportCleanDataset.Click      += BtnExportCleanDataset_Click;
+            btnRestoreFrames.Click     += BtnRestoreFrames_Click;
+            btnSaveCleanupState.Click        += BtnSaveCleanupState_Click;
+            btnStartTrainingProcess.Click    += BtnStartTrainingProcess_Click;
+            btnStopTrainingProcess.Click     += BtnStopTrainingProcess_Click;
+            btnSaveTrainingConfig.Click     += BtnSaveTrainingConfig_Click;
+            btnSelectTrainingTubPath.Click          += (_, _) => SelectFolderInto(txtTrainingTubPath, "Tub 폴더 선택");
 
-            mnuOpenDataFolder.Click   += (s, _) => btnOpenFolder_Click(s!, EventArgs.Empty);
-            mnuReloadData.Click       += (s, _) => btnReload_Click(s!, EventArgs.Empty);
+            mnuFileOpenDataFolder.Click   += (s, _) => BtnOpenDataFolder_Click(s!, EventArgs.Empty);
+            mnuFileReloadData.Click       += (s, _) => BtnReloadData_Click(s!, EventArgs.Empty);
             mnuExit.Click             += (s, _) => Application.Exit();
-            mnuOpenGuide.Click        += (s, _) => RunFeatureTutorial("도움말");
+            mnuHelpOpenTutorial.Click        += (s, _) => RunFeatureTutorial("도움말");
 
             tabControlMain.SelectedIndexChanged += TabControl1_SelectedIndexChanged;
 
-            ConfigureFrameTable();
-            ApplyDataManagerUiPolish();
+            ConfigureFrameCatalogGrid();
+            ApplyDataManagerUiStyle();
 
-            btnExcludeSelectedFrame.Text = "선택 프레임 제외";
-            btnDeleteFrame.Text          = "클린 폴더 추출";
-            btnRestoreFrame.Text         = "복원";
-            txtAngleMin.Text    = "-1";
-            txtAngleMax.Text    = "1";
-            txtThrottleMin.Text = "-1";
-            txtThrottleMax.Text = "1";
+            btnExcludeSelectedFrames.Text = "선택 프레임 제외";
+            btnExportCleanDataset.Text          = "클린 폴더 추출";
+            btnRestoreFrames.Text         = "복원";
+            txtAngleMinFilter.Text    = "-1";
+            txtAngleMaxFilter.Text    = "1";
+            txtThrottleMinFilter.Text = "-1";
+            txtThrottleMaxFilter.Text = "1";
 
             InitializeTrainingControls();
             LoadTrainingSettings();
@@ -112,21 +112,21 @@ namespace TeamApp
 
         // UI 이벤트 처리
 
-        private void btnOpenFolder_Click(object sender, EventArgs e)
+        private void BtnOpenDataFolder_Click(object sender, EventArgs e)
         {
             using var dlg = new FolderBrowserDialog();
             if (dlg.ShowDialog() != DialogResult.OK) return;
             _ = LoadCatalogAsync(dlg.SelectedPath);
         }
 
-        private void btnReload_Click(object sender, EventArgs e)
+        private void BtnReloadData_Click(object sender, EventArgs e)
         {
-            string path = _currentFolderPath;
+            string path = _currentDataFolderPath;
             if (string.IsNullOrEmpty(path))
             {
-                if (string.IsNullOrEmpty(toolStripStatusLabelPath.Text) ||
-                    toolStripStatusLabelPath.Text == "경로: -") return;
-                path = toolStripStatusLabelPath.Text.Replace("경로: ", "").Trim();
+                if (string.IsNullOrEmpty(stsDataPath.Text) ||
+                    stsDataPath.Text == "경로: -") return;
+                path = stsDataPath.Text.Replace("경로: ", "").Trim();
             }
             if (Directory.Exists(path)) _ = LoadCatalogAsync(path);
         }
@@ -271,36 +271,36 @@ namespace TeamApp
         {
             return new List<TutorialStep>
             {
-                new TutorialStep("데이터 보기", "데이터 폴더 열기", "DonkeyCar tub 또는 mock data 폴더를 선택합니다. 이미지와 catalog_0.catalog를 읽어 프레임 목록을 만듭니다.", btnOpenFolder, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "다시 불러오기", "현재 선택된 데이터 폴더를 다시 읽습니다. 파일을 추가하거나 catalog를 수정한 뒤 갱신할 때 사용합니다.", btnReload, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "데이터 폴더 열기", "DonkeyCar tub 또는 mock data 폴더를 선택합니다. 이미지와 catalog_0.catalog를 읽어 프레임 목록을 만듭니다.", btnOpenDataFolder, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "다시 불러오기", "현재 선택된 데이터 폴더를 다시 읽습니다. 파일을 추가하거나 catalog를 수정한 뒤 갱신할 때 사용합니다.", btnReloadData, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "테마 전환", "화면 색상을 밝은 테마와 어두운 테마로 전환합니다.", btnToggleTheme, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "단계별 가이드", "이 튜토리얼을 다시 실행합니다. 기능을 잊었을 때 언제든 다시 누르면 됩니다.", btnGuide, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "프레임 목록", "왼쪽 목록에서 프레임을 선택합니다. 제외된 프레임은 다른 색과 [XXXX] 표시로 구분됩니다.", lstFrameData, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "이미지 미리보기", "선택한 프레임의 이미지를 보여줍니다. 비율을 유지하는 Zoom 방식이라 이미지가 왜곡되지 않습니다.", picMainPreview, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "프레임 목록", "왼쪽 목록에서 프레임을 선택합니다. 제외된 프레임은 다른 색과 [XXXX] 표시로 구분됩니다.", dgvFrameCatalog, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "이미지 미리보기", "선택한 프레임의 이미지를 보여줍니다. 비율을 유지하는 Zoom 방식이라 이미지가 왜곡되지 않습니다.", picFramePreview, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "처음으로", "현재 필터 결과의 첫 번째 프레임으로 이동합니다.", btnFirst, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "이전 프레임", "현재 프레임 바로 앞 프레임으로 이동합니다.", btnPrev, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "다음 프레임", "현재 프레임 바로 다음 프레임으로 이동합니다.", btnNext, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "마지막으로", "현재 필터 결과의 마지막 프레임으로 이동합니다.", btnLast, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "자동 재생", "프레임을 지정한 간격으로 자동 재생합니다. 재생 중에는 버튼이 일시정지로 바뀝니다.", btnAutoPlay, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "재생 간격", "자동 재생 속도를 ms 단위로 조절합니다. 숫자가 작을수록 더 빠르게 넘어갑니다.", numPlaybackInterval, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "현재 프레임 위치를 빠르게 이동합니다. 많은 프레임을 훑어볼 때 사용합니다.", trkFramePosition, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "재생 간격", "자동 재생 속도를 ms 단위로 조절합니다. 숫자가 작을수록 더 빠르게 넘어갑니다.", numPlaybackIntervalMs, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "현재 프레임 위치를 빠르게 이동합니다. 많은 프레임을 훑어볼 때 사용합니다.", trkFrameTimeline, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "조향값", "선택한 프레임의 Angle 값을 표시합니다. 왼쪽/오른쪽 조향 상태를 확인할 때 봅니다.", lblAngleValue, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "스로틀값", "선택한 프레임의 Throttle 값을 표시합니다. 전진/정지/후진 정도를 확인할 때 봅니다.", lblThrottleValue, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "모드", "선택한 프레임의 주행 모드 정보를 표시합니다. user/local 같은 상태를 확인합니다.", lblModeValue, tabPageDataViewer),
-                new TutorialStep("정리", "조향각 범위", "필터에 사용할 조향각 최소값과 최대값을 입력합니다. 예: -1부터 1까지.", txtAngleMin, tabPageDataViewer),
-                new TutorialStep("정리", "스로틀 범위", "필터에 사용할 스로틀 최소값과 최대값을 입력합니다. 예: -1부터 1까지.", txtThrottleMin, tabPageDataViewer),
-                new TutorialStep("정리", "모드 필터", "user, local 등 특정 주행 모드만 보고 싶을 때 선택합니다.", cbxModeFilter, tabPageDataViewer),
-                new TutorialStep("정리", "시나리오 필터", "normal, night, turn 같은 시나리오별로 프레임을 좁혀 봅니다.", cbxScenarioFilter, tabPageDataViewer),
-                new TutorialStep("정리", "필터 적용", "입력한 범위와 선택한 모드/시나리오 조건으로 목록을 필터링합니다.", btnApplyFilter, tabPageDataViewer),
-                new TutorialStep("정리", "필터 해제", "필터 조건을 풀고 원본 프레임 목록을 다시 표시합니다.", btnClearFilter, tabPageDataViewer),
-                new TutorialStep("정리", "구간 선택", "제외하고 싶은 시작/끝 프레임 번호를 입력하는 영역입니다.", txtSelectRangeMin, tabPageDataViewer),
-                new TutorialStep("정리", "구간 제외", "선택한 프레임 범위를 Soft Delete 처리합니다. 실제 파일은 삭제하지 않고 학습 제외 표시만 합니다.", btnExcludeRange, tabPageDataViewer),
-                new TutorialStep("정리", "선택 프레임 제외", "목록에서 선택한 프레임들을 기준으로 제외 범위를 만들고 Soft Delete 처리합니다.", btnExcludeSelectedFrame, tabPageDataViewer),
-                new TutorialStep("정리", "복원", "Soft Delete 처리된 프레임을 모두 다시 사용 가능 상태로 되돌립니다.", btnRestoreFrame, tabPageDataViewer),
-                new TutorialStep("정리", "클린 폴더 추출", "제외 표시된 프레임을 빼고 학습에 사용할 수 있는 Clean 폴더를 새로 만듭니다. 원본 폴더는 변경하지 않습니다.", btnDeleteFrame, tabPageDataViewer),
-                new TutorialStep("그래프", "그래프/통계", "필터와 제외 상태를 반영한 조향값/스로틀값 분포 그래프를 확인합니다.", tabControlMain, tabPageGraphStats),
-                new TutorialStep("학습", "학습 설정", "Python, mycar, Tub, 모델 저장 경로와 학습 횟수를 입력하는 영역입니다. 학습 실행 기능을 연결할 때 사용합니다.", grpTrainingSettings, tabPageTraining),
-                new TutorialStep("학습", "학습 로그", "학습 실행 과정의 로그를 표시할 영역입니다.", grpTrainingLog, tabPageTraining)
+                new TutorialStep("정리", "조향각 범위", "필터에 사용할 조향각 최소값과 최대값을 입력합니다. 예: -1부터 1까지.", txtAngleMinFilter, tabPageDataViewer),
+                new TutorialStep("정리", "스로틀 범위", "필터에 사용할 스로틀 최소값과 최대값을 입력합니다. 예: -1부터 1까지.", txtThrottleMinFilter, tabPageDataViewer),
+                new TutorialStep("정리", "모드 필터", "user, local 등 특정 주행 모드만 보고 싶을 때 선택합니다.", cmbModeFilter, tabPageDataViewer),
+                new TutorialStep("정리", "시나리오 필터", "normal, night, turn 같은 시나리오별로 프레임을 좁혀 봅니다.", cmbScenarioFilter, tabPageDataViewer),
+                new TutorialStep("정리", "필터 적용", "입력한 범위와 선택한 모드/시나리오 조건으로 목록을 필터링합니다.", btnApplyFrameFilter, tabPageDataViewer),
+                new TutorialStep("정리", "필터 해제", "필터 조건을 풀고 원본 프레임 목록을 다시 표시합니다.", btnClearFrameFilter, tabPageDataViewer),
+                new TutorialStep("정리", "구간 선택", "제외하고 싶은 시작/끝 프레임 번호를 입력하는 영역입니다.", txtFrameRangeStart, tabPageDataViewer),
+                new TutorialStep("정리", "구간 제외", "선택한 프레임 범위를 Soft Delete 처리합니다. 실제 파일은 삭제하지 않고 학습 제외 표시만 합니다.", btnExcludeFrameRange, tabPageDataViewer),
+                new TutorialStep("정리", "선택 프레임 제외", "목록에서 선택한 프레임들을 기준으로 제외 범위를 만들고 Soft Delete 처리합니다.", btnExcludeSelectedFrames, tabPageDataViewer),
+                new TutorialStep("정리", "복원", "Soft Delete 처리된 프레임을 모두 다시 사용 가능 상태로 되돌립니다.", btnRestoreFrames, tabPageDataViewer),
+                new TutorialStep("정리", "클린 폴더 추출", "제외 표시된 프레임을 빼고 학습에 사용할 수 있는 Clean 폴더를 새로 만듭니다. 원본 폴더는 변경하지 않습니다.", btnExportCleanDataset, tabPageDataViewer),
+                new TutorialStep("그래프", "그래프/통계", "필터와 제외 상태를 반영한 조향값/스로틀값 분포 그래프를 확인합니다.", tabControlMain, tabGraphStats),
+                new TutorialStep("학습", "학습 설정", "Python, mycar, Tub, 모델 저장 경로와 학습 횟수를 입력하는 영역입니다. 학습 실행 기능을 연결할 때 사용합니다.", grpTrainingConfig, tabTrainingMonitor),
+                new TutorialStep("학습", "학습 로그", "학습 실행 과정의 로그를 표시할 영역입니다.", grpTrainingOutput, tabTrainingMonitor)
             };
         }
 
@@ -402,12 +402,12 @@ namespace TeamApp
             return dialog.ShowDialog(this) == DialogResult.OK;
         }
 
-        private void btnApplyFilter_Click(object sender, EventArgs e) => ApplyFilter();
+        private void BtnApplyFrameFilter_Click(object sender, EventArgs e) => ApplyFrameFilter();
 
-        private void BtnClearFilter_Click(object? sender, EventArgs e) => ClearFilter();
+        private void BtnClearFrameFilter_Click(object? sender, EventArgs e) => ClearFrameFilter();
 
         // 선택한 구간을 Soft Delete 처리합니다.
-        private void BtnExcludeRange_Click(object? sender, EventArgs e)
+        private void BtnExcludeFrameRange_Click(object? sender, EventArgs e)
         {
             if (!TryReadSelectedRange(out int from, out int to))
             {
@@ -416,7 +416,7 @@ namespace TeamApp
                     "구간 정보 없음", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
                 if (fallbackConfirm == DialogResult.Yes)
-                    BtnExcludeSelectedFrame_Click(sender, e);
+                    BtnExcludeSelectedFrames_Click(sender, e);
                 return;
             }
 
@@ -429,7 +429,7 @@ namespace TeamApp
             FinishDataStateChange();
         }
 
-        private void BtnExcludeSelectedFrame_Click(object? sender, EventArgs e)
+        private void BtnExcludeSelectedFrames_Click(object? sender, EventArgs e)
         {
             var selectedFrames = GetSelectedFrames();
             if (selectedFrames.Count == 0)
@@ -450,7 +450,7 @@ namespace TeamApp
             FinishDataStateChange();
         }
 
-        private void BtnRestoreFrame_Click(object? sender, EventArgs e)
+        private void BtnRestoreFrames_Click(object? sender, EventArgs e)
         {
             if (TryReadSelectedRange(out int from, out int to))
             {
@@ -478,42 +478,42 @@ namespace TeamApp
 
         private void btnAutoPlay_Click(object sender, EventArgs e) => TogglePlayPause();
 
-        private void lstFrameData_SelectedIndexChanged(object? sender, EventArgs e)
+        private void DgvFrameCatalog_SelectionChanged(object? sender, EventArgs e)
         {
-            if (_isUpdatingFrameSelection) return;
+            if (_isFrameSelectionUpdating) return;
 
-            var selectedRow = lstFrameData.CurrentRow;
+            var selectedRow = dgvFrameCatalog.CurrentRow;
             if (selectedRow?.DataBoundItem is not FrameData selectedFrame) return;
 
-            int idx = _currentDisplayedFrames.IndexOf(selectedFrame);
-            if (idx >= 0 && idx < _currentDisplayedFrames.Count)
+            int idx = _visibleFrames.IndexOf(selectedFrame);
+            if (idx >= 0 && idx < _visibleFrames.Count)
                 SetIndex(idx);
         }
 
-        private void trkFramePosition_Scroll(object sender, EventArgs e)
+        private void TrkFrameTimeline_Scroll(object sender, EventArgs e)
         {
-            int idx = trkFramePosition.Value;
-            if (idx >= 0 && idx < _currentDisplayedFrames.Count)
+            int idx = trkFrameTimeline.Value;
+            if (idx >= 0 && idx < _visibleFrames.Count)
                 SetIndex(idx);
         }
 
         private void btnFirst_Click(object sender, EventArgs e) => SetIndex(0);
-        private void btnPrev_Click(object sender, EventArgs e)  => SetIndex(Math.Max(0, currentIndex - 1));
-        private void btnNext_Click(object sender, EventArgs e)  => SetIndex(Math.Min(_currentDisplayedFrames.Count - 1, currentIndex + 1));
-        private void btnLast_Click(object sender, EventArgs e)  => SetIndex(_currentDisplayedFrames.Count - 1);
+        private void btnPrev_Click(object sender, EventArgs e)  => SetIndex(Math.Max(0, _currentFrameIndex - 1));
+        private void btnNext_Click(object sender, EventArgs e)  => SetIndex(Math.Min(_visibleFrames.Count - 1, _currentFrameIndex + 1));
+        private void btnLast_Click(object sender, EventArgs e)  => SetIndex(_visibleFrames.Count - 1);
 
         // 자동 재생 타이머 처리
         private void PlayTimer_Tick(object? sender, EventArgs e)
         {
-            if (_currentDisplayedFrames == null || _currentDisplayedFrames.Count == 0) return;
-            int next = currentIndex + 1;
+            if (_visibleFrames == null || _visibleFrames.Count == 0) return;
+            int next = _currentFrameIndex + 1;
             // 제외된 프레임은 건너뜁니다.
-            while (next < _currentDisplayedFrames.Count && _currentDisplayedFrames[next].IsDeleted)
+            while (next < _visibleFrames.Count && _visibleFrames[next].IsDeleted)
                 next++;
-            if (next >= _currentDisplayedFrames.Count)
+            if (next >= _visibleFrames.Count)
             {
-                playTimer.Stop();
-                isPlaying = false;
+                _playbackTimer.Stop();
+                _isPlaybackRunning = false;
                 btnAutoPlay.Text = "자동 재생";
                 return;
             }
@@ -537,98 +537,98 @@ namespace TeamApp
         /// 프레임 목록을 열 단위 표로 구성합니다.
         /// 긴 파일명과 조향/스로틀 값을 분리해서 보여 주면 데이터 검수 속도가 빨라집니다.
         /// </summary>
-        private void ConfigureFrameTable()
+        private void ConfigureFrameCatalogGrid()
         {
-            lstFrameData.AutoGenerateColumns = false;
-            lstFrameData.Columns.Clear();
-            lstFrameData.Columns.Add(new DataGridViewTextBoxColumn
+            dgvFrameCatalog.AutoGenerateColumns = false;
+            dgvFrameCatalog.Columns.Clear();
+            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.FormattedIndex),
                 HeaderText = "번호",
                 Width = 70,
                 Frozen = true
             });
-            lstFrameData.Columns.Add(new DataGridViewTextBoxColumn
+            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.Name),
                 HeaderText = "이미지명",
                 AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
                 MinimumWidth = 220
             });
-            lstFrameData.Columns.Add(new DataGridViewTextBoxColumn
+            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.Angle),
                 HeaderText = "조향각",
                 Width = 80,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "0.000" }
             });
-            lstFrameData.Columns.Add(new DataGridViewTextBoxColumn
+            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.Throttle),
                 HeaderText = "스로틀",
                 Width = 80,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "0.000" }
             });
-            lstFrameData.Columns.Add(new DataGridViewTextBoxColumn
+            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.Mode),
                 HeaderText = "모드",
                 Width = 90
             });
-            lstFrameData.Columns.Add(new DataGridViewTextBoxColumn
+            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.Scenario),
                 HeaderText = "시나리오",
                 Width = 110
             });
-            lstFrameData.Columns.Add(new DataGridViewTextBoxColumn
+            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.StateText),
                 HeaderText = "상태",
                 Width = 80
             });
 
-            lstFrameData.RowTemplate.Height = 26;
-            lstFrameData.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(248, 250, 252);
-            lstFrameData.DataBindingComplete += (_, _) => ApplyFrameTableRowStyle();
+            dgvFrameCatalog.RowTemplate.Height = 26;
+            dgvFrameCatalog.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(248, 250, 252);
+            dgvFrameCatalog.DataBindingComplete += (_, _) => ApplyFrameCatalogRowStyle();
         }
 
         /// <summary>
         /// 데이터 정제 흐름이 눈에 띄도록 버튼명, 구간 입력 영역, 상태 색상을 정리합니다.
         /// </summary>
-        private void ApplyDataManagerUiPolish()
+        private void ApplyDataManagerUiStyle()
         {
-            grpTubCleaner.Text = "터브 정리기 - 필터 / 구간 제외 / 복원 / 클린 추출";
-            lblSelectRange.Text = "구간 제외/복원";
+            grpDataCleaner.Text = "터브 정리기 - 필터 / 구간 제외 / 복원 / 클린 추출";
+            lblFrameRange.Text = "구간 제외/복원";
 
             foreach (var button in new[]
             {
-                btnApplyFilter, btnClearFilter, btnExcludeRange, btnExcludeSelectedFrame,
-                btnRestoreFrame, btnFrameSave, btnDeleteFrame
+                btnApplyFrameFilter, btnClearFrameFilter, btnExcludeFrameRange, btnExcludeSelectedFrames,
+                btnRestoreFrames, btnSaveCleanupState, btnExportCleanDataset
             })
             {
                 button.UseVisualStyleBackColor = false;
             }
 
-            btnApplyFilter.BackColor = System.Drawing.Color.FromArgb(229, 241, 255);
-            btnClearFilter.BackColor = System.Drawing.Color.FromArgb(245, 245, 245);
-            btnExcludeRange.BackColor = System.Drawing.Color.FromArgb(255, 232, 214);
-            btnExcludeSelectedFrame.BackColor = System.Drawing.Color.FromArgb(255, 244, 230);
-            btnRestoreFrame.BackColor = System.Drawing.Color.FromArgb(224, 247, 235);
-            btnFrameSave.BackColor = System.Drawing.Color.FromArgb(235, 239, 255);
-            btnDeleteFrame.BackColor = System.Drawing.Color.FromArgb(255, 238, 238);
+            btnApplyFrameFilter.BackColor = System.Drawing.Color.FromArgb(229, 241, 255);
+            btnClearFrameFilter.BackColor = System.Drawing.Color.FromArgb(245, 245, 245);
+            btnExcludeFrameRange.BackColor = System.Drawing.Color.FromArgb(255, 232, 214);
+            btnExcludeSelectedFrames.BackColor = System.Drawing.Color.FromArgb(255, 244, 230);
+            btnRestoreFrames.BackColor = System.Drawing.Color.FromArgb(224, 247, 235);
+            btnSaveCleanupState.BackColor = System.Drawing.Color.FromArgb(235, 239, 255);
+            btnExportCleanDataset.BackColor = System.Drawing.Color.FromArgb(255, 238, 238);
 
-            txtSelectRangeMin.BackColor = System.Drawing.Color.FromArgb(255, 252, 235);
-            txtSelectRangeMax.BackColor = System.Drawing.Color.FromArgb(255, 252, 235);
-            lblSelectRange.ForeColor = System.Drawing.Color.FromArgb(120, 70, 0);
+            txtFrameRangeStart.BackColor = System.Drawing.Color.FromArgb(255, 252, 235);
+            txtFrameRangeEnd.BackColor = System.Drawing.Color.FromArgb(255, 252, 235);
+            lblFrameRange.ForeColor = System.Drawing.Color.FromArgb(120, 70, 0);
         }
 
         /// <summary>
         /// 제외된 프레임을 회색/붉은색 계열로 표시해서 학습 제외 대상을 바로 구분합니다.
         /// </summary>
-        private void ApplyFrameTableRowStyle()
+        private void ApplyFrameCatalogRowStyle()
         {
-            foreach (DataGridViewRow row in lstFrameData.Rows)
+            foreach (DataGridViewRow row in dgvFrameCatalog.Rows)
             {
                 if (row.DataBoundItem is not FrameData frame) continue;
 
@@ -658,14 +658,14 @@ namespace TeamApp
         /// </summary>
         private void SetLoadingState(bool loading)
         {
-            btnOpenFolder.Enabled           = !loading;
-            btnReload.Enabled               = !loading;
-            btnApplyFilter.Enabled          = !loading;
-            btnClearFilter.Enabled          = !loading;
-            btnExcludeSelectedFrame.Enabled = !loading;
-            btnRestoreFrame.Enabled         = !loading;
+            btnOpenDataFolder.Enabled           = !loading;
+            btnReloadData.Enabled               = !loading;
+            btnApplyFrameFilter.Enabled          = !loading;
+            btnClearFrameFilter.Enabled          = !loading;
+            btnExcludeSelectedFrames.Enabled = !loading;
+            btnRestoreFrames.Enabled         = !loading;
             this.Cursor = loading ? Cursors.WaitCursor : Cursors.Default;
-            if (loading) toolStripStatusLabelFrames.Text = "로딩 중...";
+            if (loading) stsFrameSummary.Text = "로딩 중...";
         }
 
         // 목록과 상태 표시를 갱신합니다.
@@ -674,30 +674,30 @@ namespace TeamApp
         /// IsDeleted == false : [0000], [0001], [0002] ...
         /// IsDeleted == true  : [XXXX]
         /// </summary>
-        private void UpdateUIState()
+        private void RefreshFrameView()
         {
-            if (_originalFrames == null)
-                _originalFrames = new List<FrameData>();
+            if (_allFrames == null)
+                _allFrames = new List<FrameData>();
 
-            if (!_isFilterActive)
+            if (!_isFrameFilterActive)
             {
                 int validIndex = 0;
-                foreach (var frame in _originalFrames)
+                foreach (var frame in _allFrames)
                 {
                     frame.FormattedIndex = frame.IsDeleted
                         ? "[XXXX]"
                         : $"[{validIndex++:D4}]";
                 }
 
-                _currentDisplayedFrames = _originalFrames;
+                _visibleFrames = _allFrames;
             }
             else
             {
-                foreach (var frame in _currentDisplayedFrames)
+                foreach (var frame in _visibleFrames)
                 {
                     int originalIndex = frame.OriginalIndex >= 0
                         ? frame.OriginalIndex
-                        : _originalFrames.IndexOf(frame);
+                        : _allFrames.IndexOf(frame);
 
                     frame.FormattedIndex = frame.IsDeleted
                         ? "[XXXX]"
@@ -705,53 +705,53 @@ namespace TeamApp
                 }
             }
 
-            lstFrameData.DataSource = null;
-            lstFrameData.DataSource = _currentDisplayedFrames;
-            ApplyFrameTableRowStyle();
+            dgvFrameCatalog.DataSource = null;
+            dgvFrameCatalog.DataSource = _visibleFrames;
+            ApplyFrameCatalogRowStyle();
 
-            trkFramePosition.Minimum = 0;
-            trkFramePosition.Maximum = Math.Max(0, _currentDisplayedFrames.Count - 1);
+            trkFrameTimeline.Minimum = 0;
+            trkFrameTimeline.Maximum = Math.Max(0, _visibleFrames.Count - 1);
 
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
         }
         /// <summary>
         /// 전체 원본 프레임을 다시 표시 상태로 복원합니다.
-        /// UpdateUIState를 호출해 화면 상태도 함께 갱신합니다.
+        /// RefreshFrameView를 호출해 화면 상태도 함께 갱신합니다.
         /// </summary>
-        private void RefreshListBinding()
+        private void RefreshFrameBinding()
         {
-            _isFilterActive = false;
-            _currentDisplayedFrames = _originalFrames;
-            UpdateUIState();
+            _isFrameFilterActive = false;
+            _visibleFrames = _allFrames;
+            RefreshFrameView();
         }
 
         private void SetIndex(int idx)
         {
-            if (_currentDisplayedFrames == null || _currentDisplayedFrames.Count == 0) return;
-            idx = Math.Max(0, Math.Min(_currentDisplayedFrames.Count - 1, idx));
-            currentIndex = idx;
+            if (_visibleFrames == null || _visibleFrames.Count == 0) return;
+            idx = Math.Max(0, Math.Min(_visibleFrames.Count - 1, idx));
+            _currentFrameIndex = idx;
 
             // 선택 변경 이벤트가 중복 실행되지 않도록 잠시 막습니다.
-            _isUpdatingFrameSelection = true;
-            lstFrameData.ClearSelection();
-            if (idx >= 0 && idx < lstFrameData.Rows.Count)
+            _isFrameSelectionUpdating = true;
+            dgvFrameCatalog.ClearSelection();
+            if (idx >= 0 && idx < dgvFrameCatalog.Rows.Count)
             {
-                lstFrameData.Rows[idx].Selected = true;
-                lstFrameData.CurrentCell = lstFrameData.Rows[idx].Cells[0];
-                lstFrameData.FirstDisplayedScrollingRowIndex = Math.Max(0, idx);
+                dgvFrameCatalog.Rows[idx].Selected = true;
+                dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[idx].Cells[0];
+                dgvFrameCatalog.FirstDisplayedScrollingRowIndex = Math.Max(0, idx);
             }
-            _isUpdatingFrameSelection = false;
+            _isFrameSelectionUpdating = false;
 
-            if (trkFramePosition.Value != idx)
-                trkFramePosition.Value = idx;
+            if (trkFrameTimeline.Value != idx)
+                trkFrameTimeline.Value = idx;
 
-            var frame = _currentDisplayedFrames[idx];
+            var frame = _visibleFrames[idx];
 
             string resolvedPath = ResolveImagePath(frame.Name);
             UpdatePreviewImage(resolvedPath);
 
-            lblFrameValue.Text    = $"Frame: {idx + 1} / {_currentDisplayedFrames.Count}";
+            lblFrameValue.Text    = $"Frame: {idx + 1} / {_visibleFrames.Count}";
             lblAngleValue.Text    = $"조향값: {frame.Angle:0.000}";
             lblThrottleValue.Text = $"스로틀값: {frame.Throttle:0.000}";
             lblModeValue.Text     = $"모드: {frame.Mode}";
@@ -764,13 +764,13 @@ namespace TeamApp
         /// </summary>
         private string ResolveImagePath(string fileName)
         {
-            if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(_currentFolderPath))
+            if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(_currentDataFolderPath))
                 return string.Empty;
 
-            string p1 = Path.Combine(_currentFolderPath, fileName);
+            string p1 = Path.Combine(_currentDataFolderPath, fileName);
             if (File.Exists(p1)) return p1;
 
-            string p2 = Path.Combine(_currentFolderPath, "images", fileName);
+            string p2 = Path.Combine(_currentDataFolderPath, "images", fileName);
             if (File.Exists(p2)) return p2;
 
             return string.Empty;
@@ -782,16 +782,16 @@ namespace TeamApp
             {
                 if (string.IsNullOrEmpty(path) || !File.Exists(path))
                 {
-                    picMainPreview.Image?.Dispose();
-                    picMainPreview.Image = null;
+                    picFramePreview.Image?.Dispose();
+                    picFramePreview.Image = null;
                     return;
                 }
                 using var fs  = File.OpenRead(path);
                 using var img = System.Drawing.Image.FromStream(fs);
                 var bmp = new Bitmap(img);
 
-                var old = picMainPreview.Image;
-                picMainPreview.Image = bmp;
+                var old = picFramePreview.Image;
+                picFramePreview.Image = bmp;
                 old?.Dispose();
             }
             catch { /* 이미지 로드 실패는 미리보기만 비우고 무시합니다. */ }
@@ -799,28 +799,28 @@ namespace TeamApp
 
         private void TogglePlayPause()
         {
-            if (isPlaying)
+            if (_isPlaybackRunning)
             {
-                playTimer.Stop();
-                isPlaying = false;
+                _playbackTimer.Stop();
+                _isPlaybackRunning = false;
                 btnAutoPlay.Text = "자동 재생";
             }
             else
             {
-                playTimer.Interval = (int)numPlaybackInterval.Value;
-                playTimer.Start();
-                isPlaying = true;
+                _playbackTimer.Interval = (int)numPlaybackIntervalMs.Value;
+                _playbackTimer.Start();
+                _isPlaybackRunning = true;
                 btnAutoPlay.Text = "일시정지";
             }
         }
 
         private void ToggleTheme()
         {
-            isDarkTheme = !isDarkTheme;
-            System.Drawing.Color back = isDarkTheme
+            _isDarkThemeEnabled = !_isDarkThemeEnabled;
+            System.Drawing.Color back = _isDarkThemeEnabled
                 ? System.Drawing.Color.FromArgb(45, 45, 48)
                 : SystemColors.Control;
-            System.Drawing.Color fore = isDarkTheme
+            System.Drawing.Color fore = _isDarkThemeEnabled
                 ? System.Drawing.Color.White
                 : SystemColors.ControlText;
             this.BackColor = back;
@@ -848,27 +848,27 @@ namespace TeamApp
         /// Angle/Throttle 범위 필터를 적용합니다.
         /// 제외되지 않은 프레임만 화면에 표시합니다.
         /// </summary>
-        private void ApplyFilter()
+        private void ApplyFrameFilter()
         {
-            if (_originalFrames == null || _originalFrames.Count == 0) return;
+            if (_allFrames == null || _allFrames.Count == 0) return;
 
             if (!TryReadFilterRanges(out double angleMin, out double angleMax,
                                      out double throttleMin, out double throttleMax))
                 return;
 
             // 제외되지 않은 프레임 중 범위 조건에 맞는 항목만 남깁니다.
-            _currentDisplayedFrames = _originalFrames
+            _visibleFrames = _allFrames
                 .Where(f => !f.IsDeleted &&
                             f.Angle    >= angleMin && f.Angle    <= angleMax &&
                             f.Throttle >= throttleMin && f.Throttle <= throttleMax &&
-                            MatchesComboFilter(cbxModeFilter, f.Mode) &&
-                            MatchesComboFilter(cbxScenarioFilter, f.Scenario))
+                            MatchesComboFilter(cmbModeFilter, f.Mode) &&
+                            MatchesComboFilter(cmbScenarioFilter, f.Scenario))
                 .ToList();
 
-            _isFilterActive = true;
-            _chartDirty = true;
-            UpdateUIState();
-            if (_currentDisplayedFrames.Count > 0) SetIndex(0);
+            _isFrameFilterActive = true;
+            _isChartDirty = true;
+            RefreshFrameView();
+            if (_visibleFrames.Count > 0) SetIndex(0);
             else ClearPreviewSelection();
         }
 
@@ -878,10 +878,10 @@ namespace TeamApp
             angleMin = angleMax = throttleMin = throttleMax = 0;
 
             bool ok =
-                double.TryParse(txtAngleMin.Text.Trim(),   NumberStyles.Float, CultureInfo.InvariantCulture, out angleMin) &&
-                double.TryParse(txtAngleMax.Text.Trim(),   NumberStyles.Float, CultureInfo.InvariantCulture, out angleMax) &&
-                double.TryParse(txtThrottleMin.Text.Trim(),NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMin) &&
-                double.TryParse(txtThrottleMax.Text.Trim(),NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMax);
+                double.TryParse(txtAngleMinFilter.Text.Trim(),   NumberStyles.Float, CultureInfo.InvariantCulture, out angleMin) &&
+                double.TryParse(txtAngleMaxFilter.Text.Trim(),   NumberStyles.Float, CultureInfo.InvariantCulture, out angleMax) &&
+                double.TryParse(txtThrottleMinFilter.Text.Trim(),NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMin) &&
+                double.TryParse(txtThrottleMaxFilter.Text.Trim(),NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMax);
 
             if (!ok)
             {
@@ -924,30 +924,30 @@ namespace TeamApp
         /// <summary>
         /// 필터를 해제하고 원본 프레임 목록을 다시 표시합니다.
         /// </summary>
-        private void ClearFilter()
+        private void ClearFrameFilter()
         {
-            if (_originalFrames == null) return;
+            if (_allFrames == null) return;
             // 원본 목록을 그대로 다시 표시합니다.
-            _isFilterActive = false;
-            _currentDisplayedFrames = _originalFrames;
-            _chartDirty = true;
-            UpdateUIState();
-            if (_currentDisplayedFrames.Count > 0) SetIndex(0);
+            _isFrameFilterActive = false;
+            _visibleFrames = _allFrames;
+            _isChartDirty = true;
+            RefreshFrameView();
+            if (_visibleFrames.Count > 0) SetIndex(0);
             else ClearPreviewSelection();
         }
 
         // Soft Delete 구간 처리
         private void SoftDeleteRange(int from, int to)
         {
-            if (_originalFrames == null || _originalFrames.Count == 0) return;
+            if (_allFrames == null || _allFrames.Count == 0) return;
 
             int safeFrom = Math.Max(0, from);
-            int safeTo   = Math.Min(_originalFrames.Count - 1, to);
+            int safeTo   = Math.Min(_allFrames.Count - 1, to);
 
             if (safeFrom > safeTo)
             {
                 MessageBox.Show(
-                    $"유효한 프레임 범위를 벗어났습니다.\n입력 범위: {from} ~ {to} | 전체 프레임: {_originalFrames.Count}",
+                    $"유효한 프레임 범위를 벗어났습니다.\n입력 범위: {from} ~ {to} | 전체 프레임: {_allFrames.Count}",
                     "범위 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -955,20 +955,20 @@ namespace TeamApp
             int newlyDeleted = 0;
             for (int i = safeFrom; i <= safeTo; i++)
             {
-                if (!_originalFrames[i].IsDeleted)
+                if (!_allFrames[i].IsDeleted)
                 {
-                    _originalFrames[i].IsDeleted = true;
+                    _allFrames[i].IsDeleted = true;
                     newlyDeleted++;
                 }
             }
 
             // 삭제 상태를 반영하고 차트를 갱신합니다.
-            _chartDirty = true;
-            UpdateUIState();
-            RenderChart();
+            _isChartDirty = true;
+            RefreshFrameView();
+            RenderFrameChart();
 
-            int clamped = Math.Max(0, Math.Min(currentIndex, _currentDisplayedFrames.Count - 1));
-            if (_currentDisplayedFrames.Count > 0) SetIndex(clamped);
+            int clamped = Math.Max(0, Math.Min(_currentFrameIndex, _visibleFrames.Count - 1));
+            if (_visibleFrames.Count > 0) SetIndex(clamped);
 
             MessageBox.Show(
                 $"완료: {newlyDeleted}개 프레임이 제외(Soft Delete) 처리되었습니다.\n" +
@@ -982,12 +982,12 @@ namespace TeamApp
             from = 0;
             to = 0;
 
-            bool hasMin = !string.IsNullOrWhiteSpace(txtSelectRangeMin.Text);
-            bool hasMax = !string.IsNullOrWhiteSpace(txtSelectRangeMax.Text);
+            bool hasMin = !string.IsNullOrWhiteSpace(txtFrameRangeStart.Text);
+            bool hasMax = !string.IsNullOrWhiteSpace(txtFrameRangeEnd.Text);
             if (!hasMin || !hasMax) return false;
 
-            if (!int.TryParse(txtSelectRangeMin.Text.Trim(), out from) ||
-                !int.TryParse(txtSelectRangeMax.Text.Trim(), out to))
+            if (!int.TryParse(txtFrameRangeStart.Text.Trim(), out from) ||
+                !int.TryParse(txtFrameRangeEnd.Text.Trim(), out to))
                 return false;
 
             if (from > to)
@@ -1003,7 +1003,7 @@ namespace TeamApp
         private List<FrameData> GetSelectedFrames()
         {
             var selectedFrames = new List<FrameData>();
-            foreach (DataGridViewRow row in lstFrameData.SelectedRows)
+            foreach (DataGridViewRow row in dgvFrameCatalog.SelectedRows)
             {
                 if (row.DataBoundItem is FrameData frame && !selectedFrames.Contains(frame))
                     selectedFrames.Add(frame);
@@ -1013,57 +1013,57 @@ namespace TeamApp
 
         private void SetDeletedByRange(int from, int to, bool isDeleted)
         {
-            if (_originalFrames == null || _originalFrames.Count == 0) return;
+            if (_allFrames == null || _allFrames.Count == 0) return;
 
             int safeFrom = Math.Max(0, from);
-            int safeTo = Math.Min(_originalFrames.Count - 1, to);
+            int safeTo = Math.Min(_allFrames.Count - 1, to);
             if (safeFrom > safeTo)
             {
                 MessageBox.Show(
-                    $"유효한 프레임 범위를 벗어났습니다.\n입력 범위: {from} ~ {to} | 전체 프레임: {_originalFrames.Count}",
+                    $"유효한 프레임 범위를 벗어났습니다.\n입력 범위: {from} ~ {to} | 전체 프레임: {_allFrames.Count}",
                     "범위 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             for (int i = safeFrom; i <= safeTo; i++)
-                _originalFrames[i].IsDeleted = isDeleted;
+                _allFrames[i].IsDeleted = isDeleted;
         }
 
         private void FinishDataStateChange()
         {
-            txtSelectRangeMin.Clear();
-            txtSelectRangeMax.Clear();
+            txtFrameRangeStart.Clear();
+            txtFrameRangeEnd.Clear();
 
-            _chartDirty = true;
-            UpdateUIState();
-            RenderChart();
+            _isChartDirty = true;
+            RefreshFrameView();
+            RenderFrameChart();
 
-            if (_currentDisplayedFrames.Count > 0)
-                SetIndex(Math.Min(currentIndex < 0 ? 0 : currentIndex, _currentDisplayedFrames.Count - 1));
+            if (_visibleFrames.Count > 0)
+                SetIndex(Math.Min(_currentFrameIndex < 0 ? 0 : _currentFrameIndex, _visibleFrames.Count - 1));
             else
                 ClearPreviewSelection();
         }
 
         private void ClearPreviewSelection()
         {
-            currentIndex = -1;
-            lstFrameData.ClearSelection();
-            picMainPreview.Image?.Dispose();
-            picMainPreview.Image = null;
+            _currentFrameIndex = -1;
+            dgvFrameCatalog.ClearSelection();
+            picFramePreview.Image?.Dispose();
+            picFramePreview.Image = null;
             lblFrameValue.Text = "Frame: 0 / 0";
             lblAngleValue.Text = "조향값: 0.000";
             lblThrottleValue.Text = "스로틀값: 0.000";
             lblModeValue.Text = "모드: -";
         }
 
-        private void btnFrameSave_Click(object? sender, EventArgs e)
+        private void BtnSaveCleanupState_Click(object? sender, EventArgs e)
         {
             if (!TryEnsureLoadedFolder()) return;
 
             try
             {
-                string metaPath = Path.Combine(_currentFolderPath, DeletedFramesMetaFileName);
-                var deletedNames = _originalFrames
+                string metaPath = Path.Combine(_currentDataFolderPath, DeletedFramesMetaFileName);
+                var deletedNames = _allFrames
                     .Where(frame => frame.IsDeleted)
                     .Select(frame => frame.Name)
                     .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -1082,7 +1082,7 @@ namespace TeamApp
             }
         }
 
-        private void btnExportClean_Click(object? sender, EventArgs e)
+        private void BtnExportCleanDataset_Click(object? sender, EventArgs e)
         {
             if (!TryEnsureLoadedFolder()) return;
 
@@ -1093,7 +1093,7 @@ namespace TeamApp
 
             try
             {
-                string sourceFolder = _currentFolderPath;
+                string sourceFolder = _currentDataFolderPath;
                 string parentFolder = Directory.GetParent(sourceFolder)?.FullName ?? sourceFolder;
                 string cleanFolder = Path.Combine(parentFolder, Path.GetFileName(sourceFolder) + "_Clean");
 
@@ -1109,7 +1109,7 @@ namespace TeamApp
 
                 CopyDirectory(sourceFolder, cleanFolder);
 
-                var deletedNames = _originalFrames
+                var deletedNames = _allFrames
                     .Where(frame => frame.IsDeleted)
                     .Select(frame => frame.Name)
                     .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -1131,14 +1131,14 @@ namespace TeamApp
 
         private bool TryEnsureLoadedFolder()
         {
-            if (string.IsNullOrWhiteSpace(_currentFolderPath) || !Directory.Exists(_currentFolderPath))
+            if (string.IsNullOrWhiteSpace(_currentDataFolderPath) || !Directory.Exists(_currentDataFolderPath))
             {
                 MessageBox.Show("먼저 DonkeyCar 데이터 폴더를 열어 주세요.",
                     "폴더 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
 
-            if (_originalFrames == null || _originalFrames.Count == 0)
+            if (_allFrames == null || _allFrames.Count == 0)
             {
                 MessageBox.Show("저장하거나 추출할 프레임 데이터가 없습니다.",
                     "데이터 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -1200,16 +1200,16 @@ namespace TeamApp
 
         private void RestoreAll()
         {
-            if (_originalFrames == null) return;
+            if (_allFrames == null) return;
 
-            foreach (var f in _originalFrames)
+            foreach (var f in _allFrames)
                 f.IsDeleted = false;
 
             // 복원 후 전체 프레임을 다시 표시합니다.
-            _currentDisplayedFrames = _originalFrames;
-            _chartDirty = true;
-            UpdateUIState();
-            RenderChart();
+            _visibleFrames = _allFrames;
+            _isChartDirty = true;
+            RefreshFrameView();
+            RenderFrameChart();
             SetIndex(0);
 
             MessageBox.Show("모든 프레임이 복원되었습니다.",
@@ -1218,13 +1218,13 @@ namespace TeamApp
 
         private void UpdateStatusLabels()
         {
-            int total   = _originalFrames?.Count ?? 0;
-            int deleted = _originalFrames?.Count(f => f.IsDeleted) ?? 0;
+            int total   = _allFrames?.Count ?? 0;
+            int deleted = _allFrames?.Count(f => f.IsDeleted) ?? 0;
             int valid   = Math.Max(0, total - deleted);
-            int shown   = _currentDisplayedFrames?.Count ?? 0;
-            string filterState = _isFilterActive ? "필터 적용" : "전체 보기";
+            int shown   = _visibleFrames?.Count ?? 0;
+            string filterState = _isFrameFilterActive ? "필터 적용" : "전체 보기";
 
-            toolStripStatusLabelFrames.Text =
+            stsFrameSummary.Text =
                 $"{filterState}  |  전체: {total}  |  유효: {valid}  |  제외: {deleted}  |  표시: {shown}";
         }
 
@@ -1257,7 +1257,7 @@ namespace TeamApp
 
             /// <summary>
             /// 화면 표시용 인덱스입니다.
-            /// UpdateUIState 호출 시 자동으로 갱신됩니다.
+            /// RefreshFrameView 호출 시 자동으로 갱신됩니다.
             /// IsDeleted == false : "[0000]", "[0001]", ...
             /// IsDeleted == true  : "[XXXX]"
             /// </summary>
@@ -1417,9 +1417,9 @@ namespace TeamApp
         /// catalog_*.catalog 전체를 파일명 숫자 기준으로 정렬해 읽습니다.
         /// catalog가 없으면 이미지 파일 목록만으로 프레임을 구성합니다.
         /// </summary>
-        private List<FrameData> LoadMockData(string folderPath)
+        private List<FrameData> LoadTubData(string folderPath)
         {
-            _currentFolderPath = folderPath;
+            _currentDataFolderPath = folderPath;
 
             var frames = new List<FrameData>();
             string[] catalogFiles = Directory.GetFiles(folderPath, "catalog_*.catalog")
@@ -1468,7 +1468,7 @@ namespace TeamApp
             SetLoadingState(true);
             try
             {
-                var frames = await Task.Run(() => LoadMockData(folder));
+                var frames = await Task.Run(() => LoadTubData(folder));
 
                 if (frames.Count == 0)
                 {
@@ -1479,12 +1479,12 @@ namespace TeamApp
                     return;
                 }
 
-                _originalFrames = frames;
+                _allFrames = frames;
                 // 초기 로드: 전체 프레임을 표시합니다.
-                RefreshListBinding();  // _currentDisplayedFrames 설정과 UpdateUIState 호출
+                RefreshFrameBinding();  // _visibleFrames 설정과 RefreshFrameView 호출
 
-                toolStripStatusLabelPath.Text = "경로: " + folder;
-                _chartDirty = true;
+                stsDataPath.Text = "경로: " + folder;
+                _isChartDirty = true;
                 SetIndex(0);
             }
             catch (Exception ex)
@@ -1506,33 +1506,33 @@ namespace TeamApp
         /// </summary>
         private void InitializeTrainingControls()
         {
-            cbxModelType.Items.Clear();
-            cbxModelType.Items.AddRange(new object[] { "linear", "categorical", "rnn", "3d", "imu", "behavior" });
-            if (string.IsNullOrWhiteSpace(cbxModelType.Text))
-                cbxModelType.Text = "linear";
+            cmbTrainingModelType.Items.Clear();
+            cmbTrainingModelType.Items.AddRange(new object[] { "linear", "categorical", "rnn", "3d", "imu", "behavior" });
+            if (string.IsNullOrWhiteSpace(cmbTrainingModelType.Text))
+                cmbTrainingModelType.Text = "linear";
 
-            if (string.IsNullOrWhiteSpace(txtPythonEnvName.Text))
-                txtPythonEnvName.Text = "donkey";
+            if (string.IsNullOrWhiteSpace(txtTrainingPythonEnvName.Text))
+                txtTrainingPythonEnvName.Text = "donkey";
 
-            if (string.IsNullOrWhiteSpace(tbxMycarPath.Text))
-                tbxMycarPath.Text = "~/mycar";
+            if (string.IsNullOrWhiteSpace(txtMycarProjectPath.Text))
+                txtMycarProjectPath.Text = "~/mycar";
 
-            if (string.IsNullOrWhiteSpace(tbxTubPath.Text))
-                tbxTubPath.Text = "data";
+            if (string.IsNullOrWhiteSpace(txtTrainingTubPath.Text))
+                txtTrainingTubPath.Text = "data";
 
-            if (string.IsNullOrWhiteSpace(tbxModelPath.Text))
-                tbxModelPath.Text = "models/pilot.keras";
+            if (string.IsNullOrWhiteSpace(txtTrainingModelPath.Text))
+                txtTrainingModelPath.Text = "models/pilot.keras";
 
-            nudEpoch.Minimum = 1;
-            nudEpoch.Maximum = 10000;
-            if (nudEpoch.Value < 1)
-                nudEpoch.Value = 10;
+            numTrainingEpochs.Minimum = 1;
+            numTrainingEpochs.Maximum = 10000;
+            if (numTrainingEpochs.Value < 1)
+                numTrainingEpochs.Value = 10;
 
-            btnStopTraining.Enabled = false;
-            toolStripStatusLabelTraining.Text = "학습 상태: 대기";
+            btnStopTrainingProcess.Enabled = false;
+            stsTrainingStatus.Text = "학습 상태: 대기";
         }
 
-        private async void BtnStartTraining_Click(object? sender, EventArgs e)
+        private async void BtnStartTrainingProcess_Click(object? sender, EventArgs e)
         {
             if (_trainingProcess is { HasExited: false })
             {
@@ -1543,10 +1543,10 @@ namespace TeamApp
 
             if (!TryBuildTrainingCommand(out string arguments)) return;
 
-            btnStartTraining.Enabled = false;
-            btnStopTraining.Enabled = true;
-            toolStripStatusLabelTraining.Text = "학습 상태: 실행 중";
-            rtbTrainingLog.Clear();
+            btnStartTrainingProcess.Enabled = false;
+            btnStopTrainingProcess.Enabled = true;
+            stsTrainingStatus.Text = "학습 상태: 실행 중";
+            rtbTrainingOutput.Clear();
 
             try
             {
@@ -1588,11 +1588,11 @@ namespace TeamApp
 
                 AppendTrainingLog("");
                 AppendTrainingLog($"학습 프로세스가 종료되었습니다. 종료 코드: {_trainingProcess.ExitCode}");
-                toolStripStatusLabelTraining.Text = $"학습 상태: 종료 코드 {_trainingProcess.ExitCode}";
+                stsTrainingStatus.Text = $"학습 상태: 종료 코드 {_trainingProcess.ExitCode}";
             }
             catch (Exception ex)
             {
-                toolStripStatusLabelTraining.Text = "학습 상태: 오류";
+                stsTrainingStatus.Text = "학습 상태: 오류";
                 MessageBox.Show(
                     "학습 실행 중 오류가 발생했습니다.\n\n" +
                     "WSL, conda 환경명, mycar 경로가 올바른지 확인해 주세요.\n\n" +
@@ -1601,12 +1601,12 @@ namespace TeamApp
             }
             finally
             {
-                btnStartTraining.Enabled = true;
-                btnStopTraining.Enabled = false;
+                btnStartTrainingProcess.Enabled = true;
+                btnStopTrainingProcess.Enabled = false;
             }
         }
 
-        private void BtnStopTraining_Click(object? sender, EventArgs e)
+        private void BtnStopTrainingProcess_Click(object? sender, EventArgs e)
         {
             try
             {
@@ -1619,7 +1619,7 @@ namespace TeamApp
 
                 _trainingProcess.Kill(entireProcessTree: true);
                 AppendTrainingLog("사용자 요청으로 학습 프로세스를 중지했습니다.");
-                toolStripStatusLabelTraining.Text = "학습 상태: 중지됨";
+                stsTrainingStatus.Text = "학습 상태: 중지됨";
             }
             catch (Exception ex)
             {
@@ -1632,12 +1632,12 @@ namespace TeamApp
         {
             arguments = string.Empty;
 
-            string envName = txtPythonEnvName.Text.Trim();
-            string modelType = cbxModelType.Text.Trim().ToLowerInvariant();
-            string mycarPath = tbxMycarPath.Text.Trim();
-            string tubPath = tbxTubPath.Text.Trim();
-            string modelPath = tbxModelPath.Text.Trim();
-            int epochs = (int)nudEpoch.Value;
+            string envName = txtTrainingPythonEnvName.Text.Trim();
+            string modelType = cmbTrainingModelType.Text.Trim().ToLowerInvariant();
+            string mycarPath = txtMycarProjectPath.Text.Trim();
+            string tubPath = txtTrainingTubPath.Text.Trim();
+            string modelPath = txtTrainingModelPath.Text.Trim();
+            int epochs = (int)numTrainingEpochs.Value;
 
             if (string.IsNullOrWhiteSpace(envName))
             {
@@ -1698,17 +1698,17 @@ namespace TeamApp
 
         private void AppendTrainingLog(string text)
         {
-            if (rtbTrainingLog.IsDisposed) return;
+            if (rtbTrainingOutput.IsDisposed) return;
 
             void Append()
             {
-                rtbTrainingLog.AppendText(text + Environment.NewLine);
-                rtbTrainingLog.SelectionStart = rtbTrainingLog.TextLength;
-                rtbTrainingLog.ScrollToCaret();
+                rtbTrainingOutput.AppendText(text + Environment.NewLine);
+                rtbTrainingOutput.SelectionStart = rtbTrainingOutput.TextLength;
+                rtbTrainingOutput.ScrollToCaret();
             }
 
-            if (rtbTrainingLog.InvokeRequired)
-                rtbTrainingLog.BeginInvoke(new Action(Append));
+            if (rtbTrainingOutput.InvokeRequired)
+                rtbTrainingOutput.BeginInvoke(new Action(Append));
             else
                 Append();
         }
@@ -1725,19 +1725,19 @@ namespace TeamApp
                 targetTextBox.Text = dialog.SelectedPath;
         }
 
-        private void BtnSaveTrainingSettings_Click(object? sender, EventArgs e)
+        private void BtnSaveTrainingConfig_Click(object? sender, EventArgs e)
         {
             try
             {
                 Directory.CreateDirectory(Application.UserAppDataPath);
                 var settings = new TrainingSettings
                 {
-                    MycarPath = tbxMycarPath.Text.Trim(),
-                    TubPath = tbxTubPath.Text.Trim(),
-                    ModelPath = tbxModelPath.Text.Trim(),
-                    ModelType = cbxModelType.Text.Trim(),
-                    PythonEnvName = txtPythonEnvName.Text.Trim(),
-                    Epochs = (int)nudEpoch.Value
+                    MycarPath = txtMycarProjectPath.Text.Trim(),
+                    TubPath = txtTrainingTubPath.Text.Trim(),
+                    ModelPath = txtTrainingModelPath.Text.Trim(),
+                    ModelType = cmbTrainingModelType.Text.Trim(),
+                    PythonEnvName = txtTrainingPythonEnvName.Text.Trim(),
+                    Epochs = (int)numTrainingEpochs.Value
                 };
 
                 string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
@@ -1763,13 +1763,13 @@ namespace TeamApp
                 var settings = JsonSerializer.Deserialize<TrainingSettings>(json);
                 if (settings == null) return;
 
-                tbxMycarPath.Text = settings.MycarPath;
-                tbxTubPath.Text = settings.TubPath;
-                tbxModelPath.Text = settings.ModelPath;
-                cbxModelType.Text = settings.ModelType;
-                txtPythonEnvName.Text = settings.PythonEnvName;
-                if (settings.Epochs >= nudEpoch.Minimum && settings.Epochs <= nudEpoch.Maximum)
-                    nudEpoch.Value = settings.Epochs;
+                txtMycarProjectPath.Text = settings.MycarPath;
+                txtTrainingTubPath.Text = settings.TubPath;
+                txtTrainingModelPath.Text = settings.ModelPath;
+                cmbTrainingModelType.Text = settings.ModelType;
+                txtTrainingPythonEnvName.Text = settings.PythonEnvName;
+                if (settings.Epochs >= numTrainingEpochs.Minimum && settings.Epochs <= numTrainingEpochs.Maximum)
+                    numTrainingEpochs.Value = settings.Epochs;
             }
             catch
             {
@@ -1794,47 +1794,47 @@ namespace TeamApp
 
         // Designer 연결 스텁
 
-        private void tabPageTraining_Click(object sender, EventArgs e) { }
-        private void lblFilterMin_Click(object sender, EventArgs e) { }
-        private void mnuHelp_Click(object sender, EventArgs e) => RunFeatureTutorial("도움말");
-        private void mnuOpenGraphStats_Click(object sender, EventArgs e)
+        private void TabTrainingMonitor_Click(object sender, EventArgs e) { }
+        private void LblFilterMin_Click(object sender, EventArgs e) { }
+        private void MnuHelp_Click(object sender, EventArgs e) => RunFeatureTutorial("도움말");
+        private void MnuViewOpenGraphStats_Click(object sender, EventArgs e)
         {
-            tabControlMain.SelectedTab = tabPageGraphStats;
+            tabControlMain.SelectedTab = tabGraphStats;
         }
-        private void lblModeValue_Click(object sender, EventArgs e) { }
-        private void lblAngleValue_Click(object sender, EventArgs e) { }
-        private void lblPlayInterval_Click(object sender, EventArgs e) { }
-        private void lblThrottleValue_Click(object sender, EventArgs e) { }
-        private void toolStripStatusLabelTraining_Click(object sender, EventArgs e) { }
-        private void btnMycarPath_Click(object sender, EventArgs e) => SelectFolderInto(tbxMycarPath, "mycar 폴더 선택");
-        private void grpTubCleaner_Enter(object sender, EventArgs e) { }
+        private void LblModeValue_Click(object sender, EventArgs e) { }
+        private void LblAngleValue_Click(object sender, EventArgs e) { }
+        private void LblPlayInterval_Click(object sender, EventArgs e) { }
+        private void LblThrottleValue_Click(object sender, EventArgs e) { }
+        private void StsTrainingStatus_Click(object sender, EventArgs e) { }
+        private void BtnSelectMycarPath_Click(object sender, EventArgs e) => SelectFolderInto(txtMycarProjectPath, "mycar 폴더 선택");
+        private void GrpDataCleaner_Enter(object sender, EventArgs e) { }
 
         // ScottPlot 차트를 필요할 때 생성합니다.
 
         private void TabControl1_SelectedIndexChanged(object? sender, EventArgs e)
         {
-            if (tabControlMain.SelectedTab == tabPageGraphStats && _chartDirty)
-                RenderChart();
+            if (tabControlMain.SelectedTab == tabGraphStats && _isChartDirty)
+                RenderFrameChart();
         }
 
-        private void InitFormsPlot()
+        private void InitFrameChart()
         {
-            _formsPlot = new FormsPlot
+            _frameChart = new FormsPlot
             {
                 Location = new System.Drawing.Point(0, 42),
                 Size     = new System.Drawing.Size(
-                    tabPageGraphStats.ClientSize.Width,
-                    tabPageGraphStats.ClientSize.Height - 42),
+                    tabGraphStats.ClientSize.Width,
+                    tabGraphStats.ClientSize.Height - 42),
                 Anchor = AnchorStyles.Top | AnchorStyles.Bottom |
                          AnchorStyles.Left | AnchorStyles.Right,
                 Name = "formsPlotMain"
             };
 
-            _formsPlot.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1e1e1e");
-            _formsPlot.Plot.DataBackground.Color   = ScottPlot.Color.FromHex("#2d2d30");
+            _frameChart.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1e1e1e");
+            _frameChart.Plot.DataBackground.Color   = ScottPlot.Color.FromHex("#2d2d30");
 
-            tabPageGraphStats.Controls.Add(_formsPlot);
-            _formsPlot.BringToFront();
+            tabGraphStats.Controls.Add(_frameChart);
+            _frameChart.BringToFront();
         }
 
         // 기본 모드는 선 그래프, 필터 모드는 원본 인덱스 기준 점 그래프로 표시합니다.
@@ -1842,47 +1842,47 @@ namespace TeamApp
         /// 기본 모드에서는 제외되지 않은 원본 프레임을 연속 인덱스 Line으로 표시합니다.
         /// 필터 모드에서는 필터 결과를 원본 인덱스 Scatter로 표시합니다.
         /// </summary>
-        private void RenderChart()
+        private void RenderFrameChart()
         {
-            if (_originalFrames == null || _originalFrames.Count == 0)
+            if (_allFrames == null || _allFrames.Count == 0)
             {
-                _chartDirty = false;
+                _isChartDirty = false;
                 return;
             }
 
-            if (_formsPlot == null) InitFormsPlot();
+            if (_frameChart == null) InitFrameChart();
 
-            var plot = _formsPlot!.Plot;
+            var plot = _frameChart!.Plot;
 
             // 한글 폰트를 지정해 차트 라벨이 깨지지 않도록 합니다.
-            _formsPlot.Plot.Axes.Title.Label.FontName           = "Malgun Gothic";
-            _formsPlot.Plot.Axes.Bottom.Label.FontName          = "Malgun Gothic";
-            _formsPlot.Plot.Axes.Left.Label.FontName            = "Malgun Gothic";
-            _formsPlot.Plot.Axes.Bottom.TickLabelStyle.FontName = "Malgun Gothic";
-            _formsPlot.Plot.Axes.Left.TickLabelStyle.FontName   = "Malgun Gothic";
+            _frameChart.Plot.Axes.Title.Label.FontName           = "Malgun Gothic";
+            _frameChart.Plot.Axes.Bottom.Label.FontName          = "Malgun Gothic";
+            _frameChart.Plot.Axes.Left.Label.FontName            = "Malgun Gothic";
+            _frameChart.Plot.Axes.Bottom.TickLabelStyle.FontName = "Malgun Gothic";
+            _frameChart.Plot.Axes.Left.TickLabelStyle.FontName   = "Malgun Gothic";
 
             plot.Clear();
 
-            var chartFrames = _isFilterActive
-                ? _currentDisplayedFrames.Where(f => !f.IsDeleted).ToList()
-                : _originalFrames.Where(f => !f.IsDeleted).ToList();
+            var chartFrames = _isFrameFilterActive
+                ? _visibleFrames.Where(f => !f.IsDeleted).ToList()
+                : _allFrames.Where(f => !f.IsDeleted).ToList();
 
             if (chartFrames.Count == 0)
             {
                 plot.Title("유효한 데이터가 없습니다 (모두 제외됨)");
-                _formsPlot.Refresh();
-                _chartDirty = false;
+                _frameChart.Refresh();
+                _isChartDirty = false;
                 return;
             }
 
             int n = chartFrames.Count;
-            double[] xs = _isFilterActive
+            double[] xs = _isFrameFilterActive
                 ? chartFrames.Select(frame => (double)frame.OriginalIndex).ToArray()
                 : Enumerable.Range(0, n).Select(i => (double)i).ToArray();
             double[] angleYs = chartFrames.Select(f => f.Angle).ToArray();
             double[] throttleYs = chartFrames.Select(f => f.Throttle).ToArray();
 
-            if (_isFilterActive)
+            if (_isFrameFilterActive)
             {
                 var angleScatter = plot.Add.Scatter(xs, angleYs);
                 angleScatter.Color = ScottPlot.Color.FromHex("#4FC3F7");
@@ -1910,20 +1910,20 @@ namespace TeamApp
             }
 
             // 축 라벨과 제목
-            plot.XLabel(_isFilterActive
+            plot.XLabel(_isFrameFilterActive
                 ? "원본 프레임 인덱스(필터 결과)"
                 : "유효 프레임 인덱스(제외된 프레임은 건너뜀)");
             plot.YLabel("값(Angle / Throttle)");
-            plot.Title(_isFilterActive
-                ? $"필터 결과 Scatter 그래프 [표시: {n} / 전체: {_originalFrames.Count}]"
-                : $"조향값/스로틀 Line 그래프 [유효: {n} / 전체: {_originalFrames.Count}]");
+            plot.Title(_isFrameFilterActive
+                ? $"필터 결과 Scatter 그래프 [표시: {n} / 전체: {_allFrames.Count}]"
+                : $"조향값/스로틀 Line 그래프 [유효: {n} / 전체: {_allFrames.Count}]");
             plot.Axes.SetLimitsY(-1.2, 1.2);
             plot.ShowLegend(Alignment.UpperRight);
 
             plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#444444");
 
-            _formsPlot.Refresh();
-            _chartDirty = false;
+            _frameChart.Refresh();
+            _isChartDirty = false;
         }
     }
 }
