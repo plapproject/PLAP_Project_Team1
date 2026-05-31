@@ -46,6 +46,7 @@ namespace TeamApp
         private ToolTip? _screenTip;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
+        private const string BaseWindowTitle = "Data Manager";
 
         private sealed class TutorialStep
         {
@@ -132,6 +133,8 @@ namespace TeamApp
 
         private void BtnOpenDataFolder_Click(object sender, EventArgs e)
         {
+            if (!ConfirmUnsavedCleanupBeforeDataChange("새 데이터 폴더를 열기")) return;
+
             using var dlg = new FolderBrowserDialog();
             if (dlg.ShowDialog() != DialogResult.OK) return;
             _ = LoadCatalogAsync(dlg.SelectedPath);
@@ -139,6 +142,8 @@ namespace TeamApp
 
         private void BtnReloadData_Click(object sender, EventArgs e)
         {
+            if (!ConfirmUnsavedCleanupBeforeDataChange("현재 데이터 다시 불러오기")) return;
+
             string path = _currentDataFolderPath;
             if (string.IsNullOrEmpty(path))
             {
@@ -1253,7 +1258,16 @@ namespace TeamApp
 
         private void BtnSaveCleanupState_Click(object? sender, EventArgs e)
         {
-            if (!TryEnsureLoadedFolder()) return;
+            SaveCleanupState(showSuccessMessage: true);
+        }
+
+        /// <summary>
+        /// 제외/복원 상태를 deleted_frames_meta.txt에 저장합니다.
+        /// 다른 작업 전 자동 저장이 필요할 때도 재사용합니다.
+        /// </summary>
+        private bool SaveCleanupState(bool showSuccessMessage)
+        {
+            if (!TryEnsureLoadedFolder()) return false;
 
             try
             {
@@ -1269,13 +1283,18 @@ namespace TeamApp
                 File.WriteAllLines(metaPath, deletedNames, Encoding.UTF8);
                 _hasUnsavedCleanupChanges = false;
                 UpdateStatusLabels();
-                MessageBox.Show("제외 상태가 저장되었습니다.",
-                    "상태 저장", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                if (showSuccessMessage)
+                {
+                    MessageBox.Show("제외 상태가 저장되었습니다.",
+                        "상태 저장", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                return true;
             }
             catch (Exception ex)
             {
                 MessageBox.Show("제외 상태 저장 중 오류가 발생했습니다.\n" + ex.Message,
                     "저장 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
             }
         }
 
@@ -1437,6 +1456,19 @@ namespace TeamApp
 
             stsFrameSummary.Text =
                 $"{filterState}  |  전체: {total}  |  유효: {valid}  |  제외: {deleted}  |  후보: {review}  |  표시: {shown}  |  {saveState}";
+
+            stsFrameSummary.ForeColor = _hasUnsavedCleanupChanges
+                ? System.Drawing.Color.FromArgb(180, 70, 0)
+                : System.Drawing.Color.FromArgb(35, 100, 60);
+
+            btnSaveCleanupState.Font = new Font(
+                btnSaveCleanupState.Font,
+                _hasUnsavedCleanupChanges ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular);
+            btnSaveCleanupState.BackColor = _hasUnsavedCleanupChanges
+                ? System.Drawing.Color.FromArgb(255, 240, 205)
+                : System.Drawing.Color.FromArgb(235, 239, 255);
+
+            UpdateWindowTitle();
         }
 
         private void MarkCleanupStateChanged()
@@ -1445,17 +1477,55 @@ namespace TeamApp
             UpdateStatusLabels();
         }
 
+        /// <summary>
+        /// 저장되지 않은 정리 작업이 있으면 창 제목에 표시합니다.
+        /// 초보 사용자도 작업 저장 여부를 바로 확인할 수 있게 하기 위한 보조 표시입니다.
+        /// </summary>
+        private void UpdateWindowTitle()
+        {
+            Text = _hasUnsavedCleanupChanges
+                ? $"{BaseWindowTitle} - 저장되지 않은 정리 작업 있음"
+                : BaseWindowTitle;
+        }
+
+        /// <summary>
+        /// 새 폴더 열기/다시 불러오기 전에 저장되지 않은 제외/복원 상태를 보호합니다.
+        /// 예를 들어 다른 폴더를 열면 현재 작업 목록이 바뀌므로, 먼저 저장할 기회를 줍니다.
+        /// </summary>
+        private bool ConfirmUnsavedCleanupBeforeDataChange(string actionName)
+        {
+            if (!_hasUnsavedCleanupChanges) return true;
+
+            var answer = MessageBox.Show(
+                $"제외/복원 상태가 아직 저장되지 않았습니다.\n\n'{actionName}' 작업을 계속하기 전에 현재 상태를 저장할까요?\n\n" +
+                "예: 상태 저장 후 계속\n아니요: 저장하지 않고 계속\n취소: 작업 중단",
+                "저장되지 않은 정리 상태",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Warning);
+
+            if (answer == DialogResult.Cancel) return false;
+            if (answer == DialogResult.Yes) return SaveCleanupState(showSuccessMessage: false);
+            return true;
+        }
+
         private void Form1_FormClosing(object? sender, FormClosingEventArgs e)
         {
             if (!_hasUnsavedCleanupChanges) return;
 
             var answer = MessageBox.Show(
-                "제외/복원 상태가 아직 저장되지 않았습니다.\n\n저장하지 않고 종료하면 다음 실행 때 정리 상태가 복원되지 않을 수 있습니다.\n계속 종료하시겠습니까?",
+                "제외/복원 상태가 아직 저장되지 않았습니다.\n\n종료하기 전에 현재 상태를 저장할까요?\n\n" +
+                "예: 상태 저장 후 종료\n아니요: 저장하지 않고 종료\n취소: 종료 중단",
                 "저장되지 않은 정리 상태",
-                MessageBoxButtons.YesNo,
+                MessageBoxButtons.YesNoCancel,
                 MessageBoxIcon.Warning);
 
-            if (answer != DialogResult.Yes)
+            if (answer == DialogResult.Cancel)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            if (answer == DialogResult.Yes && !SaveCleanupState(showSuccessMessage: false))
                 e.Cancel = true;
         }
 
