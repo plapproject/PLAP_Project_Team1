@@ -1551,7 +1551,7 @@ namespace TeamApp
             return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 "donkeycar_models",
-                "pilot.keras");
+                "pilot.h5");
         }
 
         private string GetLegacyDesktopTrainingModelPath()
@@ -1562,6 +1562,14 @@ namespace TeamApp
         private string GetLegacyDocumentsTrainingModelPath()
         {
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "pilot.keras");
+        }
+
+        private string GetLegacyDocumentsModelFolderKerasPath()
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "donkeycar_models",
+                "pilot.keras");
         }
 
         private void ConfigureTrainingModelPathButton()
@@ -1947,7 +1955,7 @@ namespace TeamApp
             if (string.IsNullOrWhiteSpace(fileNameWithoutExtension))
                 fileNameWithoutExtension = "pilot";
             if (string.IsNullOrWhiteSpace(extension))
-                extension = ".keras";
+                extension = ".h5";
 
             string runDirectory = Path.Combine(modelDirectory, ".teamapp_training");
             Directory.CreateDirectory(runDirectory);
@@ -2893,9 +2901,9 @@ namespace TeamApp
             using var dialog = new SaveFileDialog
             {
                 Title = "모델 저장 경로 선택",
-                Filter = "Keras 모델 (*.keras)|*.keras|H5 모델 (*.h5)|*.h5|모든 파일 (*.*)|*.*",
+                Filter = "H5 모델 (*.h5)|*.h5|Keras 모델 (*.keras)|*.keras|모든 파일 (*.*)|*.*",
                 FileName = string.IsNullOrWhiteSpace(txtTrainingModelPath.Text)
-                    ? "pilot.keras"
+                    ? "pilot.h5"
                     : Path.GetFileName(txtTrainingModelPath.Text)
             };
 
@@ -2968,10 +2976,18 @@ namespace TeamApp
                 ? "linear"
                 : _trainingModelType.Trim().ToLowerInvariant();
 
+            string runtimeConfigPath = "/tmp/teamapp_drive_myconfig.py";
+            string runtimeOverride =
+                "cp $HOME/'mycar/myconfig.py' " + QuotePathForBash(runtimeConfigPath) + " && " +
+                "printf '\\n# TeamApp local PC run override\\nCAMERA_TYPE = \"MOCK\"\\nDONKEY_GYM = False\\nDRIVE_TRAIN_TYPE = \"MOCK\"\\n' >> " +
+                QuotePathForBash(runtimeConfigPath) + " && ";
+
             string bashCommand =
                 "cd " + QuotePathForBash(mycarPath) + " && " +
+                runtimeOverride +
                 "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) + " " +
-                "python manage.py drive --model=" + QuotePathForBash(modelPath) + " --type=" + QuoteForBash(modelType);
+                "python manage.py drive --myconfig=" + QuotePathForBash(runtimeConfigPath) +
+                " --model=" + QuotePathForBash(modelPath) + " --type=" + QuoteForBash(modelType);
 
             return "wsl.exe bash -lc " + QuoteForPowerShellCommandLine(bashCommand);
         }
@@ -3054,6 +3070,7 @@ namespace TeamApp
             if (savedPath.Replace("\\", "/").Equals("models/pilot.keras", StringComparison.OrdinalIgnoreCase)) return true;
             if (PathsEqual(savedPath, GetLegacyDesktopTrainingModelPath())) return true;
             if (PathsEqual(savedPath, GetLegacyDocumentsTrainingModelPath())) return true;
+            if (PathsEqual(savedPath, GetLegacyDocumentsModelFolderKerasPath())) return true;
 
             string? directory = Path.GetDirectoryName(savedPath);
             return string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory);
