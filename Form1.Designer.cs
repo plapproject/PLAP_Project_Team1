@@ -866,7 +866,7 @@
             // btnSaveTrainingConfig
             // 
             btnSaveTrainingConfig.Font = new Font("맑은 고딕", 12F);
-            btnSaveTrainingConfig.Location = new Point(1046, 368);
+            btnSaveTrainingConfig.Location = new Point(1045, 368);
             btnSaveTrainingConfig.Name = "btnSaveTrainingConfig";
             btnSaveTrainingConfig.Size = new Size(194, 43);
             btnSaveTrainingConfig.TabIndex = 5;
