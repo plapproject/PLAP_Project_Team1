@@ -2480,9 +2480,13 @@ namespace TeamApp
 
                 if (!CanRunWslBashCommand("test -x ~/miniconda3/bin/conda", timeoutMs: 5000))
                 {
-                    CopyTrainingSetupCommands();
-                    ApplyTrainingEnvironmentCheck(beforeCheck);
-                    return;
+                    await RunAutoSetupCommandAsync(
+                        "Miniconda 설치",
+                        BuildMinicondaInstallBashCommand(),
+                        timeoutMs: 900000);
+
+                    if (!CanRunWslBashCommand("test -x ~/miniconda3/bin/conda", timeoutMs: 5000))
+                        throw new InvalidOperationException("Miniconda 설치 후에도 ~/miniconda3/bin/conda를 찾지 못했습니다.");
                 }
 
                 if (!CanRunWslCondaEnvironment(envName))
@@ -2553,6 +2557,23 @@ namespace TeamApp
                 throw new InvalidOperationException(title + " 실패: 종료 코드 " + result.ExitCode);
         }
 
+        private string BuildMinicondaInstallBashCommand()
+        {
+            return
+                "set -e; " +
+                "cd \"$HOME\"; " +
+                "if [ ! -x \"$HOME/miniconda3/bin/conda\" ]; then " +
+                "installer=\"$HOME/Miniconda3-latest-Linux-x86_64.sh\"; " +
+                "if command -v wget >/dev/null 2>&1; then " +
+                "wget -O \"$installer\" https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh; " +
+                "else " +
+                "curl -L -o \"$installer\" https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh; " +
+                "fi; " +
+                "bash \"$installer\" -b -p \"$HOME/miniconda3\"; " +
+                "fi; " +
+                "\"$HOME/miniconda3/bin/conda\" --version";
+        }
+
         private ProcessRunResult RunProcessAndCapture(string fileName, string arguments, int timeoutMs)
         {
             using var process = new Process
@@ -2619,7 +2640,7 @@ namespace TeamApp
                 "}",
                 "",
                 "# 2) Miniconda가 없으면 WSL 안에 자동 설치합니다.",
-                "wsl.exe bash -lc 'if [ ! -x \"$HOME/miniconda3/bin/conda\" ]; then cd \"$HOME\" && wget -O Miniconda3-latest-Linux-x86_64.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && bash Miniconda3-latest-Linux-x86_64.sh -b -p \"$HOME/miniconda3\"; fi'",
+                "wsl.exe bash -lc '" + BuildMinicondaInstallBashCommand() + "'",
                 "",
                 "# 3) conda 환경과 DonkeyCar를 준비합니다.",
                 "wsl.exe bash -lc '$HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " python --version >/dev/null 2>&1 || $HOME/miniconda3/bin/conda create -y -n " + safeEnvName + " python=3.11'",
@@ -2704,6 +2725,9 @@ namespace TeamApp
 
             string? progressLine = TryFormatTrainingProgress(text);
             if (progressLine != null) return progressLine;
+
+            if (!fromErrorStream && Regex.IsMatch(text, @"^\d{1,2}$"))
+                return null;
 
             if (text.Contains("Failed writing database file", StringComparison.OrdinalIgnoreCase))
                 return "참고: DonkeyCar 모델 DB 저장은 건너뛰었습니다. 모델 파일 저장에는 영향 없습니다.";
