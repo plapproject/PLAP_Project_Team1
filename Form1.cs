@@ -1783,7 +1783,7 @@ namespace TeamApp
             string wslConfigPath = "/tmp/teamapp_train_config.py";
             string wslMycarPath = ToWslPath(mycarPath);
             string sourceConfigPath = FindTrainingConfigPath(mycarPath, useWslPaths: true);
-            string bashCommand = "cd " + QuoteForBash(wslMycarPath) + " && " +
+            string bashCommand = "cd " + QuotePathForBash(wslMycarPath) + " && " +
                 BuildWslEpochConfigPrelude(sourceConfigPath, epochs, wslConfigPath) +
                 BuildWslDonkeyTrainCommand(runner, envName, tubPath, modelPath, modelType, wslConfigPath);
 
@@ -1881,9 +1881,9 @@ namespace TeamApp
             string safeEpochs = Math.Max(1, epochs).ToString(CultureInfo.InvariantCulture);
 
             return
-                "cp " + QuoteForBash(ToWslPath(sourceConfigPath)) + " " + QuoteForBash(temporaryConfigPath) + " && " +
+                "cp " + QuotePathForBash(sourceConfigPath) + " " + QuotePathForBash(temporaryConfigPath) + " && " +
                 "printf '\\n# TeamApp runtime override\\nMAX_EPOCHS = " + safeEpochs + "\\nBATCH_SIZE = 8\\n' >> " +
-                QuoteForBash(temporaryConfigPath) + " && ";
+                QuotePathForBash(temporaryConfigPath) + " && ";
         }
 
         private string FindTrainingConfigPath(string mycarPath, bool useWslPaths)
@@ -1923,7 +1923,7 @@ namespace TeamApp
             string QuoteValue(string value)
             {
                 string resolvedValue = useWslPaths ? ToWslPath(value) : value;
-                return useBashQuotes ? QuoteForBash(resolvedValue) : QuoteForCommandLine(resolvedValue);
+                return useBashQuotes ? QuotePathForBash(resolvedValue) : QuoteForCommandLine(resolvedValue);
             }
 
             var parts = new List<string>
@@ -1961,6 +1961,17 @@ namespace TeamApp
         private string QuoteForBash(string value)
         {
             return "'" + value.Replace("'", "'\"'\"'") + "'";
+        }
+
+        private string QuotePathForBash(string value)
+        {
+            string path = ToWslPath(value);
+            if (path == "~")
+                return "$HOME";
+            if (path.StartsWith("~/"))
+                return "$HOME/" + QuoteForBash(path.Substring(2));
+
+            return QuoteForBash(path);
         }
 
         private string QuoteForCommandLine(string value)
