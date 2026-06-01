@@ -93,22 +93,15 @@
             rtbTrainingOutput = new RichTextBox();
             grpTrainingConfig = new GroupBox();
             numTrainingEpochs = new NumericUpDown();
-            cmbTrainingModelType = new ComboBox();
-            txtTrainingPythonEnvName = new TextBox();
             txtTrainingTubPath = new TextBox();
             txtTrainingModelPath = new TextBox();
-            txtMycarProjectPath = new TextBox();
             lblEpoch = new Label();
-            lblTrainingModelType = new Label();
-            lblTrainingPythonEnvName = new Label();
             lblTrainingModelPath = new Label();
             lblTrainingTubPath = new Label();
-            lblMycarProjectPath = new Label();
             btnSaveTrainingConfig = new Button();
             btnStopTrainingProcess = new Button();
             btnStartTrainingProcess = new Button();
             btnSelectTrainingTubPath = new Button();
-            btnSelectMycarPath = new Button();
             tabGraphStats = new TabPage();
             pnlChartHost = new Panel();
             lblChartDescription = new Label();
@@ -798,22 +791,15 @@
             // 
             grpTrainingConfig.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             grpTrainingConfig.Controls.Add(numTrainingEpochs);
-            grpTrainingConfig.Controls.Add(cmbTrainingModelType);
-            grpTrainingConfig.Controls.Add(txtTrainingPythonEnvName);
             grpTrainingConfig.Controls.Add(txtTrainingTubPath);
             grpTrainingConfig.Controls.Add(txtTrainingModelPath);
-            grpTrainingConfig.Controls.Add(txtMycarProjectPath);
             grpTrainingConfig.Controls.Add(lblEpoch);
-            grpTrainingConfig.Controls.Add(lblTrainingModelType);
-            grpTrainingConfig.Controls.Add(lblTrainingPythonEnvName);
             grpTrainingConfig.Controls.Add(lblTrainingModelPath);
             grpTrainingConfig.Controls.Add(lblTrainingTubPath);
-            grpTrainingConfig.Controls.Add(lblMycarProjectPath);
             grpTrainingConfig.Controls.Add(btnSaveTrainingConfig);
             grpTrainingConfig.Controls.Add(btnStopTrainingProcess);
             grpTrainingConfig.Controls.Add(btnStartTrainingProcess);
             grpTrainingConfig.Controls.Add(btnSelectTrainingTubPath);
-            grpTrainingConfig.Controls.Add(btnSelectMycarPath);
             grpTrainingConfig.Location = new Point(15, 19);
             grpTrainingConfig.Name = "grpTrainingConfig";
             grpTrainingConfig.Size = new Size(1547, 437);
@@ -828,23 +814,6 @@
             numTrainingEpochs.Name = "numTrainingEpochs";
             numTrainingEpochs.Size = new Size(391, 34);
             numTrainingEpochs.TabIndex = 17;
-            // 
-            // cmbTrainingModelType
-            // 
-            cmbTrainingModelType.Font = new Font("맑은 고딕", 12F);
-            cmbTrainingModelType.FormattingEnabled = true;
-            cmbTrainingModelType.Location = new Point(219, 230);
-            cmbTrainingModelType.Name = "cmbTrainingModelType";
-            cmbTrainingModelType.Size = new Size(391, 36);
-            cmbTrainingModelType.TabIndex = 2;
-            // 
-            // txtTrainingPythonEnvName
-            // 
-            txtTrainingPythonEnvName.Font = new Font("맑은 고딕", 12F);
-            txtTrainingPythonEnvName.Location = new Point(219, 278);
-            txtTrainingPythonEnvName.Name = "txtTrainingPythonEnvName";
-            txtTrainingPythonEnvName.Size = new Size(391, 34);
-            txtTrainingPythonEnvName.TabIndex = 18;
             // 
             // txtTrainingTubPath
             // 
@@ -864,15 +833,6 @@
             txtTrainingModelPath.Size = new Size(1092, 34);
             txtTrainingModelPath.TabIndex = 14;
             // 
-            // txtMycarProjectPath
-            // 
-            txtMycarProjectPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtMycarProjectPath.Font = new Font("맑은 고딕", 12F);
-            txtMycarProjectPath.Location = new Point(219, 74);
-            txtMycarProjectPath.Name = "txtMycarProjectPath";
-            txtMycarProjectPath.Size = new Size(1092, 34);
-            txtMycarProjectPath.TabIndex = 13;
-            // 
             // lblEpoch
             // 
             lblEpoch.AutoSize = true;
@@ -882,26 +842,6 @@
             lblEpoch.Size = new Size(99, 28);
             lblEpoch.TabIndex = 11;
             lblEpoch.Text = "학습 횟수";
-            // 
-            // lblTrainingModelType
-            // 
-            lblTrainingModelType.AutoSize = true;
-            lblTrainingModelType.Font = new Font("맑은 고딕", 12F);
-            lblTrainingModelType.Location = new Point(45, 232);
-            lblTrainingModelType.Name = "lblTrainingModelType";
-            lblTrainingModelType.Size = new Size(99, 28);
-            lblTrainingModelType.TabIndex = 10;
-            lblTrainingModelType.Text = "모델 종류";
-            // 
-            // lblTrainingPythonEnvName
-            // 
-            lblTrainingPythonEnvName.AutoSize = true;
-            lblTrainingPythonEnvName.Font = new Font("맑은 고딕", 12F);
-            lblTrainingPythonEnvName.Location = new Point(45, 281);
-            lblTrainingPythonEnvName.Name = "lblTrainingPythonEnvName";
-            lblTrainingPythonEnvName.Size = new Size(143, 28);
-            lblTrainingPythonEnvName.TabIndex = 19;
-            lblTrainingPythonEnvName.Text = "Python 환경명";
             // 
             // lblTrainingModelPath
             // 
@@ -923,20 +863,10 @@
             lblTrainingTubPath.TabIndex = 8;
             lblTrainingTubPath.Text = "Tub 경로";
             // 
-            // lblMycarProjectPath
-            // 
-            lblMycarProjectPath.AutoSize = true;
-            lblMycarProjectPath.Font = new Font("맑은 고딕", 12F);
-            lblMycarProjectPath.Location = new Point(45, 78);
-            lblMycarProjectPath.Name = "lblMycarProjectPath";
-            lblMycarProjectPath.Size = new Size(113, 28);
-            lblMycarProjectPath.TabIndex = 7;
-            lblMycarProjectPath.Text = "mycar 경로";
-            // 
             // btnSaveTrainingConfig
             // 
             btnSaveTrainingConfig.Font = new Font("맑은 고딕", 12F);
-            btnSaveTrainingConfig.Location = new Point(1046, 368);
+            btnSaveTrainingConfig.Location = new Point(1045, 368);
             btnSaveTrainingConfig.Name = "btnSaveTrainingConfig";
             btnSaveTrainingConfig.Size = new Size(194, 43);
             btnSaveTrainingConfig.TabIndex = 5;
@@ -973,18 +903,6 @@
             btnSelectTrainingTubPath.TabIndex = 2;
             btnSelectTrainingTubPath.Text = "Tub 선택";
             btnSelectTrainingTubPath.UseVisualStyleBackColor = true;
-            // 
-            // btnSelectMycarPath
-            // 
-            btnSelectMycarPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnSelectMycarPath.Font = new Font("맑은 고딕", 12F);
-            btnSelectMycarPath.Location = new Point(1335, 66);
-            btnSelectMycarPath.Name = "btnSelectMycarPath";
-            btnSelectMycarPath.Size = new Size(123, 43);
-            btnSelectMycarPath.TabIndex = 1;
-            btnSelectMycarPath.Text = "찾기";
-            btnSelectMycarPath.UseVisualStyleBackColor = true;
-            btnSelectMycarPath.Click += BtnSelectMycarPath_Click;
             // 
             // tabGraphStats
             // 
@@ -1134,22 +1052,15 @@
         private GroupBox grpTrainingConfig;
         private GroupBox grpTrainingOutput;
         private Label lblEpoch;
-        private Label lblTrainingModelType;
-        private Label lblTrainingPythonEnvName;
         private Label lblTrainingModelPath;
         private Label lblTrainingTubPath;
-        private Label lblMycarProjectPath;
         private Button btnSaveTrainingConfig;
         private Button btnStopTrainingProcess;
         private Button btnStartTrainingProcess;
         private Button btnSelectTrainingTubPath;
-        private Button btnSelectMycarPath;
         private TextBox txtTrainingTubPath;
         private TextBox txtTrainingModelPath;
-        private TextBox txtMycarProjectPath;
-        private TextBox txtTrainingPythonEnvName;
         private NumericUpDown numTrainingEpochs;
-        private ComboBox cmbTrainingModelType;
         private RichTextBox rtbTrainingOutput;
         private StatusStrip statusStripTraining;
         private ToolStripStatusLabel stsTrainingStatus;
