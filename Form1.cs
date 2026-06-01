@@ -2185,6 +2185,15 @@ namespace TeamApp
             return "\"" + value.Replace("\"", "\\\"") + "\"";
         }
 
+        private string QuoteForPowerShellCommandLine(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "\"\"";
+
+            // 사용자가 PowerShell에 붙여넣는 명령에서는 $HOME 같은 Bash 변수가
+            // PowerShell 변수로 먼저 확장될 수 있으므로 $를 이스케이프합니다.
+            return "\"" + value.Replace("`", "``").Replace("$", "`$").Replace("\"", "\\\"") + "\"";
+        }
+
         private bool CanRunProcess(string fileName, string arguments, int timeoutMs)
         {
             try
@@ -2948,10 +2957,12 @@ namespace TeamApp
                 ? "linear"
                 : _trainingModelType.Trim().ToLowerInvariant();
 
-            return "wsl bash -lc " + QuoteForCommandLine(
+            string bashCommand =
                 "cd " + QuotePathForBash(mycarPath) + " && " +
                 "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) + " " +
-                "python manage.py drive --model=" + QuotePathForBash(modelPath) + " --type=" + QuoteForBash(modelType));
+                "python manage.py drive --model=" + QuotePathForBash(modelPath) + " --type=" + QuoteForBash(modelType);
+
+            return "wsl.exe bash -lc " + QuoteForPowerShellCommandLine(bashCommand);
         }
 
         private void BtnSaveTrainingConfig_Click(object? sender, EventArgs e)
