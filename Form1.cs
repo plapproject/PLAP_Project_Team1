@@ -1548,12 +1548,20 @@ namespace TeamApp
 
         private string GetDefaultTrainingModelPath()
         {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "pilot.keras");
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "donkeycar_models",
+                "pilot.keras");
         }
 
         private string GetLegacyDesktopTrainingModelPath()
         {
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "study", "pilot.keras");
+        }
+
+        private string GetLegacyDocumentsTrainingModelPath()
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "pilot.keras");
         }
 
         private void ConfigureTrainingModelPathButton()
@@ -1772,6 +1780,8 @@ namespace TeamApp
                 AppendTrainingLog("WSL/콘솔 출력은 이 학습 로그 창에 실시간으로 표시됩니다.");
                 AppendTrainingLog("실행 방식: " + command.RunnerName);
                 AppendTrainingLog("실행 명령: " + command.DisplayCommand);
+                AppendTrainingLog("최종 모델 저장 위치: " + command.FinalModelPath);
+                AppendTrainingLog("학습 중에는 임시 모델 파일을 사용합니다. 중지해도 기존 최종 모델은 유지됩니다.");
 
                 _trainingProcess.Start();
                 _trainingProcess.BeginOutputReadLine();
@@ -1782,7 +1792,14 @@ namespace TeamApp
                 AppendTrainingLog("");
                 AppendTrainingLog($"학습 프로세스가 종료되었습니다. 종료 코드: {_trainingProcess.ExitCode}");
                 if (_trainingProcess.ExitCode == 0)
+                {
+                    PublishCompletedTrainingModel(command);
                     AppendTrainingLog("학습 완료: 모델 파일을 저장했습니다. '모델 폴더 열기' 또는 '사용 명령 복사'를 사용할 수 있습니다.");
+                }
+                else
+                {
+                    AppendTrainingLog("학습이 정상 완료되지 않아 최종 모델은 바꾸지 않았습니다. 기존 모델은 그대로 유지됩니다.");
+                }
                 stsTrainingStatus.Text = $"학습 상태: 종료 코드 {_trainingProcess.ExitCode}";
             }
             catch (Exception ex)
@@ -1816,7 +1833,7 @@ namespace TeamApp
                 }
 
                 _trainingProcess.Kill(entireProcessTree: true);
-                AppendTrainingLog("사용자 요청으로 학습 프로세스를 중지했습니다.");
+                AppendTrainingLog("사용자 요청으로 학습 프로세스를 중지했습니다. 기존 최종 모델은 유지됩니다.");
                 stsTrainingStatus.Text = "학습 상태: 중지됨";
             }
             catch (Exception ex)
@@ -1876,16 +1893,20 @@ namespace TeamApp
                 return false;
             }
 
+            string runModelPath = GetTemporaryTrainingModelPath(modelPath);
+
             if (runner == RunnerWindowsDonkey)
             {
                 string configPath = FindTrainingConfigPath(mycarPath, useWslPaths: false);
-                string trainArgs = BuildDonkeyTrainArguments(tubPath, modelPath, modelType, configPath, useWslPaths: false);
+                string trainArgs = BuildDonkeyTrainArguments(tubPath, runModelPath, modelType, configPath, useWslPaths: false);
                 command = new TrainingCommand(
                     runner,
                     "donkey",
                     trainArgs,
                     ResolveWindowsWorkingDirectory(mycarPath),
-                    "donkey " + trainArgs);
+                    "donkey " + trainArgs,
+                    modelPath,
+                    runModelPath);
                 return true;
             }
 
@@ -1899,9 +1920,9 @@ namespace TeamApp
                 }
 
                 string configPath = FindTrainingConfigPath(mycarPath, useWslPaths: false);
-                string trainArgs = BuildDonkeyTrainArguments(tubPath, modelPath, modelType, configPath, useWslPaths: false);
+                string trainArgs = BuildDonkeyTrainArguments(tubPath, runModelPath, modelType, configPath, useWslPaths: false);
                 string arguments = "run --no-capture-output -n " + QuoteForCommandLine(envName) + " donkey " + trainArgs;
-                command = new TrainingCommand(runner, "conda", arguments, string.Empty, "conda " + arguments);
+                command = new TrainingCommand(runner, "conda", arguments, string.Empty, "conda " + arguments, modelPath, runModelPath);
                 return true;
             }
 
@@ -1910,11 +1931,70 @@ namespace TeamApp
             string sourceConfigPath = FindTrainingConfigPath(mycarPath, useWslPaths: true);
             string bashCommand = "cd " + QuotePathForBash(wslMycarPath) + " && " +
                 BuildWslEpochConfigPrelude(sourceConfigPath, epochs, wslConfigPath) +
-                BuildWslDonkeyTrainCommand(runner, envName, tubPath, modelPath, modelType, wslConfigPath);
+                BuildWslDonkeyTrainCommand(runner, envName, tubPath, runModelPath, modelType, wslConfigPath);
 
             string wslArguments = "bash -lc " + QuoteForCommandLine(bashCommand);
-            command = new TrainingCommand(runner, "wsl", wslArguments, string.Empty, "wsl " + wslArguments);
+            command = new TrainingCommand(runner, "wsl", wslArguments, string.Empty, "wsl " + wslArguments, modelPath, runModelPath);
             return true;
+        }
+
+        private string GetTemporaryTrainingModelPath(string finalModelPath)
+        {
+            string modelDirectory = Path.GetDirectoryName(finalModelPath) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(finalModelPath);
+            string extension = Path.GetExtension(finalModelPath);
+
+            if (string.IsNullOrWhiteSpace(fileNameWithoutExtension))
+                fileNameWithoutExtension = "pilot";
+            if (string.IsNullOrWhiteSpace(extension))
+                extension = ".keras";
+
+            string runDirectory = Path.Combine(modelDirectory, ".teamapp_training");
+            Directory.CreateDirectory(runDirectory);
+
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+            return Path.Combine(runDirectory, fileNameWithoutExtension + "_" + timestamp + extension);
+        }
+
+        private void PublishCompletedTrainingModel(TrainingCommand command)
+        {
+            if (string.IsNullOrWhiteSpace(command.FinalModelPath) ||
+                string.IsNullOrWhiteSpace(command.RunModelPath) ||
+                PathsEqual(command.FinalModelPath, command.RunModelPath))
+            {
+                return;
+            }
+
+            string? finalDirectory = Path.GetDirectoryName(command.FinalModelPath);
+            if (!string.IsNullOrWhiteSpace(finalDirectory))
+                Directory.CreateDirectory(finalDirectory);
+
+            int copiedFileCount = 0;
+            foreach (string extension in GetTrainingModelArtifactExtensions(command.FinalModelPath))
+            {
+                string sourcePath = Path.ChangeExtension(command.RunModelPath, extension);
+                string targetPath = Path.ChangeExtension(command.FinalModelPath, extension);
+
+                if (!File.Exists(sourcePath)) continue;
+
+                File.Copy(sourcePath, targetPath, overwrite: true);
+                copiedFileCount++;
+                AppendTrainingLog("모델 파일 저장: " + targetPath);
+            }
+
+            if (copiedFileCount == 0)
+                AppendTrainingLog("주의: 학습은 종료 코드 0으로 끝났지만 복사할 모델 파일을 찾지 못했습니다.");
+        }
+
+        private IEnumerable<string> GetTrainingModelArtifactExtensions(string modelPath)
+        {
+            string mainExtension = Path.GetExtension(modelPath);
+            if (string.IsNullOrWhiteSpace(mainExtension))
+                mainExtension = ".keras";
+
+            yield return mainExtension;
+            yield return ".tflite";
+            yield return ".png";
         }
 
         private string BuildWslDonkeyTrainCommand(
@@ -2927,6 +3007,7 @@ namespace TeamApp
             if (string.IsNullOrWhiteSpace(savedPath)) return true;
             if (savedPath.Replace("\\", "/").Equals("models/pilot.keras", StringComparison.OrdinalIgnoreCase)) return true;
             if (PathsEqual(savedPath, GetLegacyDesktopTrainingModelPath())) return true;
+            if (PathsEqual(savedPath, GetLegacyDocumentsTrainingModelPath())) return true;
 
             string? directory = Path.GetDirectoryName(savedPath);
             return string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory);
@@ -2974,15 +3055,24 @@ namespace TeamApp
 
         private sealed class TrainingCommand
         {
-            public static readonly TrainingCommand Empty = new TrainingCommand(string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
+            public static readonly TrainingCommand Empty = new TrainingCommand(string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
 
-            public TrainingCommand(string runnerName, string fileName, string arguments, string workingDirectory, string displayCommand)
+            public TrainingCommand(
+                string runnerName,
+                string fileName,
+                string arguments,
+                string workingDirectory,
+                string displayCommand,
+                string finalModelPath,
+                string runModelPath)
             {
                 RunnerName = runnerName;
                 FileName = fileName;
                 Arguments = arguments;
                 WorkingDirectory = workingDirectory;
                 DisplayCommand = displayCommand;
+                FinalModelPath = finalModelPath;
+                RunModelPath = runModelPath;
             }
 
             public string RunnerName { get; }
@@ -2990,6 +3080,8 @@ namespace TeamApp
             public string Arguments { get; }
             public string WorkingDirectory { get; }
             public string DisplayCommand { get; }
+            public string FinalModelPath { get; }
+            public string RunModelPath { get; }
         }
 
         // Designer 연결 스텁
