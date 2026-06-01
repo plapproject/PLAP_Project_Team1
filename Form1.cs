@@ -1548,6 +1548,11 @@ namespace TeamApp
 
         private string GetDefaultTrainingModelPath()
         {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "pilot.keras");
+        }
+
+        private string GetLegacyDesktopTrainingModelPath()
+        {
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "study", "pilot.keras");
         }
 
@@ -2503,7 +2508,8 @@ namespace TeamApp
                 Clipboard.SetText(commands);
                 MessageBox.Show(
                     "학습 환경 설치/확인 명령을 클립보드에 복사했습니다.\n\n" +
-                    "PowerShell 또는 WSL 터미널에 붙여넣어 실행하면 됩니다.",
+                    "Windows PowerShell에 그대로 붙여넣어 실행하면 됩니다.\n" +
+                    "WSL 설치처럼 재부팅이나 권한이 필요한 단계는 안내 메시지를 보고 따로 진행해 주세요.",
                     "설치 명령 복사", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -2516,20 +2522,38 @@ namespace TeamApp
         private string BuildTrainingSetupCommands()
         {
             string envName = string.IsNullOrWhiteSpace(_trainingPythonEnvName) ? "e2e_env" : _trainingPythonEnvName.Trim();
+            string safeEnvName = EscapePowerShellSingleQuotedString(envName);
 
             return string.Join(Environment.NewLine, new[]
             {
-                "# PowerShell에서 WSL이 없을 때만 실행",
-                "wsl --install -d Ubuntu-22.04",
+                "# TeamApp DonkeyCar 학습 환경 준비용 PowerShell 명령",
+                "# 1) WSL이 없으면 아래 명령 실행 후 PC를 재부팅하고, 이 복사 명령을 다시 실행하세요.",
+                "wsl.exe --status",
+                "if ($LASTEXITCODE -ne 0) {",
+                "    Write-Host 'WSL이 없습니다. 다음 명령을 관리자 PowerShell에서 실행한 뒤 재부팅하세요:'",
+                "    Write-Host 'wsl --install -d Ubuntu-22.04'",
+                "    return",
+                "}",
                 "",
-                "# WSL에서 Miniconda 설치 후 아래 명령 실행",
-                "wsl bash -lc '~/miniconda3/bin/conda create -y -n " + envName + " python=3.11'",
-                "wsl bash -lc '~/miniconda3/bin/conda run --no-capture-output -n " + envName + " python -m pip install \"donkeycar[pc]\"'",
-                "wsl bash -lc '~/miniconda3/bin/conda run --no-capture-output -n " + envName + " donkey createcar --path=$HOME/mycar'",
+                "# 2) Miniconda가 없으면 WSL 안에 자동 설치합니다.",
+                "wsl.exe bash -lc 'if [ ! -x \"$HOME/miniconda3/bin/conda\" ]; then cd \"$HOME\" && wget -O Miniconda3-latest-Linux-x86_64.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && bash Miniconda3-latest-Linux-x86_64.sh -b -p \"$HOME/miniconda3\"; fi'",
                 "",
-                "# 준비 확인",
-                "wsl bash -lc '~/miniconda3/bin/conda run --no-capture-output -n " + envName + " donkey --help'"
+                "# 3) conda 환경과 DonkeyCar를 준비합니다.",
+                "wsl.exe bash -lc '$HOME/miniconda3/bin/conda env list | awk \"{print \\$1}\" | grep -Fx " + safeEnvName + " >/dev/null || $HOME/miniconda3/bin/conda create -y -n " + safeEnvName + " python=3.11'",
+                "wsl.exe bash -lc '$HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " python -m pip install \"donkeycar[pc]\"'",
+                "",
+                "# 4) mycar 설정 파일이 없으면 생성합니다.",
+                "wsl.exe bash -lc 'test -f \"$HOME/mycar/config.py\" || $HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " donkey createcar --path=\"$HOME/mycar\"'",
+                "",
+                "# 5) 준비 확인",
+                "wsl.exe bash -lc '$HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " donkey --help'",
+                "Write-Host 'TeamApp 학습 환경 준비가 끝났습니다.'"
             });
+        }
+
+        private string EscapePowerShellSingleQuotedString(string value)
+        {
+            return value.Replace("'", "''");
         }
 
         private void ApplyTrainingEnvironmentCheck(TrainingEnvironmentCheck check)
@@ -2895,6 +2919,7 @@ namespace TeamApp
         {
             if (string.IsNullOrWhiteSpace(savedPath)) return true;
             if (savedPath.Replace("\\", "/").Equals("models/pilot.keras", StringComparison.OrdinalIgnoreCase)) return true;
+            if (PathsEqual(savedPath, GetLegacyDesktopTrainingModelPath())) return true;
 
             string? directory = Path.GetDirectoryName(savedPath);
             return string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory);
