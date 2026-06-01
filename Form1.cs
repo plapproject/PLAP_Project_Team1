@@ -2187,19 +2187,21 @@ namespace TeamApp
             return QuoteForBash(path);
         }
 
+        private string ToBashLiteralPath(string value)
+        {
+            string path = ToWslPath(value);
+            if (path == "~")
+                return "$HOME";
+            if (path.StartsWith("~/"))
+                return "$HOME/" + path.Substring(2);
+
+            return QuoteForBash(path);
+        }
+
         private string QuoteForCommandLine(string value)
         {
             if (string.IsNullOrEmpty(value)) return "\"\"";
             return "\"" + value.Replace("\"", "\\\"") + "\"";
-        }
-
-        private string QuoteForPowerShellCommandLine(string value)
-        {
-            if (string.IsNullOrEmpty(value)) return "\"\"";
-
-            // 사용자가 PowerShell에 붙여넣는 명령에서는 $HOME 같은 Bash 변수가
-            // PowerShell 변수로 먼저 확장될 수 있으므로 $를 이스케이프합니다.
-            return "\"" + value.Replace("`", "``").Replace("$", "`$").Replace("\"", "\\\"") + "\"";
         }
 
         private bool CanRunProcess(string fileName, string arguments, int timeoutMs)
@@ -2976,20 +2978,22 @@ namespace TeamApp
                 ? "linear"
                 : _trainingModelType.Trim().ToLowerInvariant();
 
-            string runtimeConfigPath = "/tmp/teamapp_drive_myconfig.py";
+            string bashMycarPath = ToBashLiteralPath(mycarPath);
+            string runtimeConfigFileName = "teamapp_drive_myconfig.py";
+            string runtimeConfigPath = bashMycarPath + "/" + runtimeConfigFileName;
             string runtimeOverride =
-                "cp $HOME/'mycar/myconfig.py' " + QuotePathForBash(runtimeConfigPath) + " && " +
+                "cp " + bashMycarPath + "/myconfig.py " + runtimeConfigPath + " && " +
                 "printf '\\n# TeamApp local PC run override\\nCAMERA_TYPE = \"MOCK\"\\nDONKEY_GYM = False\\nDRIVE_TRAIN_TYPE = \"MOCK\"\\n' >> " +
-                QuotePathForBash(runtimeConfigPath) + " && ";
+                runtimeConfigPath + " && ";
 
             string bashCommand =
-                "cd " + QuotePathForBash(mycarPath) + " && " +
+                "cd " + bashMycarPath + " && " +
                 runtimeOverride +
                 "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) + " " +
-                "python manage.py drive --myconfig=" + QuotePathForBash(runtimeConfigPath) +
+                "python manage.py drive --myconfig=" + QuoteForBash(runtimeConfigFileName) +
                 " --model=" + QuotePathForBash(modelPath) + " --type=" + QuoteForBash(modelType);
 
-            return "wsl.exe bash -lc " + QuoteForPowerShellCommandLine(bashCommand);
+            return "wsl.exe --% bash -lc " + QuoteForCommandLine(bashCommand);
         }
 
         private void BtnSaveTrainingConfig_Click(object? sender, EventArgs e)
