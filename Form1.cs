@@ -44,7 +44,12 @@ namespace TeamApp
         private Button? _btnAutoSetupTrainingEnvironment;
         private Button? _btnCopyTrainingSetupCommands;
         private Button? _btnEditTrainingEnvironment;
+        private System.Windows.Forms.Label? _lblTrainingStepGuide;
+        private System.Windows.Forms.Label? _lblTrainingEnvironmentSummary;
         private System.Windows.Forms.Label? _lblTrainingEnvironmentStatus;
+        private System.Windows.Forms.Label? _lblTrainingActionHint;
+        private System.Windows.Forms.Label? _lblTrainingModelSafetyNote;
+        private ToolTip? _trainingToolTip;
         private int _lastTrainingProgressPercent = -1;
         private bool _isTrainingEnvironmentReady = false;
         private bool _isCheckingTrainingEnvironment = false;
@@ -53,6 +58,7 @@ namespace TeamApp
         private string _trainingModelType = "linear";
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
+        private const string TrainingDiagnosisSeenFileName = "training_diagnosis_seen.txt";
         private const string RunnerWindowsDonkey = "Windows donkey CLI";
         private const string RunnerWindowsConda = "Windows conda";
         private const string RunnerWslConda = "WSL conda";
@@ -125,8 +131,10 @@ namespace TeamApp
 
             InitializeTrainingControls();
             LoadTrainingSettings();
+            UpdateTrainingEnvironmentSummary("검사 전");
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
+            BeginInvoke(new Action(AskFirstTrainingEnvironmentDiagnosis));
         }
 
         // UI 이벤트 처리
@@ -213,6 +221,56 @@ namespace TeamApp
         {
             return Path.Combine(Application.UserAppDataPath, "tutorial_seen.txt");
         }
+
+        private async void AskFirstTrainingEnvironmentDiagnosis()
+        {
+            if (HasSeenTrainingDiagnosis()) return;
+
+            MarkTrainingDiagnosisSeen();
+
+            var answer = MessageBox.Show(
+                "학습 실행 기능을 사용하려면 WSL, conda, DonkeyCar 프로젝트 상태를 먼저 확인해야 합니다.\n\n" +
+                "지금 간단한 학습 환경 진단을 실행할까요?",
+                "학습 환경 첫 진단",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (answer != DialogResult.Yes) return;
+
+            tabControlMain.SelectedTab = tabTrainingMonitor;
+            await RefreshTrainingEnvironmentAsync(showSuccessMessage: true);
+        }
+
+        private bool HasSeenTrainingDiagnosis()
+        {
+            try
+            {
+                return File.Exists(GetTrainingDiagnosisSeenPath());
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void MarkTrainingDiagnosisSeen()
+        {
+            try
+            {
+                Directory.CreateDirectory(Application.UserAppDataPath);
+                File.WriteAllText(GetTrainingDiagnosisSeenPath(), DateTime.Now.ToString("O"));
+            }
+            catch
+            {
+                // 진단 안내 표시 여부 저장 실패는 앱 실행을 막지 않습니다.
+            }
+        }
+
+        private string GetTrainingDiagnosisSeenPath()
+        {
+            return Path.Combine(Application.UserAppDataPath, TrainingDiagnosisSeenFileName);
+        }
+
         private void RunFeatureTutorial(string title)
         {
             if (_tutorialRunning)
@@ -1140,6 +1198,21 @@ namespace TeamApp
                 MessageBox.Show(
                     $"학습용 Clean 폴더가 생성되었습니다.\n\n경로: {cleanFolder}\n삭제된 이미지: {deletedImageCount}개\n정제된 카탈로그: {cleanedCatalogCount}개",
                     "클린 폴더 추출 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                var useForTraining = MessageBox.Show(
+                    "방금 만든 Clean 폴더를 학습 Tub 경로로 사용할까요?\n\n" +
+                    "예를 누르면 학습 실행 탭으로 이동하고 Tub 경로가 자동으로 입력됩니다.",
+                    "학습 경로 연결",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (useForTraining == DialogResult.Yes)
+                {
+                    txtTrainingTubPath.Text = cleanFolder;
+                    tabControlMain.SelectedTab = tabTrainingMonitor;
+                    UpdateTrainingActionHint("Clean 폴더가 Tub 경로로 설정되었습니다. 이제 환경 검사를 누르세요.");
+                    _ = RefreshTrainingEnvironmentAsync(showSuccessMessage: false);
+                }
             }
             catch (Exception ex)
             {
@@ -1540,6 +1613,11 @@ namespace TeamApp
             btnStartTrainingProcess.Enabled = false;
             btnStopTrainingProcess.Enabled = false;
             stsTrainingStatus.Text = "학습 상태: 대기";
+
+            txtTrainingTubPath.TextChanged += (_, _) => UpdateTrainingEnvironmentSummary(
+                _isTrainingEnvironmentReady ? "정상" : "검사 필요");
+            txtTrainingModelPath.TextChanged += (_, _) => UpdateTrainingEnvironmentSummary(
+                _isTrainingEnvironmentReady ? "정상" : "검사 필요");
         }
 
         private string GetDefaultTrainingTubPath()
@@ -1579,12 +1657,12 @@ namespace TeamApp
 
             _btnSelectTrainingModelPath = new Button
             {
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Font = new Font("맑은 고딕", 12F),
-                Location = new Point(1335, 118),
-                Name = "btnSelectTrainingModelPath",
-                Size = new Size(123, 43),
-                Text = "저장 위치",
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                    Font = new Font("맑은 고딕", 12F),
+                    Location = new Point(1335, 156),
+                    Name = "btnSelectTrainingModelPath",
+                    Size = new Size(123, 43),
+                    Text = "저장 위치",
                 UseVisualStyleBackColor = true
             };
             _btnSelectTrainingModelPath.Click += BtnSelectTrainingModelPath_Click;
@@ -1599,7 +1677,7 @@ namespace TeamApp
                 _btnOpenTrainingModelFolder = new Button
                 {
                     Font = new Font("맑은 고딕", 12F),
-                    Location = new Point(699, 260),
+                    Location = new Point(699, 298),
                     Name = "btnOpenTrainingModelFolder",
                     Size = new Size(194, 43),
                     Text = "모델 폴더 열기",
@@ -1614,7 +1692,7 @@ namespace TeamApp
                 _btnCopyModelUseCommand = new Button
                 {
                     Font = new Font("맑은 고딕", 12F),
-                    Location = new Point(939, 260),
+                    Location = new Point(939, 298),
                     Name = "btnCopyModelUseCommand",
                     Size = new Size(220, 43),
                     Text = "사용 명령 복사",
@@ -1630,13 +1708,15 @@ namespace TeamApp
 
         private void ConfigureTrainingEnvironmentControls()
         {
+            ConfigureTrainingGuideLabels();
+
             if (_lblTrainingEnvironmentStatus == null)
             {
                 _lblTrainingEnvironmentStatus = new System.Windows.Forms.Label
                 {
                     AutoSize = false,
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(45, 314),
+                    Location = new Point(45, 352),
                     Name = "lblTrainingEnvironmentStatus",
                     Size = new Size(880, 30),
                     Text = "학습 환경: 검사 전"
@@ -1649,7 +1729,7 @@ namespace TeamApp
                 _btnCheckTrainingEnvironment = new Button
                 {
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(939, 310),
+                    Location = new Point(939, 348),
                     Name = "btnCheckTrainingEnvironment",
                     Size = new Size(150, 36),
                     Text = "환경 검사",
@@ -1664,7 +1744,7 @@ namespace TeamApp
                 _btnAutoSetupTrainingEnvironment = new Button
                 {
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(1101, 310),
+                    Location = new Point(1101, 348),
                     Name = "btnAutoSetupTrainingEnvironment",
                     Size = new Size(170, 36),
                     Text = "자동 설정 시도",
@@ -1679,7 +1759,7 @@ namespace TeamApp
                 _btnCopyTrainingSetupCommands = new Button
                 {
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(1267, 310),
+                    Location = new Point(1267, 348),
                     Name = "btnCopyTrainingSetupCommands",
                     Size = new Size(160, 36),
                     Text = "설치 명령 복사",
@@ -1694,7 +1774,7 @@ namespace TeamApp
                 _btnEditTrainingEnvironment = new Button
                 {
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(1435, 310),
+                    Location = new Point(1435, 348),
                     Name = "btnEditTrainingEnvironment",
                     Size = new Size(95, 36),
                     Text = "환경 설정",
@@ -1709,6 +1789,96 @@ namespace TeamApp
             _btnAutoSetupTrainingEnvironment.BringToFront();
             _btnCopyTrainingSetupCommands.BringToFront();
             _btnEditTrainingEnvironment.BringToFront();
+            _lblTrainingModelSafetyNote?.BringToFront();
+            ConfigureTrainingToolTips();
+        }
+
+        private void ConfigureTrainingToolTips()
+        {
+            _trainingToolTip ??= new ToolTip
+            {
+                AutoPopDelay = 8000,
+                InitialDelay = 400,
+                ReshowDelay = 200,
+                ShowAlways = true
+            };
+
+            _trainingToolTip.SetToolTip(btnSelectTrainingTubPath, "1단계: 학습에 사용할 DonkeyCar Tub 데이터 폴더를 선택합니다.");
+            if (_btnCheckTrainingEnvironment != null)
+                _trainingToolTip.SetToolTip(_btnCheckTrainingEnvironment, "2단계: 현재 PC에서 WSL, conda, DonkeyCar, Tub 경로가 준비됐는지 확인합니다.");
+            if (_btnAutoSetupTrainingEnvironment != null)
+                _trainingToolTip.SetToolTip(_btnAutoSetupTrainingEnvironment, "부족한 환경을 프로그램이 가능한 범위에서 자동으로 설치하거나 생성합니다.");
+            if (_btnCopyTrainingSetupCommands != null)
+                _trainingToolTip.SetToolTip(_btnCopyTrainingSetupCommands, "자동 설정이 실패할 때 PowerShell에 붙여넣을 설치 명령을 복사합니다.");
+            if (_btnEditTrainingEnvironment != null)
+                _trainingToolTip.SetToolTip(_btnEditTrainingEnvironment, "친구 PC처럼 conda 환경명이나 프로젝트 폴더명이 다를 때 직접 입력합니다.");
+            _trainingToolTip.SetToolTip(btnStartTrainingProcess, "3단계: 환경 검사가 정상일 때 모델 학습을 시작합니다.");
+            _trainingToolTip.SetToolTip(btnStopTrainingProcess, "학습을 중지합니다. 기존 최종 모델은 유지되고 임시 학습 파일만 중단됩니다.");
+        }
+
+        private void ConfigureTrainingGuideLabels()
+        {
+            if (_lblTrainingStepGuide == null)
+            {
+                _lblTrainingStepGuide = new System.Windows.Forms.Label
+                {
+                    AutoSize = false,
+                    Font = new Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold),
+                    Location = new Point(45, 24),
+                    Name = "lblTrainingStepGuide",
+                    Size = new Size(1180, 26),
+                    Text = "사용 순서: 1. Tub 선택 -> 2. 환경 검사 -> 3. 학습 시작"
+                };
+                grpTrainingConfig.Controls.Add(_lblTrainingStepGuide);
+            }
+
+            if (_lblTrainingEnvironmentSummary == null)
+            {
+                _lblTrainingEnvironmentSummary = new System.Windows.Forms.Label
+                {
+                    AutoSize = false,
+                    Font = new Font("맑은 고딕", 10F),
+                    Location = new Point(45, 54),
+                    Name = "lblTrainingEnvironmentSummary",
+                    Size = new Size(1450, 24),
+                    Text = "현재 설정: 확인 전"
+                };
+                grpTrainingConfig.Controls.Add(_lblTrainingEnvironmentSummary);
+            }
+
+            if (_lblTrainingActionHint == null)
+            {
+                _lblTrainingActionHint = new System.Windows.Forms.Label
+                {
+                    AutoSize = false,
+                    Font = new Font("맑은 고딕", 10F),
+                    ForeColor = System.Drawing.Color.DimGray,
+                    Location = new Point(45, 82),
+                    Name = "lblTrainingActionHint",
+                    Size = new Size(1450, 24),
+                    Text = "먼저 Tub 폴더를 선택한 뒤 환경 검사를 누르세요."
+                };
+                grpTrainingConfig.Controls.Add(_lblTrainingActionHint);
+            }
+
+            if (_lblTrainingModelSafetyNote == null)
+            {
+                _lblTrainingModelSafetyNote = new System.Windows.Forms.Label
+                {
+                    AutoSize = false,
+                    Font = new Font("맑은 고딕", 9.5F),
+                    ForeColor = System.Drawing.Color.DimGray,
+                    Location = new Point(45, 392),
+                    Name = "lblTrainingModelSafetyNote",
+                    Size = new Size(1450, 24),
+                    Text = "학습 중에는 임시 모델 파일을 사용합니다. 학습 중지를 눌러도 기존 최종 모델은 유지됩니다."
+                };
+                grpTrainingConfig.Controls.Add(_lblTrainingModelSafetyNote);
+            }
+
+            _lblTrainingStepGuide.BringToFront();
+            _lblTrainingEnvironmentSummary.BringToFront();
+            _lblTrainingActionHint.BringToFront();
         }
 
         /// <summary>
@@ -1719,27 +1889,27 @@ namespace TeamApp
         {
             btnSaveTrainingConfig.Visible = false;
 
-            lblTrainingTubPath.Location = new Point(45, 78);
-            txtTrainingTubPath.Location = new Point(219, 74);
-            btnSelectTrainingTubPath.Location = new Point(1335, 66);
+            lblTrainingTubPath.Location = new Point(45, 116);
+            txtTrainingTubPath.Location = new Point(219, 112);
+            btnSelectTrainingTubPath.Location = new Point(1335, 104);
 
-            lblTrainingModelPath.Location = new Point(45, 130);
-            txtTrainingModelPath.Location = new Point(219, 126);
+            lblTrainingModelPath.Location = new Point(45, 168);
+            txtTrainingModelPath.Location = new Point(219, 164);
             txtTrainingModelPath.Width = Math.Max(300, btnSelectTrainingTubPath.Left - txtTrainingModelPath.Left - 24);
             ConfigureTrainingModelPathButton();
 
             lblEpoch.Text = "학습 횟수";
-            lblEpoch.Location = new Point(45, 182);
-            numTrainingEpochs.Location = new Point(219, 178);
+            lblEpoch.Location = new Point(45, 220);
+            numTrainingEpochs.Location = new Point(219, 216);
             numTrainingEpochs.Size = new Size(180, 34);
 
-            btnStartTrainingProcess.Location = new Point(219, 260);
-            btnStopTrainingProcess.Location = new Point(459, 260);
+            btnStartTrainingProcess.Location = new Point(219, 298);
+            btnStopTrainingProcess.Location = new Point(459, 298);
             ConfigureTrainingResultButtons();
             ConfigureTrainingEnvironmentControls();
-            grpTrainingConfig.Height = 380;
-            grpTrainingOutput.Location = new Point(15, 410);
-            grpTrainingOutput.Height = Math.Max(260, tabTrainingMonitor.Height - 450);
+            grpTrainingConfig.Height = 430;
+            grpTrainingOutput.Location = new Point(15, 460);
+            grpTrainingOutput.Height = Math.Max(240, tabTrainingMonitor.Height - 500);
         }
 
         private async void BtnStartTrainingProcess_Click(object? sender, EventArgs e)
@@ -1754,10 +1924,16 @@ namespace TeamApp
             TrainingEnvironmentCheck environmentCheck = await RefreshTrainingEnvironmentAsync(showSuccessMessage: false);
             if (!environmentCheck.IsReady)
             {
+                string nextAction = BuildTrainingActionHint(environmentCheck);
                 MessageBox.Show(
                     "학습을 시작할 수 없습니다.\n\n" +
                     environmentCheck.StatusMessage + "\n\n" +
-                    "'자동 설정 시도' 또는 '설치 명령 복사'를 먼저 사용해 주세요.",
+                    nextAction + "\n\n" +
+                    "버튼 설명:\n" +
+                    "- 환경 검사: 현재 PC 설정을 다시 확인합니다.\n" +
+                    "- 자동 설정 시도: 가능한 항목을 프로그램이 설치/생성합니다.\n" +
+                    "- 설치 명령 복사: 자동 설정이 실패할 때 PowerShell에 붙여넣을 명령을 복사합니다.\n" +
+                    "- 환경 설정: conda 환경명이나 DonkeyCar 프로젝트 경로가 다른 PC에서 직접 지정합니다.",
                     "학습 환경 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -1768,6 +1944,8 @@ namespace TeamApp
             btnStartTrainingProcess.Enabled = false;
             btnStopTrainingProcess.Enabled = true;
             stsTrainingStatus.Text = "학습 상태: 실행 중";
+            if (_lblTrainingModelSafetyNote != null)
+                _lblTrainingModelSafetyNote.Text = "현재 임시 모델에 학습 중입니다. 정상 완료되면 최종 모델 위치로 복사되고, 중지하면 기존 최종 모델은 유지됩니다.";
             rtbTrainingOutput.Clear();
 
             try
@@ -1820,10 +1998,14 @@ namespace TeamApp
                 {
                     PublishCompletedTrainingModel(command);
                     AppendTrainingLog("학습 완료: 모델 파일을 저장했습니다. '모델 폴더 열기' 또는 '사용 명령 복사'를 사용할 수 있습니다.");
+                    if (_lblTrainingModelSafetyNote != null)
+                        _lblTrainingModelSafetyNote.Text = "학습이 정상 완료되어 임시 모델을 최종 모델 위치로 복사했습니다.";
                 }
                 else
                 {
                     AppendTrainingLog("학습이 정상 완료되지 않아 최종 모델은 바꾸지 않았습니다. 기존 모델은 그대로 유지됩니다.");
+                    if (_lblTrainingModelSafetyNote != null)
+                        _lblTrainingModelSafetyNote.Text = "학습이 정상 완료되지 않았습니다. 기존 최종 모델은 그대로 유지됩니다.";
                 }
                 stsTrainingStatus.Text = $"학습 상태: 종료 코드 {_trainingProcess.ExitCode}";
             }
@@ -1860,6 +2042,8 @@ namespace TeamApp
                 _trainingProcess.Kill(entireProcessTree: true);
                 AppendTrainingLog("사용자 요청으로 학습 프로세스를 중지했습니다. 기존 최종 모델은 유지됩니다.");
                 stsTrainingStatus.Text = "학습 상태: 중지됨";
+                if (_lblTrainingModelSafetyNote != null)
+                    _lblTrainingModelSafetyNote.Text = "학습을 중지했습니다. 중지 전 임시 모델은 최종 모델로 덮어쓰지 않으므로 기존 모델은 유지됩니다.";
             }
             catch (Exception ex)
             {
@@ -2333,7 +2517,9 @@ namespace TeamApp
                 {
                     string detail = string.Join(Environment.NewLine, check.Details);
                     MessageBox.Show(
-                        check.StatusMessage + Environment.NewLine + Environment.NewLine + detail,
+                        check.StatusMessage + Environment.NewLine + Environment.NewLine +
+                        BuildTrainingActionHint(check) + Environment.NewLine + Environment.NewLine +
+                        detail,
                         "학습 환경 검사", MessageBoxButtons.OK,
                         check.IsReady ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
                 }
@@ -2768,6 +2954,7 @@ namespace TeamApp
         {
             _isTrainingEnvironmentReady = check.IsReady;
             ApplyTrainingEnvironmentStatus(check.StatusMessage, check.IsReady);
+            UpdateTrainingActionHint(BuildTrainingActionHint(check));
             UpdateTrainingStartButtonState();
         }
 
@@ -2780,6 +2967,66 @@ namespace TeamApp
             }
 
             stsTrainingStatus.Text = message.Replace("학습 환경:", "학습 상태:");
+            UpdateTrainingEnvironmentSummary(isReady ? "정상" : ExtractTrainingStatusSummary(message));
+        }
+
+        private void UpdateTrainingEnvironmentSummary(string statusText)
+        {
+            if (_lblTrainingEnvironmentSummary == null) return;
+
+            string envName = string.IsNullOrWhiteSpace(_trainingPythonEnvName) ? "자동 감지 전" : _trainingPythonEnvName.Trim();
+            string projectPath = string.IsNullOrWhiteSpace(_trainingMycarPath) ? "자동 감지 전" : _trainingMycarPath.Trim();
+            string tubPath = string.IsNullOrWhiteSpace(txtTrainingTubPath.Text) ? "미선택" : txtTrainingTubPath.Text.Trim();
+            string modelPath = string.IsNullOrWhiteSpace(txtTrainingModelPath.Text) ? "기본값 사용" : txtTrainingModelPath.Text.Trim();
+
+            _lblTrainingEnvironmentSummary.Text =
+                "현재 설정: conda=" + envName +
+                " | project=" + projectPath +
+                " | Tub=" + tubPath +
+                " | 모델=" + modelPath +
+                " | 상태=" + statusText;
+        }
+
+        private string ExtractTrainingStatusSummary(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message)) return "검사 전";
+
+            string summary = message.Replace("학습 환경:", "").Trim();
+            int detailStart = summary.IndexOf("(", StringComparison.Ordinal);
+            if (detailStart > 0)
+                summary = summary[..detailStart].Trim();
+
+            return string.IsNullOrWhiteSpace(summary) ? "검사 전" : summary;
+        }
+
+        private void UpdateTrainingActionHint(string message)
+        {
+            if (_lblTrainingActionHint == null) return;
+
+            _lblTrainingActionHint.Text = message;
+            _lblTrainingActionHint.ForeColor = _isTrainingEnvironmentReady
+                ? System.Drawing.Color.ForestGreen
+                : System.Drawing.Color.DimGray;
+        }
+
+        private string BuildTrainingActionHint(TrainingEnvironmentCheck check)
+        {
+            if (check.IsReady)
+                return "환경이 정상입니다. 이제 '학습 시작'을 누르면 됩니다.";
+
+            string message = check.StatusMessage;
+            if (message.Contains("Tub", StringComparison.OrdinalIgnoreCase))
+                return "다음 행동: 'Tub 선택'으로 DonkeyCar 데이터 폴더를 먼저 선택하세요.";
+            if (message.Contains("모델 저장", StringComparison.OrdinalIgnoreCase))
+                return "다음 행동: '저장 위치'에서 모델을 저장할 폴더를 선택하세요.";
+            if (message.Contains("conda 환경", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("DonkeyCar", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("config.py", StringComparison.OrdinalIgnoreCase))
+                return "다음 행동: 자동 설정을 먼저 시도하고, 실패하면 설치 명령 복사를 사용하세요.";
+            if (message.Contains("WSL", StringComparison.OrdinalIgnoreCase))
+                return "다음 행동: 설치 명령 복사를 눌러 WSL 설치 명령을 확인하세요.";
+
+            return "다음 행동: 환경 검사를 다시 누르거나 환경 설정에서 경로를 직접 지정하세요.";
         }
 
         private void UpdateTrainingStartButtonState()
@@ -3017,6 +3264,7 @@ namespace TeamApp
             _trainingPythonEnvName = string.IsNullOrWhiteSpace(envName) ? detectedEnvName : envName.Trim();
             _trainingMycarPath = string.IsNullOrWhiteSpace(projectPath) ? detectedProjectPath : projectPath.Trim();
             SaveTrainingSettingsSilently();
+            UpdateTrainingEnvironmentSummary("수동 설정 저장됨");
 
             ApplyTrainingEnvironmentStatus(
                 "학습 환경: 수동 설정 저장됨 (conda: " + _trainingPythonEnvName + ", project: " + _trainingMycarPath + ")",
@@ -3153,7 +3401,14 @@ namespace TeamApp
             try
             {
                 SaveTrainingSettingsSilently();
-                MessageBox.Show("학습 설정이 저장되었습니다.",
+                UpdateTrainingEnvironmentSummary("설정 저장됨");
+                MessageBox.Show(
+                    "학습 설정이 저장되었습니다.\n\n" +
+                    "현재 설정:\n" +
+                    "- conda: " + _trainingPythonEnvName + "\n" +
+                    "- project: " + _trainingMycarPath + "\n" +
+                    "- Tub: " + txtTrainingTubPath.Text.Trim() + "\n" +
+                    "- 모델: " + txtTrainingModelPath.Text.Trim(),
                     "설정 저장", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
