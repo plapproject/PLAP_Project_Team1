@@ -2514,6 +2514,16 @@ namespace TeamApp
                         timeoutMs: 900000);
                 }
 
+                if (!CanRunWslBashCommand("~/miniconda3/bin/conda run --no-capture-output -n " +
+                    QuoteForBash(envName) + " python -c \"import gym, gym_donkeycar, pygame\" >/dev/null 2>&1", timeoutMs: 15000))
+                {
+                    await RunAutoSetupCommandAsync(
+                        "DonkeyCar 실행 의존성 설치",
+                        "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
+                        " python -m pip install gym==0.26.2 gym-donkeycar pygame",
+                        timeoutMs: 300000);
+                }
+
                 if (!CanRunWslBashCommand("test -f ~/mycar/config.py", timeoutMs: 5000))
                 {
                     await RunAutoSetupCommandAsync(
@@ -2654,6 +2664,7 @@ namespace TeamApp
                 "# 3) conda 환경과 DonkeyCar를 준비합니다.",
                 "wsl.exe bash -lc '$HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " python --version >/dev/null 2>&1 || $HOME/miniconda3/bin/conda create -y -n " + safeEnvName + " python=3.11'",
                 "wsl.exe bash -lc '$HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " python -m pip install \"donkeycar[pc]\"'",
+                "wsl.exe bash -lc '$HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " python -m pip install gym==0.26.2 gym-donkeycar pygame'",
                 "",
                 "# 4) mycar 설정 파일이 없으면 생성합니다.",
                 "wsl.exe bash -lc 'test -f \"$HOME/mycar/config.py\" || $HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " donkey createcar --path=\"$HOME/mycar\"'",
