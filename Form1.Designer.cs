@@ -97,7 +97,7 @@
             txtTrainingPythonEnvName = new TextBox();
             txtTrainingTubPath = new TextBox();
             txtTrainingModelPath = new TextBox();
-            txtMycarProjectPath = new TextBox();
+            cmbMycarProjectPath = new ComboBox();
             lblEpoch = new Label();
             lblTrainingModelType = new Label();
             lblTrainingPythonEnvName = new Label();
@@ -117,6 +117,8 @@
             stsFrameSummary = new ToolStripStatusLabel();
             btnSelectTrainingModelPath = new Button();
             btnDetectTrainingEnvironment = new Button();
+            btnSelectTrainingWslDistro = new Button();
+            btnSelectCondaPath = new Button();
             lblTrainingWslDistro = new Label();
             cmbTrainingWslDistro = new ComboBox();
             lblCondaPath = new Label();
@@ -850,6 +852,8 @@
             // grpTrainingConfig
             // 
             grpTrainingConfig.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            grpTrainingConfig.Controls.Add(btnSelectCondaPath);
+            grpTrainingConfig.Controls.Add(btnSelectTrainingWslDistro);
             grpTrainingConfig.Controls.Add(cmbCondaPath);
             grpTrainingConfig.Controls.Add(lblCondaPath);
             grpTrainingConfig.Controls.Add(cmbTrainingWslDistro);
@@ -859,7 +863,7 @@
             grpTrainingConfig.Controls.Add(txtTrainingPythonEnvName);
             grpTrainingConfig.Controls.Add(txtTrainingTubPath);
             grpTrainingConfig.Controls.Add(txtTrainingModelPath);
-            grpTrainingConfig.Controls.Add(txtMycarProjectPath);
+            grpTrainingConfig.Controls.Add(cmbMycarProjectPath);
             grpTrainingConfig.Controls.Add(lblEpoch);
             grpTrainingConfig.Controls.Add(lblTrainingModelType);
             grpTrainingConfig.Controls.Add(lblTrainingPythonEnvName);
@@ -930,15 +934,16 @@
             txtTrainingModelPath.Size = new Size(795, 29);
             txtTrainingModelPath.TabIndex = 14;
             // 
-            // txtMycarProjectPath
+            // cmbMycarProjectPath
             // 
-            txtMycarProjectPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtMycarProjectPath.Font = new Font("맑은 고딕", 12F);
-            txtMycarProjectPath.Location = new Point(217, 56);
-            txtMycarProjectPath.Margin = new Padding(2);
-            txtMycarProjectPath.Name = "txtMycarProjectPath";
-            txtMycarProjectPath.Size = new Size(795, 29);
-            txtMycarProjectPath.TabIndex = 13;
+            cmbMycarProjectPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            cmbMycarProjectPath.Font = new Font("맑은 고딕", 12F);
+            cmbMycarProjectPath.FormattingEnabled = true;
+            cmbMycarProjectPath.Location = new Point(217, 56);
+            cmbMycarProjectPath.Margin = new Padding(2);
+            cmbMycarProjectPath.Name = "cmbMycarProjectPath";
+            cmbMycarProjectPath.Size = new Size(795, 29);
+            cmbMycarProjectPath.TabIndex = 13;
             // 
             // lblEpoch
             // 
@@ -1134,13 +1139,37 @@
             // 
             btnDetectTrainingEnvironment.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnDetectTrainingEnvironment.Font = new Font("맑은 고딕", 12F);
-            btnDetectTrainingEnvironment.Location = new Point(1029, 207);
+            btnDetectTrainingEnvironment.Location = new Point(1029, 244);
             btnDetectTrainingEnvironment.Margin = new Padding(2);
             btnDetectTrainingEnvironment.Name = "btnDetectTrainingEnvironment";
             btnDetectTrainingEnvironment.Size = new Size(96, 32);
             btnDetectTrainingEnvironment.TabIndex = 24;
             btnDetectTrainingEnvironment.Text = "자동 감지";
             btnDetectTrainingEnvironment.UseVisualStyleBackColor = true;
+            // 
+            // btnSelectTrainingWslDistro
+            // 
+            btnSelectTrainingWslDistro.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnSelectTrainingWslDistro.Font = new Font("맑은 고딕", 12F);
+            btnSelectTrainingWslDistro.Location = new Point(1029, 170);
+            btnSelectTrainingWslDistro.Margin = new Padding(2);
+            btnSelectTrainingWslDistro.Name = "btnSelectTrainingWslDistro";
+            btnSelectTrainingWslDistro.Size = new Size(96, 32);
+            btnSelectTrainingWslDistro.TabIndex = 25;
+            btnSelectTrainingWslDistro.Text = "감지";
+            btnSelectTrainingWslDistro.UseVisualStyleBackColor = true;
+            // 
+            // btnSelectCondaPath
+            // 
+            btnSelectCondaPath.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnSelectCondaPath.Font = new Font("맑은 고딕", 12F);
+            btnSelectCondaPath.Location = new Point(1029, 207);
+            btnSelectCondaPath.Margin = new Padding(2);
+            btnSelectCondaPath.Name = "btnSelectCondaPath";
+            btnSelectCondaPath.Size = new Size(96, 32);
+            btnSelectCondaPath.TabIndex = 26;
+            btnSelectCondaPath.Text = "감지";
+            btnSelectCondaPath.UseVisualStyleBackColor = true;
             // 
             // lblTrainingWslDistro
             // 
@@ -1292,7 +1321,7 @@
         private Button btnSelectMycarPath;
         private TextBox txtTrainingTubPath;
         private TextBox txtTrainingModelPath;
-        private TextBox txtMycarProjectPath;
+        private ComboBox cmbMycarProjectPath;
         private TextBox txtTrainingPythonEnvName;
         private NumericUpDown numTrainingEpochs;
         private ComboBox cmbTrainingModelType;
@@ -1322,6 +1351,8 @@
         private Label lblFrameRangeSeparator;
         private Button btnSelectTrainingModelPath;
         private Button btnDetectTrainingEnvironment;
+        private Button btnSelectTrainingWslDistro;
+        private Button btnSelectCondaPath;
         private Label lblTrainingWslDistro;
         private ComboBox cmbTrainingWslDistro;
         private ComboBox cmbCondaPath;

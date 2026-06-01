@@ -39,7 +39,6 @@ namespace TeamApp
         private Process? _trainingProcess;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
-        private const string TrainingWslDistroName = "Ubuntu-26.04";
         private static readonly Regex AnsiEscapeRegex = new(@"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", RegexOptions.Compiled);
 
         private sealed class TutorialStep
@@ -89,6 +88,9 @@ namespace TeamApp
             btnSaveTrainingConfig.Click += BtnSaveTrainingConfig_Click;
             btnSelectTrainingTubPath.Click += (_, _) => SelectFolderInto(txtTrainingTubPath, "Tub 폴더 선택");
             btnSelectTrainingModelPath.Click += BtnSelectTrainingModelPath_Click;
+            btnDetectTrainingEnvironment.Click += BtnDetectTrainingEnvironment_Click;
+            btnSelectTrainingWslDistro.Click += BtnSelectTrainingWslDistro_Click;
+            btnSelectCondaPath.Click += BtnSelectCondaPath_Click;
 
             mnuFileOpenDataFolder.Click += (s, _) => BtnOpenDataFolder_Click(s!, EventArgs.Empty);
             mnuFileReloadData.Click += (s, _) => BtnReloadData_Click(s!, EventArgs.Empty);
@@ -1515,12 +1517,6 @@ namespace TeamApp
             if (string.IsNullOrWhiteSpace(cmbTrainingModelType.Text))
                 cmbTrainingModelType.Text = "linear";
 
-            if (string.IsNullOrWhiteSpace(txtTrainingPythonEnvName.Text))
-                txtTrainingPythonEnvName.Text = "e2e_env";
-
-            if (string.IsNullOrWhiteSpace(txtMycarProjectPath.Text))
-                txtMycarProjectPath.Text = "~/mysim";
-
             if (string.IsNullOrWhiteSpace(txtTrainingTubPath.Text))
                 txtTrainingTubPath.Text = "data";
 
@@ -1532,10 +1528,6 @@ namespace TeamApp
             if (numTrainingEpochs.Value < 1)
                 numTrainingEpochs.Value = 10;
 
-            cmbTrainingWslDistro.Text = TrainingWslDistroName;
-            if (string.IsNullOrWhiteSpace(cmbCondaPath.Text))
-                cmbCondaPath.Text = "자동 탐색";
-            btnDetectTrainingEnvironment.Enabled = false;
             btnStopTrainingProcess.Enabled = false;
             stsTrainingStatus.Text = "학습 상태: 대기";
         }
@@ -1549,7 +1541,7 @@ namespace TeamApp
                 return;
             }
 
-            if (!TryBuildTrainingCommand(out string arguments)) return;
+            if (!TryBuildTrainingCommand(out var arguments, out string displayArguments)) return;
 
             btnStartTrainingProcess.Enabled = false;
             btnStopTrainingProcess.Enabled = true;
@@ -1563,7 +1555,6 @@ namespace TeamApp
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = "wsl",
-                        Arguments = arguments,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
                         UseShellExecute = false,
@@ -1574,8 +1565,11 @@ namespace TeamApp
                     EnableRaisingEvents = true
                 };
 
+                foreach (string argument in arguments)
+                    _trainingProcess.StartInfo.ArgumentList.Add(argument);
+
                 AppendTrainingLog("학습 프로세스를 시작합니다.");
-                AppendTrainingLog("실행 명령: wsl " + arguments);
+                AppendTrainingLog("실행 명령: wsl " + displayArguments);
 
                 _trainingProcess.Start();
                 Task outputReader = ReadStreamAsync(_trainingProcess.StandardOutput);
@@ -1626,15 +1620,32 @@ namespace TeamApp
             }
         }
 
-        private bool TryBuildTrainingCommand(out string arguments)
+        private bool TryBuildTrainingCommand(out List<string> arguments, out string displayArguments)
         {
-            arguments = string.Empty;
+            arguments = new List<string>();
+            displayArguments = string.Empty;
 
             string envName = txtTrainingPythonEnvName.Text.Trim();
             string modelType = cmbTrainingModelType.Text.Trim().ToLowerInvariant();
-            string mycarPath = txtMycarProjectPath.Text.Trim();
+            string mycarPath = cmbMycarProjectPath.Text.Trim();
             string tubPath = txtTrainingTubPath.Text.Trim();
             string modelPath = txtTrainingModelPath.Text.Trim();
+            string wslDistro = NormalizeWslDistroName(cmbTrainingWslDistro.Text);
+            string condaPath = cmbCondaPath.Text.Trim();
+
+            if (string.IsNullOrWhiteSpace(wslDistro))
+            {
+                MessageBox.Show("WSL Ubuntu를 자동 감지하거나 선택해 주세요.",
+                    "입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(condaPath))
+            {
+                MessageBox.Show("Conda 경로를 자동 감지하거나 선택해 주세요.",
+                    "입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
 
             if (string.IsNullOrWhiteSpace(envName))
             {
@@ -1662,27 +1673,29 @@ namespace TeamApp
             if (string.IsNullOrWhiteSpace(modelPath))
                 modelPath = "models/pilot.keras";
 
+            string wslMycarPath = ConvertToWslPath(mycarPath);
+            string wslCondaPath = ConvertToWslPath(condaPath);
+            string wslTubPath = ConvertToWslPath(tubPath);
+            string wslModelPath = ConvertToWslPath(modelPath);
+
             string command =
                 "export PYTHONUNBUFFERED=1 && " +
-                "cd " + QuotePathForBash(ConvertToWslPath(mycarPath)) + " && " +
-                BuildCondaResolverCommand() + " && " +
-                "\"$CONDA_CMD\" run --no-capture-output -n " + QuoteForBash(envName) + " " +
+                "if [ ! -d " + QuotePathForBash(wslMycarPath) + " ]; then echo " +
+                QuoteForBash("[error] Donkey 프로젝트 경로를 찾을 수 없습니다: " + wslMycarPath) + "; exit 2; fi && " +
+                "if [ ! -x " + QuotePathForBash(wslCondaPath) + " ]; then echo " +
+                QuoteForBash("[error] Conda 실행 파일을 찾을 수 없습니다: " + wslCondaPath) + "; exit 127; fi && " +
+                "cd " + QuotePathForBash(wslMycarPath) + " && " +
+                "if [ ! -f config.py ] && [ ! -f manage.py ]; then echo " +
+                QuoteForBash("[error] Donkey 프로젝트 파일(config.py 또는 manage.py)을 찾을 수 없습니다: " + wslMycarPath) + "; exit 2; fi && " +
+                QuotePathForBash(wslCondaPath) + " run --no-capture-output -n " + QuoteForBash(envName) + " " +
                 "donkey train " +
-                "--tub " + QuotePathForBash(ConvertToWslPath(tubPath)) + " " +
-                "--model " + QuotePathForBash(ConvertToWslPath(modelPath)) + " " +
+                "--tub " + QuotePathForBash(wslTubPath) + " " +
+                "--model " + QuotePathForBash(wslModelPath) + " " +
                 "--type " + QuoteForBash(modelType);
 
-            arguments = "-d " + TrainingWslDistroName + " bash -lc " + QuoteForBash(command);
+            arguments.AddRange(new[] { "-d", wslDistro, "bash", "-lc", command });
+            displayArguments = "-d " + QuoteProcessArgument(wslDistro) + " bash -lc " + QuoteForBash(command);
             return true;
-        }
-
-        private string BuildCondaResolverCommand()
-        {
-            return
-                "if command -v conda >/dev/null 2>&1; then CONDA_CMD=conda; " +
-                "elif [ -x \"$HOME/miniconda3/bin/conda\" ]; then CONDA_CMD=\"$HOME/miniconda3/bin/conda\"; " +
-                "elif [ -x \"$HOME/anaconda3/bin/conda\" ]; then CONDA_CMD=\"$HOME/anaconda3/bin/conda\"; " +
-                "else echo '[error] conda 명령을 찾을 수 없습니다.'; exit 127; fi";
         }
 
         private string ConvertToWslPath(string winPath)
@@ -1831,45 +1844,9 @@ namespace TeamApp
 
             try
             {
-                var distroResult = await RunProcessCaptureAsync("wsl", new[] { "-l", "-q" }, 10000);
-                if (distroResult.ExitCode != 0)
-                {
-                    AppendTrainingLog("[감지 오류] WSL 목록을 가져오지 못했습니다.");
-                    AppendTrainingLog(distroResult.Error);
-                    MessageBox.Show("WSL Ubuntu 목록을 가져오지 못했습니다.\nWSL 설치 상태를 확인해 주세요.",
-                        "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                var distros = await DetectWslDistrosAsync();
+                if (!ApplyDetectedWslDistros(distros, requireExistingSelectionWhenMultiple: true))
                     return;
-                }
-
-                var distros = ParseLines(distroResult.Output)
-                    .Where(line => !line.Contains("Windows Subsystem", StringComparison.OrdinalIgnoreCase))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-                cmbTrainingWslDistro.Items.Clear();
-                cmbTrainingWslDistro.Items.AddRange(distros.Cast<object>().ToArray());
-
-                if (distros.Count == 0)
-                {
-                    MessageBox.Show("감지된 WSL Ubuntu가 없습니다.\nUbuntu 설치 후 다시 자동 감지를 실행해 주세요.",
-                        "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                if (distros.Count == 1)
-                {
-                    cmbTrainingWslDistro.Text = distros[0];
-                    AppendTrainingLog("[감지] WSL Ubuntu: " + distros[0]);
-                }
-                else if (string.IsNullOrWhiteSpace(cmbTrainingWslDistro.Text) ||
-                         !distros.Contains(cmbTrainingWslDistro.Text.Trim(), StringComparer.OrdinalIgnoreCase))
-                {
-                    MessageBox.Show(
-                        "WSL Ubuntu가 여러 개 감지되었습니다.\n목록에서 학습 환경이 설치된 Ubuntu를 선택한 뒤 자동 감지를 다시 실행해 주세요.",
-                        "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    AppendTrainingLog("[감지] 여러 WSL Ubuntu가 감지되었습니다: " + string.Join(", ", distros));
-                    return;
-                }
 
                 string distro = NormalizeWslDistroName(cmbTrainingWslDistro.Text);
                 await DetectCondaPathsAsync(distro);
@@ -1890,56 +1867,163 @@ namespace TeamApp
             }
         }
 
-        private async Task DetectCondaPathsAsync(string distro)
+        private async void BtnSelectTrainingWslDistro_Click(object? sender, EventArgs e)
         {
-            distro = NormalizeWslDistroName(distro);
-            string script =
-                "for p in \"$(command -v conda 2>/dev/null)\" \"$HOME/miniconda3/bin/conda\" \"$HOME/anaconda3/bin/conda\"; do " +
-                "[ -n \"$p\" ] && [ -x \"$p\" ] && printf '%s\\n' \"$p\"; " +
-                "done; " +
-                "find \"$HOME\" /opt -maxdepth 5 -type f -path '*/bin/conda' 2>/dev/null";
-            var result = await RunWslBashCaptureAsync(distro, script, 20000);
-            if (result.ExitCode != 0)
+            btnSelectTrainingWslDistro.Enabled = false;
+            AppendTrainingLog("[감지] WSL Ubuntu 목록을 확인합니다.");
+
+            try
             {
-                AppendTrainingLog("[감지 오류] Conda 경로 감지 명령이 실패했습니다.");
-                AppendTrainingLog("[감지 오류] 사용한 WSL Ubuntu: " + distro);
-                AppendTrainingLog(result.Error);
-                AppendTrainingLog(result.Output);
+                var distros = await DetectWslDistrosAsync();
+                ApplyDetectedWslDistros(distros, requireExistingSelectionWhenMultiple: false);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("WSL Ubuntu 목록 확인 중 오류가 발생했습니다.\n\n오류 내용: " + ex.Message,
+                    "WSL Ubuntu 감지 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnSelectTrainingWslDistro.Enabled = true;
+            }
+        }
+
+        private async void BtnSelectCondaPath_Click(object? sender, EventArgs e)
+        {
+            string distro = NormalizeWslDistroName(cmbTrainingWslDistro.Text);
+            if (string.IsNullOrWhiteSpace(distro))
+            {
+                MessageBox.Show("먼저 WSL Ubuntu를 선택해 주세요.",
+                    "Conda 경로 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            var condaPaths = ParseLines(result.Output)
-                .Where(line => line.EndsWith("/bin/conda", StringComparison.Ordinal))
-                .Where(line => !line.Contains("/pkgs/", StringComparison.Ordinal))
-                .Where(line => !line.Contains("/site-packages/", StringComparison.Ordinal))
-                .Where(line => !line.Contains("/envs/", StringComparison.Ordinal))
-                .Distinct(StringComparer.Ordinal)
+            btnSelectCondaPath.Enabled = false;
+            AppendTrainingLog("[감지] Conda 경로를 확인합니다. WSL Ubuntu: " + distro);
+
+            try
+            {
+                string condaPath = await DetectCondaPathAsync(distro);
+                if (string.IsNullOrWhiteSpace(condaPath))
+                {
+                    MessageBox.Show("Conda 경로를 찾을 수 없습니다.",
+                        "Conda 경로 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    AppendTrainingLog("[감지] Conda 경로를 찾지 못했습니다.");
+                    return;
+                }
+
+                SetComboText(cmbCondaPath, condaPath);
+                AppendTrainingLog("[감지] Conda 경로: " + condaPath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Conda 경로 확인 중 오류가 발생했습니다.\n\n오류 내용: " + ex.Message,
+                    "Conda 경로 감지 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnSelectCondaPath.Enabled = true;
+            }
+        }
+
+        private async Task<List<string>> DetectWslDistrosAsync()
+        {
+            var distroResult = await RunProcessCaptureAsync("wsl", new[] { "-l", "-q" }, 10000);
+            if (distroResult.ExitCode != 0)
+            {
+                AppendTrainingLog("[감지 오류] WSL 목록을 가져오지 못했습니다.");
+                AppendTrainingLog(distroResult.Error);
+                MessageBox.Show("WSL Ubuntu 목록을 가져오지 못했습니다.\nWSL 설치 상태를 확인해 주세요.",
+                    "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return new List<string>();
+            }
+
+            return ParseLines(distroResult.Output)
+                .Select(NormalizeWslDistroName)
+                .Where(line => !line.Contains("Windows Subsystem", StringComparison.OrdinalIgnoreCase))
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
 
+        private bool ApplyDetectedWslDistros(List<string> distros, bool requireExistingSelectionWhenMultiple)
+        {
+            cmbTrainingWslDistro.Items.Clear();
+            cmbTrainingWslDistro.Items.AddRange(distros.Cast<object>().ToArray());
+
+            if (distros.Count == 0)
+            {
+                MessageBox.Show("감지된 WSL Ubuntu가 없습니다.\nUbuntu 설치 후 다시 자동 감지를 실행해 주세요.",
+                    "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (distros.Count == 1)
+            {
+                cmbTrainingWslDistro.Text = distros[0];
+                AppendTrainingLog("[감지] WSL Ubuntu: " + distros[0]);
+                return true;
+            }
+
+            string selected = NormalizeWslDistroName(cmbTrainingWslDistro.Text);
+            bool hasValidSelection = distros.Contains(selected, StringComparer.OrdinalIgnoreCase);
+            if (!hasValidSelection && !requireExistingSelectionWhenMultiple)
+                cmbTrainingWslDistro.Text = distros[0];
+
+            AppendTrainingLog("[감지] 여러 WSL Ubuntu가 감지되었습니다: " + string.Join(", ", distros));
+            MessageBox.Show(
+                "WSL Ubuntu가 여러 개 감지되었습니다.\n목록에서 학습 환경이 설치된 Ubuntu를 선택해 주세요.",
+                "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            return hasValidSelection || !requireExistingSelectionWhenMultiple;
+        }
+
+        private async Task DetectCondaPathsAsync(string distro)
+        {
+            distro = NormalizeWslDistroName(distro);
+            string condaPath = await DetectCondaPathAsync(distro);
             cmbCondaPath.Items.Clear();
-            cmbCondaPath.Items.AddRange(condaPaths.Cast<object>().ToArray());
 
-            if (condaPaths.Count == 0)
+            if (string.IsNullOrWhiteSpace(condaPath))
             {
                 AppendTrainingLog("[감지] Conda 경로를 찾지 못했습니다.");
-                MessageBox.Show("선택한 Ubuntu에서 conda 실행 파일을 찾지 못했습니다.\nMiniconda/Anaconda 설치 여부를 확인해 주세요.",
+                MessageBox.Show("Conda 경로를 찾을 수 없습니다.",
                     "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (condaPaths.Count == 1)
+            SetComboText(cmbCondaPath, condaPath);
+            AppendTrainingLog("[감지] Conda 경로: " + condaPath);
+        }
+
+        private Task<string> DetectCondaPathAsync(string distro)
+        {
+            distro = NormalizeWslDistroName(distro);
+
+            return Task.Run(async () =>
             {
-                cmbCondaPath.Text = condaPaths[0];
-                AppendTrainingLog("[감지] Conda 경로: " + condaPaths[0]);
-                return;
-            }
+                var whichResult = await RunWslBashCaptureAsync(distro, "which conda", 10000);
+                string detected = FirstNonEmptyLine(whichResult.Output);
+                if (!string.IsNullOrWhiteSpace(detected))
+                    return detected.Trim();
 
-            if (string.IsNullOrWhiteSpace(cmbCondaPath.Text) || !condaPaths.Contains(cmbCondaPath.Text.Trim()))
-                cmbCondaPath.Text = condaPaths[0];
+                string defaultPathScript =
+                    "ls ~/miniconda3/bin/conda 2>/dev/null || ls ~/anaconda3/bin/conda 2>/dev/null || ls ~/miniforge3/bin/conda 2>/dev/null";
+                var defaultPathResult = await RunWslBashCaptureAsync(distro, defaultPathScript, 10000, useLoginShell: false);
+                detected = FirstNonEmptyLine(defaultPathResult.Output);
+                if (!string.IsNullOrWhiteSpace(detected))
+                    return detected.Trim();
 
-            AppendTrainingLog("[감지] Conda 경로 후보: " + string.Join(", ", condaPaths));
-            MessageBox.Show("Conda 경로가 여러 개 감지되었습니다.\n목록에서 사용할 Conda 경로를 확인해 주세요.",
-                "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                string searchScript = "find ~ -type f -name 'conda' -path '*/bin/conda' 2>/dev/null | head -n 1";
+                var searchResult = await RunWslBashCaptureAsync(distro, searchScript, 30000, useLoginShell: false);
+                detected = FirstNonEmptyLine(searchResult.Output);
+                return detected.Trim();
+            });
+        }
+
+        private string FirstNonEmptyLine(string text)
+        {
+            return ParseLines(text).FirstOrDefault() ?? string.Empty;
         }
 
         private async Task DetectCondaEnvironmentsAsync(string distro)
@@ -1989,9 +2073,7 @@ namespace TeamApp
         private async Task DetectDonkeyProjectsAsync(string distro)
         {
             distro = NormalizeWslDistroName(distro);
-            string script =
-                "find \"$HOME\" -maxdepth 6 -type f \\( -name config.py -o -name manage.py \\) 2>/dev/null | " +
-                "while IFS= read -r file; do dirname \"$file\"; done";
+            string script = "find \"$HOME\" -maxdepth 6 -type f \\( -name config.py -o -name manage.py \\) 2>/dev/null";
             var result = await RunWslBashCaptureAsync(distro, script, 20000);
             if (result.ExitCode != 0)
             {
@@ -2003,6 +2085,8 @@ namespace TeamApp
             }
 
             var projectPaths = ParseLines(result.Output)
+                .Select(GetLinuxDirectoryName)
+                .Where(path => !string.IsNullOrWhiteSpace(path))
                 .Where(path => !path.Contains("/miniconda3/", StringComparison.Ordinal))
                 .Where(path => !path.Contains("/anaconda3/", StringComparison.Ordinal))
                 .Where(path => !path.Contains("/.conda/", StringComparison.Ordinal))
@@ -2017,13 +2101,15 @@ namespace TeamApp
 
             if (projectPaths.Count == 1)
             {
-                txtMycarProjectPath.Text = projectPaths[0];
+                SetComboText(cmbMycarProjectPath, projectPaths[0]);
                 AppendTrainingLog("[감지] Donkey 프로젝트 경로: " + projectPaths[0]);
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(txtMycarProjectPath.Text))
-                txtMycarProjectPath.Text = projectPaths[0];
+            cmbMycarProjectPath.Items.Clear();
+            cmbMycarProjectPath.Items.AddRange(projectPaths.Cast<object>().ToArray());
+            if (string.IsNullOrWhiteSpace(cmbMycarProjectPath.Text))
+                cmbMycarProjectPath.Text = projectPaths[0];
 
             AppendTrainingLog("[감지] Donkey 프로젝트 후보:");
             foreach (string path in projectPaths)
@@ -2033,10 +2119,23 @@ namespace TeamApp
                 "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
+        private string GetLinuxDirectoryName(string path)
+        {
+            string normalized = path.Trim().Replace("\\", "/");
+            int index = normalized.LastIndexOf('/');
+            return index > 0 ? normalized.Substring(0, index) : string.Empty;
+        }
+
         private async Task<(int ExitCode, string Output, string Error)> RunWslBashCaptureAsync(string distro, string script, int timeoutMs)
         {
+            return await RunWslBashCaptureAsync(distro, script, timeoutMs, useLoginShell: true);
+        }
+
+        private async Task<(int ExitCode, string Output, string Error)> RunWslBashCaptureAsync(string distro, string script, int timeoutMs, bool useLoginShell)
+        {
             distro = NormalizeWslDistroName(distro);
-            return await RunProcessCaptureAsync("wsl", new[] { "-d", distro, "bash", "-lc", script }, timeoutMs);
+            string shellOption = useLoginShell ? "-lc" : "-c";
+            return await RunProcessCaptureAsync("wsl", new[] { "-d", distro, "bash", shellOption, script }, timeoutMs);
         }
 
         private async Task<(int ExitCode, string Output, string Error)> RunProcessCaptureAsync(string fileName, string arguments, int timeoutMs)
@@ -2095,6 +2194,7 @@ namespace TeamApp
                 .Replace("\u001c", string.Empty)
                 .Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(line => NormalizeWslText(line))
+                .Where(line => !line.Contains("Wsl/Service/", StringComparison.OrdinalIgnoreCase))
                 .Where(line => !string.IsNullOrWhiteSpace(line));
         }
 
@@ -2155,6 +2255,18 @@ namespace TeamApp
                 targetTextBox.Text = dialog.SelectedPath;
         }
 
+        private void SelectFolderInto(ComboBox targetComboBox, string title)
+        {
+            using var dialog = new FolderBrowserDialog
+            {
+                Description = title,
+                SelectedPath = Directory.Exists(targetComboBox.Text) ? targetComboBox.Text : string.Empty
+            };
+
+            if (dialog.ShowDialog(this) == DialogResult.OK)
+                SetComboText(targetComboBox, dialog.SelectedPath);
+        }
+
         private void BtnSelectTrainingModelPath_Click(object? sender, EventArgs e)
         {
             using var dialog = new SaveFileDialog
@@ -2179,7 +2291,7 @@ namespace TeamApp
                 {
                     WslDistroName = cmbTrainingWslDistro.Text.Trim(),
                     CondaPath = cmbCondaPath.Text.Trim(),
-                    MycarPath = txtMycarProjectPath.Text.Trim(),
+                    MycarPath = cmbMycarProjectPath.Text.Trim(),
                     TubPath = txtTrainingTubPath.Text.Trim(),
                     ModelPath = txtTrainingModelPath.Text.Trim(),
                     ModelType = cmbTrainingModelType.Text.Trim(),
@@ -2211,7 +2323,7 @@ namespace TeamApp
                 if (settings == null) return;
 
                 if (!string.IsNullOrWhiteSpace(settings.MycarPath))
-                    txtMycarProjectPath.Text = settings.MycarPath;
+                    SetComboText(cmbMycarProjectPath, settings.MycarPath);
                 if (!string.IsNullOrWhiteSpace(settings.TubPath))
                     txtTrainingTubPath.Text = settings.TubPath;
                 if (!string.IsNullOrWhiteSpace(settings.ModelPath))
@@ -2248,11 +2360,11 @@ namespace TeamApp
         {
             public string WslDistroName { get; set; } = "";
             public string CondaPath { get; set; } = "";
-            public string MycarPath { get; set; } = "~/mysim";
+            public string MycarPath { get; set; } = "";
             public string TubPath { get; set; } = "data";
             public string ModelPath { get; set; } = "models/pilot.keras";
             public string ModelType { get; set; } = "linear";
-            public string PythonEnvName { get; set; } = "e2e_env";
+            public string PythonEnvName { get; set; } = "";
             public int Epochs { get; set; } = 10;
         }
 
@@ -2270,7 +2382,7 @@ namespace TeamApp
         private void LblPlayInterval_Click(object sender, EventArgs e) { }
         private void LblThrottleValue_Click(object sender, EventArgs e) { }
         private void StsTrainingStatus_Click(object sender, EventArgs e) { }
-        private void BtnSelectMycarPath_Click(object sender, EventArgs e) => SelectFolderInto(txtMycarProjectPath, "mycar 폴더 선택");
+        private void BtnSelectMycarPath_Click(object sender, EventArgs e) => SelectFolderInto(cmbMycarProjectPath, "Donkey 프로젝트 폴더 선택");
         private void GrpDataCleaner_Enter(object sender, EventArgs e) { }
 
         // ScottPlot 차트를 필요할 때 생성합니다.
