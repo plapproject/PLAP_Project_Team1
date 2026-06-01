@@ -2141,11 +2141,14 @@ namespace TeamApp
         {
             if (string.IsNullOrWhiteSpace(envName)) return false;
 
+            // 환경 목록을 awk/grep으로 파싱하면 Windows -> WSL 따옴표 전달에서 깨질 수 있습니다.
+            // conda run으로 Python을 직접 실행해 보는 방식이 더 단순하고 확실합니다.
             string command =
                 "test -x ~/miniconda3/bin/conda && " +
-                "~/miniconda3/bin/conda env list | awk '{print $1}' | grep -Fx " + QuoteForBash(envName);
+                "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
+                " python --version >/dev/null 2>&1";
 
-            return CanRunProcess("wsl", "bash -lc " + QuoteForCommandLine(command), timeoutMs: 5000);
+            return CanRunProcess("wsl", "bash -lc " + QuoteForCommandLine(command), timeoutMs: 10000);
         }
 
         private async Task<TrainingEnvironmentCheck> RefreshTrainingEnvironmentAsync(bool showSuccessMessage)
@@ -2522,7 +2525,7 @@ namespace TeamApp
         private string BuildTrainingSetupCommands()
         {
             string envName = string.IsNullOrWhiteSpace(_trainingPythonEnvName) ? "e2e_env" : _trainingPythonEnvName.Trim();
-            string safeEnvName = EscapePowerShellSingleQuotedString(envName);
+            string safeEnvName = GetSafeCondaEnvironmentName(envName);
 
             return string.Join(Environment.NewLine, new[]
             {
@@ -2539,7 +2542,7 @@ namespace TeamApp
                 "wsl.exe bash -lc 'if [ ! -x \"$HOME/miniconda3/bin/conda\" ]; then cd \"$HOME\" && wget -O Miniconda3-latest-Linux-x86_64.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && bash Miniconda3-latest-Linux-x86_64.sh -b -p \"$HOME/miniconda3\"; fi'",
                 "",
                 "# 3) conda 환경과 DonkeyCar를 준비합니다.",
-                "wsl.exe bash -lc '$HOME/miniconda3/bin/conda env list | awk \"{print \\$1}\" | grep -Fx " + safeEnvName + " >/dev/null || $HOME/miniconda3/bin/conda create -y -n " + safeEnvName + " python=3.11'",
+                "wsl.exe bash -lc '$HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " python --version >/dev/null 2>&1 || $HOME/miniconda3/bin/conda create -y -n " + safeEnvName + " python=3.11'",
                 "wsl.exe bash -lc '$HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " python -m pip install \"donkeycar[pc]\"'",
                 "",
                 "# 4) mycar 설정 파일이 없으면 생성합니다.",
@@ -2551,9 +2554,13 @@ namespace TeamApp
             });
         }
 
-        private string EscapePowerShellSingleQuotedString(string value)
+        private string GetSafeCondaEnvironmentName(string value)
         {
-            return value.Replace("'", "''");
+            string trimmed = value.Trim();
+            bool isSafe = trimmed.Length > 0 &&
+                trimmed.All(ch => char.IsLetterOrDigit(ch) || ch == '_' || ch == '-' || ch == '.');
+
+            return isSafe ? trimmed : "e2e_env";
         }
 
         private void ApplyTrainingEnvironmentCheck(TrainingEnvironmentCheck check)
