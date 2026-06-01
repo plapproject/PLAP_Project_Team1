@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using ScottPlot;
@@ -37,6 +38,18 @@ namespace TeamApp
         private bool _isFrameSelectionUpdating = false;
         private Process? _trainingProcess;
         private Button? _btnSelectTrainingModelPath;
+        private Button? _btnOpenTrainingModelFolder;
+        private Button? _btnCopyModelUseCommand;
+        private Button? _btnCheckTrainingEnvironment;
+        private Button? _btnAutoSetupTrainingEnvironment;
+        private Button? _btnCopyTrainingSetupCommands;
+        private System.Windows.Forms.Label? _lblTrainingEnvironmentStatus;
+        private int _lastTrainingProgressPercent = -1;
+        private bool _isTrainingEnvironmentReady = false;
+        private bool _isCheckingTrainingEnvironment = false;
+        private string _trainingMycarPath = "~/mycar";
+        private string _trainingPythonEnvName = "e2e_env";
+        private string _trainingModelType = "linear";
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
         private const string RunnerWindowsDonkey = "Windows donkey CLI";
@@ -1511,12 +1524,9 @@ namespace TeamApp
         /// </summary>
         private void InitializeTrainingControls()
         {
-            cmbTrainingModelType.Items.Clear();
-            cmbTrainingModelType.Items.AddRange(new object[] { "linear", "categorical", "rnn", "3d", "imu", "behavior" });
-            cmbTrainingModelType.Text = "linear";
-
-            txtTrainingPythonEnvName.Text = DetectLocalWslDonkeyEnvironment() ?? "e2e_env";
-            txtMycarProjectPath.Text = "~/mycar";
+            _trainingModelType = "linear";
+            _trainingPythonEnvName = DetectLocalWslDonkeyEnvironment() ?? "e2e_env";
+            _trainingMycarPath = "~/mycar";
             txtTrainingTubPath.Text = GetDefaultTrainingTubPath();
             txtTrainingModelPath.Text = GetDefaultTrainingModelPath();
 
@@ -1526,6 +1536,7 @@ namespace TeamApp
                 numTrainingEpochs.Value = 1;
 
             SimplifyTrainingUi();
+            btnStartTrainingProcess.Enabled = false;
             btnStopTrainingProcess.Enabled = false;
             stsTrainingStatus.Text = "학습 상태: 대기";
         }
@@ -1559,22 +1570,115 @@ namespace TeamApp
             _btnSelectTrainingModelPath.BringToFront();
         }
 
+        private void ConfigureTrainingResultButtons()
+        {
+            if (_btnOpenTrainingModelFolder == null)
+            {
+                _btnOpenTrainingModelFolder = new Button
+                {
+                    Font = new Font("맑은 고딕", 12F),
+                    Location = new Point(699, 260),
+                    Name = "btnOpenTrainingModelFolder",
+                    Size = new Size(194, 43),
+                    Text = "모델 폴더 열기",
+                    UseVisualStyleBackColor = true
+                };
+                _btnOpenTrainingModelFolder.Click += BtnOpenTrainingModelFolder_Click;
+                grpTrainingConfig.Controls.Add(_btnOpenTrainingModelFolder);
+            }
+
+            if (_btnCopyModelUseCommand == null)
+            {
+                _btnCopyModelUseCommand = new Button
+                {
+                    Font = new Font("맑은 고딕", 12F),
+                    Location = new Point(939, 260),
+                    Name = "btnCopyModelUseCommand",
+                    Size = new Size(220, 43),
+                    Text = "사용 명령 복사",
+                    UseVisualStyleBackColor = true
+                };
+                _btnCopyModelUseCommand.Click += BtnCopyModelUseCommand_Click;
+                grpTrainingConfig.Controls.Add(_btnCopyModelUseCommand);
+            }
+
+            _btnOpenTrainingModelFolder.BringToFront();
+            _btnCopyModelUseCommand.BringToFront();
+        }
+
+        private void ConfigureTrainingEnvironmentControls()
+        {
+            if (_lblTrainingEnvironmentStatus == null)
+            {
+                _lblTrainingEnvironmentStatus = new System.Windows.Forms.Label
+                {
+                    AutoSize = false,
+                    Font = new Font("맑은 고딕", 10F),
+                    Location = new Point(45, 314),
+                    Name = "lblTrainingEnvironmentStatus",
+                    Size = new Size(880, 30),
+                    Text = "학습 환경: 검사 전"
+                };
+                grpTrainingConfig.Controls.Add(_lblTrainingEnvironmentStatus);
+            }
+
+            if (_btnCheckTrainingEnvironment == null)
+            {
+                _btnCheckTrainingEnvironment = new Button
+                {
+                    Font = new Font("맑은 고딕", 10F),
+                    Location = new Point(939, 310),
+                    Name = "btnCheckTrainingEnvironment",
+                    Size = new Size(150, 36),
+                    Text = "환경 검사",
+                    UseVisualStyleBackColor = true
+                };
+                _btnCheckTrainingEnvironment.Click += async (_, _) => await RefreshTrainingEnvironmentAsync(showSuccessMessage: true);
+                grpTrainingConfig.Controls.Add(_btnCheckTrainingEnvironment);
+            }
+
+            if (_btnAutoSetupTrainingEnvironment == null)
+            {
+                _btnAutoSetupTrainingEnvironment = new Button
+                {
+                    Font = new Font("맑은 고딕", 10F),
+                    Location = new Point(1101, 310),
+                    Name = "btnAutoSetupTrainingEnvironment",
+                    Size = new Size(170, 36),
+                    Text = "자동 설정 시도",
+                    UseVisualStyleBackColor = true
+                };
+                _btnAutoSetupTrainingEnvironment.Click += async (_, _) => await TryAutoSetupTrainingEnvironmentAsync();
+                grpTrainingConfig.Controls.Add(_btnAutoSetupTrainingEnvironment);
+            }
+
+            if (_btnCopyTrainingSetupCommands == null)
+            {
+                _btnCopyTrainingSetupCommands = new Button
+                {
+                    Font = new Font("맑은 고딕", 10F),
+                    Location = new Point(1283, 310),
+                    Name = "btnCopyTrainingSetupCommands",
+                    Size = new Size(180, 36),
+                    Text = "설치 명령 복사",
+                    UseVisualStyleBackColor = true
+                };
+                _btnCopyTrainingSetupCommands.Click += (_, _) => CopyTrainingSetupCommands();
+                grpTrainingConfig.Controls.Add(_btnCopyTrainingSetupCommands);
+            }
+
+            _lblTrainingEnvironmentStatus.BringToFront();
+            _btnCheckTrainingEnvironment.BringToFront();
+            _btnAutoSetupTrainingEnvironment.BringToFront();
+            _btnCopyTrainingSetupCommands.BringToFront();
+        }
+
         /// <summary>
         /// 발표/일반 사용자 기준으로 꼭 필요한 학습 입력만 남깁니다.
         /// mycar 경로, 모델 종류, Python 환경명은 자동 기본값을 사용합니다.
         /// </summary>
         private void SimplifyTrainingUi()
         {
-            lblMycarProjectPath.Visible = false;
-            txtMycarProjectPath.Visible = false;
-            btnSelectMycarPath.Visible = false;
-
-            lblTrainingModelType.Visible = false;
-            cmbTrainingModelType.Visible = false;
-
-            lblTrainingPythonEnvName.Visible = false;
-            txtTrainingPythonEnvName.Visible = false;
-
             btnSaveTrainingConfig.Visible = false;
 
             lblTrainingTubPath.Location = new Point(45, 78);
@@ -1593,9 +1697,11 @@ namespace TeamApp
 
             btnStartTrainingProcess.Location = new Point(219, 260);
             btnStopTrainingProcess.Location = new Point(459, 260);
-            grpTrainingConfig.Height = 330;
-            grpTrainingOutput.Location = new Point(15, 360);
-            grpTrainingOutput.Height = Math.Max(260, tabTrainingMonitor.Height - 400);
+            ConfigureTrainingResultButtons();
+            ConfigureTrainingEnvironmentControls();
+            grpTrainingConfig.Height = 380;
+            grpTrainingOutput.Location = new Point(15, 410);
+            grpTrainingOutput.Height = Math.Max(260, tabTrainingMonitor.Height - 450);
         }
 
         private async void BtnStartTrainingProcess_Click(object? sender, EventArgs e)
@@ -1604,6 +1710,17 @@ namespace TeamApp
             {
                 MessageBox.Show("이미 학습 프로세스가 실행 중입니다.",
                     "학습 실행", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            TrainingEnvironmentCheck environmentCheck = await RefreshTrainingEnvironmentAsync(showSuccessMessage: false);
+            if (!environmentCheck.IsReady)
+            {
+                MessageBox.Show(
+                    "학습을 시작할 수 없습니다.\n\n" +
+                    environmentCheck.StatusMessage + "\n\n" +
+                    "'자동 설정 시도' 또는 '설치 명령 복사'를 먼저 사용해 주세요.",
+                    "학습 환경 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -1642,9 +1759,10 @@ namespace TeamApp
                 _trainingProcess.ErrorDataReceived += (_, ev) =>
                 {
                     if (!string.IsNullOrWhiteSpace(ev.Data))
-                        AppendTrainingLog("[error] " + ev.Data);
+                        AppendTrainingLog(ev.Data, fromErrorStream: true);
                 };
 
+                _lastTrainingProgressPercent = -1;
                 AppendTrainingLog("학습 프로세스를 시작합니다.");
                 AppendTrainingLog("WSL/콘솔 출력은 이 학습 로그 창에 실시간으로 표시됩니다.");
                 AppendTrainingLog("실행 방식: " + command.RunnerName);
@@ -1658,6 +1776,8 @@ namespace TeamApp
 
                 AppendTrainingLog("");
                 AppendTrainingLog($"학습 프로세스가 종료되었습니다. 종료 코드: {_trainingProcess.ExitCode}");
+                if (_trainingProcess.ExitCode == 0)
+                    AppendTrainingLog("학습 완료: 모델 파일을 저장했습니다. '모델 폴더 열기' 또는 '사용 명령 복사'를 사용할 수 있습니다.");
                 stsTrainingStatus.Text = $"학습 상태: 종료 코드 {_trainingProcess.ExitCode}";
             }
             catch (Exception ex)
@@ -1674,7 +1794,7 @@ namespace TeamApp
             }
             finally
             {
-                btnStartTrainingProcess.Enabled = true;
+                UpdateTrainingStartButtonState();
                 btnStopTrainingProcess.Enabled = false;
             }
         }
@@ -1706,8 +1826,8 @@ namespace TeamApp
             command = TrainingCommand.Empty;
 
             string envName = ResolveTrainingPythonEnvName();
-            string modelType = cmbTrainingModelType.Text.Trim().ToLowerInvariant();
-            string mycarPath = txtMycarProjectPath.Text.Trim();
+            string modelType = _trainingModelType.Trim().ToLowerInvariant();
+            string mycarPath = _trainingMycarPath.Trim();
             string tubPath = txtTrainingTubPath.Text.Trim();
             string modelPath = txtTrainingModelPath.Text.Trim();
             string runner = DetectRecommendedTrainingRunner();
@@ -1842,18 +1962,18 @@ namespace TeamApp
 
         private string ResolveTrainingPythonEnvName()
         {
-            string configuredEnvName = txtTrainingPythonEnvName.Text.Trim();
+            string configuredEnvName = _trainingPythonEnvName.Trim();
             if (!string.IsNullOrWhiteSpace(configuredEnvName) && CanRunWslCondaEnvironment(configuredEnvName))
                 return configuredEnvName;
 
             string? detectedEnvName = DetectLocalWslDonkeyEnvironment();
             if (!string.IsNullOrWhiteSpace(detectedEnvName))
             {
-                txtTrainingPythonEnvName.Text = detectedEnvName;
+                _trainingPythonEnvName = detectedEnvName;
                 return detectedEnvName;
             }
 
-            txtTrainingPythonEnvName.Text = "e2e_env";
+            _trainingPythonEnvName = "e2e_env";
             return "e2e_env";
         }
 
@@ -2023,13 +2143,439 @@ namespace TeamApp
             return CanRunProcess("wsl", "bash -lc " + QuoteForCommandLine(command), timeoutMs: 5000);
         }
 
-        private void AppendTrainingLog(string text)
+        private async Task<TrainingEnvironmentCheck> RefreshTrainingEnvironmentAsync(bool showSuccessMessage)
+        {
+            if (_isCheckingTrainingEnvironment)
+                return new TrainingEnvironmentCheck(false, "학습 환경: 이미 검사 중입니다.", Array.Empty<string>(), Array.Empty<string>());
+
+            try
+            {
+                _isCheckingTrainingEnvironment = true;
+                ApplyTrainingEnvironmentStatus("학습 환경: 검사 중...", false);
+                SetTrainingEnvironmentButtonsEnabled(false);
+
+                var details = new List<string>();
+                EnsureDefaultTrainingPaths(details);
+                string tubPath = txtTrainingTubPath.Text.Trim();
+                string modelPath = txtTrainingModelPath.Text.Trim();
+                string envName = string.IsNullOrWhiteSpace(_trainingPythonEnvName) ? "e2e_env" : _trainingPythonEnvName.Trim();
+
+                TrainingEnvironmentCheck check = await Task.Run(() =>
+                    CheckTrainingEnvironment(tubPath, modelPath, envName, details));
+                ApplyTrainingEnvironmentCheck(check);
+
+                if (showSuccessMessage)
+                {
+                    string detail = string.Join(Environment.NewLine, check.Details);
+                    MessageBox.Show(
+                        check.StatusMessage + Environment.NewLine + Environment.NewLine + detail,
+                        "학습 환경 검사", MessageBoxButtons.OK,
+                        check.IsReady ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                }
+
+                return check;
+            }
+            catch (Exception ex)
+            {
+                var failed = new TrainingEnvironmentCheck(
+                    false,
+                    "학습 환경: 검사 중 오류가 발생했습니다.",
+                    new[] { "오류 내용: " + ex.Message },
+                    BuildTrainingSetupCommands().Split(new[] { Environment.NewLine }, StringSplitOptions.None));
+                ApplyTrainingEnvironmentCheck(failed);
+                return failed;
+            }
+            finally
+            {
+                _isCheckingTrainingEnvironment = false;
+                SetTrainingEnvironmentButtonsEnabled(true);
+                UpdateTrainingStartButtonState();
+            }
+        }
+
+        private TrainingEnvironmentCheck CheckTrainingEnvironment(
+            string tubPath,
+            string modelPath,
+            string envName,
+            List<string> details)
+        {
+            var commands = new List<string>();
+
+            bool wslReady = CanRunProcess("wsl", "--status", timeoutMs: 5000);
+            details.Add(wslReady ? "OK: WSL 설치 확인" : "FAIL: WSL이 설치되어 있지 않거나 실행할 수 없습니다.");
+            if (!wslReady)
+            {
+                commands.Add("wsl --install -d Ubuntu-22.04");
+                return BuildEnvironmentCheckResult(false, "학습 환경: WSL이 설치되어 있지 않습니다.", details, commands);
+            }
+
+            bool condaReady = CanRunWslBashCommand("test -x ~/miniconda3/bin/conda", timeoutMs: 5000);
+            details.Add(condaReady ? "OK: WSL miniconda 확인" : "FAIL: ~/miniconda3/bin/conda를 찾을 수 없습니다.");
+            if (!condaReady)
+            {
+                commands.Add("Miniconda 설치가 필요합니다. 설치 후 WSL에서 ~/miniconda3/bin/conda가 실행되는지 확인해 주세요.");
+                return BuildEnvironmentCheckResult(false, "학습 환경: WSL conda가 없습니다.", details, commands);
+            }
+
+            bool envReady = CanRunWslCondaEnvironment(envName);
+            details.Add(envReady ? $"OK: {envName} conda 환경 확인" : $"FAIL: {envName} conda 환경이 없습니다.");
+            if (!envReady)
+            {
+                commands.Add("wsl bash -lc '~/miniconda3/bin/conda create -y -n " + envName + " python=3.11'");
+                return BuildEnvironmentCheckResult(false, $"학습 환경: {envName} conda 환경이 없습니다.", details, commands);
+            }
+
+            bool donkeyReady = CanRunWslBashCommand(
+                "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
+                " donkey --help >/dev/null 2>&1",
+                timeoutMs: 15000);
+            details.Add(donkeyReady ? "OK: DonkeyCar CLI 확인" : "FAIL: DonkeyCar donkey 명령을 실행할 수 없습니다.");
+            if (!donkeyReady)
+            {
+                commands.Add("wsl bash -lc '~/miniconda3/bin/conda run --no-capture-output -n " + envName + " python -m pip install \"donkeycar[pc]\"'");
+                return BuildEnvironmentCheckResult(false, "학습 환경: DonkeyCar가 설치되어 있지 않습니다.", details, commands);
+            }
+
+            bool configReady = CanRunWslBashCommand("test -f ~/mycar/config.py", timeoutMs: 5000);
+            details.Add(configReady ? "OK: ~/mycar/config.py 확인" : "FAIL: ~/mycar/config.py가 없습니다.");
+            if (!configReady)
+            {
+                commands.Add("wsl bash -lc '~/miniconda3/bin/conda run --no-capture-output -n " + envName + " donkey createcar --path=$HOME/mycar'");
+                return BuildEnvironmentCheckResult(false, "학습 환경: ~/mycar/config.py가 없습니다.", details, commands);
+            }
+
+            bool tubReady = IsUsableTubFolder(tubPath);
+            details.Add(tubReady ? "OK: Tub 데이터 폴더 확인" : "FAIL: Tub 경로에 catalog_*.catalog 또는 manifest.json이 없습니다.");
+            if (!tubReady)
+                return BuildEnvironmentCheckResult(false, "학습 환경: Tub 데이터 폴더를 확인해 주세요.", details, commands);
+
+            bool modelPathReady = CanPrepareModelSaveFolder(modelPath, out string modelError);
+            details.Add(modelPathReady ? "OK: 모델 저장 폴더 쓰기 가능" : "FAIL: 모델 저장 폴더 오류 - " + modelError);
+            if (!modelPathReady)
+                return BuildEnvironmentCheckResult(false, "학습 환경: 모델 저장 폴더를 만들 수 없습니다.", details, commands);
+
+            return BuildEnvironmentCheckResult(true, "학습 환경: 정상", details, commands);
+        }
+
+        private TrainingEnvironmentCheck BuildEnvironmentCheckResult(
+            bool isReady,
+            string statusMessage,
+            List<string> details,
+            List<string> fallbackCommands)
+        {
+            if (fallbackCommands.Count == 0)
+                fallbackCommands.AddRange(BuildTrainingSetupCommands().Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
+
+            return new TrainingEnvironmentCheck(isReady, statusMessage, details, fallbackCommands);
+        }
+
+        private void EnsureDefaultTrainingPaths(List<string> details)
+        {
+            if (string.IsNullOrWhiteSpace(txtTrainingTubPath.Text))
+                txtTrainingTubPath.Text = GetDefaultTrainingTubPath();
+
+            if (string.IsNullOrWhiteSpace(txtTrainingModelPath.Text))
+                txtTrainingModelPath.Text = GetDefaultTrainingModelPath();
+
+            string defaultTubPath = GetDefaultTrainingTubPath();
+            string currentTubPath = txtTrainingTubPath.Text.Trim();
+            if (PathsEqual(currentTubPath, defaultTubPath) && !Directory.Exists(defaultTubPath))
+            {
+                Directory.CreateDirectory(defaultTubPath);
+                details.Add("AUTO: Desktop\\data 폴더를 생성했습니다.");
+            }
+
+            string? modelDirectory = Path.GetDirectoryName(txtTrainingModelPath.Text.Trim());
+            if (!string.IsNullOrWhiteSpace(modelDirectory) && !Directory.Exists(modelDirectory))
+            {
+                Directory.CreateDirectory(modelDirectory);
+                details.Add("AUTO: 모델 저장 폴더를 생성했습니다.");
+            }
+
+            SaveTrainingSettingsSilently();
+        }
+
+        private bool IsUsableTubFolder(string tubPath)
+        {
+            if (string.IsNullOrWhiteSpace(tubPath) || !Directory.Exists(tubPath))
+                return false;
+
+            try
+            {
+                return File.Exists(Path.Combine(tubPath, "manifest.json")) ||
+                    Directory.EnumerateFiles(tubPath, "catalog_*.catalog", SearchOption.TopDirectoryOnly).Any();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool CanPrepareModelSaveFolder(string modelPath, out string errorMessage)
+        {
+            errorMessage = "";
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(modelPath))
+                    modelPath = GetDefaultTrainingModelPath();
+
+                string? modelDirectory = Path.GetDirectoryName(modelPath);
+                if (string.IsNullOrWhiteSpace(modelDirectory))
+                {
+                    errorMessage = "모델 저장 폴더가 비어 있습니다.";
+                    return false;
+                }
+
+                Directory.CreateDirectory(modelDirectory);
+                string testPath = Path.Combine(modelDirectory, ".teamapp_write_test");
+                File.WriteAllText(testPath, "ok", Encoding.UTF8);
+                File.Delete(testPath);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        private bool PathsEqual(string left, string right)
+        {
+            try
+            {
+                return Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .Equals(Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                        StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return left.Equals(right, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private bool CanRunWslBashCommand(string bashCommand, int timeoutMs)
+        {
+            return CanRunProcess("wsl", "bash -lc " + QuoteForCommandLine(bashCommand), timeoutMs);
+        }
+
+        private async Task TryAutoSetupTrainingEnvironmentAsync()
+        {
+            try
+            {
+                ApplyTrainingEnvironmentStatus("학습 환경: 자동 설정 중...", false);
+                SetTrainingEnvironmentButtonsEnabled(false);
+                AppendTrainingLog("학습 환경 자동 설정을 시작합니다.");
+
+                EnsureDefaultTrainingPaths(new List<string>());
+
+                var details = new List<string>();
+                EnsureDefaultTrainingPaths(details);
+                string tubPath = txtTrainingTubPath.Text.Trim();
+                string modelPath = txtTrainingModelPath.Text.Trim();
+                string envName = string.IsNullOrWhiteSpace(_trainingPythonEnvName) ? "e2e_env" : _trainingPythonEnvName.Trim();
+                TrainingEnvironmentCheck beforeCheck = await Task.Run(() =>
+                    CheckTrainingEnvironment(tubPath, modelPath, envName, details));
+                if (beforeCheck.IsReady)
+                {
+                    ApplyTrainingEnvironmentCheck(beforeCheck);
+                    MessageBox.Show("학습 환경이 이미 정상입니다.",
+                        "자동 설정", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                if (!CanRunProcess("wsl", "--status", timeoutMs: 5000))
+                {
+                    CopyTrainingSetupCommands();
+                    ApplyTrainingEnvironmentCheck(beforeCheck);
+                    return;
+                }
+
+                if (!CanRunWslBashCommand("test -x ~/miniconda3/bin/conda", timeoutMs: 5000))
+                {
+                    CopyTrainingSetupCommands();
+                    ApplyTrainingEnvironmentCheck(beforeCheck);
+                    return;
+                }
+
+                if (!CanRunWslCondaEnvironment(envName))
+                    await RunAutoSetupCommandAsync(
+                        "conda 환경 생성",
+                        "~/miniconda3/bin/conda create -y -n " + QuoteForBash(envName) + " python=3.11",
+                        timeoutMs: 900000);
+
+                if (!CanRunWslBashCommand("~/miniconda3/bin/conda run --no-capture-output -n " +
+                    QuoteForBash(envName) + " donkey --help >/dev/null 2>&1", timeoutMs: 15000))
+                {
+                    await RunAutoSetupCommandAsync(
+                        "DonkeyCar 설치",
+                        "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
+                        " python -m pip install \"donkeycar[pc]\"",
+                        timeoutMs: 900000);
+                }
+
+                if (!CanRunWslBashCommand("test -f ~/mycar/config.py", timeoutMs: 5000))
+                {
+                    await RunAutoSetupCommandAsync(
+                        "mycar 설정 생성",
+                        "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
+                        " donkey createcar --path=$HOME/mycar",
+                        timeoutMs: 300000);
+                }
+
+                TrainingEnvironmentCheck afterCheck = await RefreshTrainingEnvironmentAsync(showSuccessMessage: false);
+                if (!afterCheck.IsReady)
+                {
+                    CopyTrainingSetupCommands();
+                    MessageBox.Show(
+                        "자동 설정을 시도했지만 아직 부족한 항목이 있습니다.\n\n" +
+                        afterCheck.StatusMessage + "\n\n" +
+                        "설치 명령을 클립보드에 복사했습니다.",
+                        "자동 설정", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                CopyTrainingSetupCommands();
+                MessageBox.Show(
+                    "자동 설정 중 오류가 발생했습니다.\n\n" +
+                    "설치 명령을 클립보드에 복사했으니 직접 실행해 주세요.\n\n" +
+                    "오류 내용: " + ex.Message,
+                    "자동 설정 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                SetTrainingEnvironmentButtonsEnabled(true);
+                UpdateTrainingStartButtonState();
+            }
+        }
+
+        private async Task RunAutoSetupCommandAsync(string title, string bashCommand, int timeoutMs)
+        {
+            AppendTrainingLog(title + " 명령을 실행합니다.");
+            ProcessRunResult result = await Task.Run(() =>
+                RunProcessAndCapture("wsl", "bash -lc " + QuoteForCommandLine(bashCommand), timeoutMs));
+
+            if (!string.IsNullOrWhiteSpace(result.Output))
+                AppendTrainingLog(result.Output);
+
+            if (!string.IsNullOrWhiteSpace(result.Error))
+                AppendTrainingLog(result.Error, fromErrorStream: true);
+
+            if (result.ExitCode != 0)
+                throw new InvalidOperationException(title + " 실패: 종료 코드 " + result.ExitCode);
+        }
+
+        private ProcessRunResult RunProcessAndCapture(string fileName, string arguments, int timeoutMs)
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                }
+            };
+
+            process.Start();
+            Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
+            Task<string> errorTask = process.StandardError.ReadToEndAsync();
+
+            if (!process.WaitForExit(timeoutMs))
+            {
+                process.Kill(entireProcessTree: true);
+                return new ProcessRunResult(-1, outputTask.Result, "명령 실행 시간이 초과되었습니다.");
+            }
+
+            return new ProcessRunResult(process.ExitCode, outputTask.Result, errorTask.Result);
+        }
+
+        private void CopyTrainingSetupCommands()
+        {
+            try
+            {
+                string commands = BuildTrainingSetupCommands();
+                Clipboard.SetText(commands);
+                MessageBox.Show(
+                    "학습 환경 설치/확인 명령을 클립보드에 복사했습니다.\n\n" +
+                    "PowerShell 또는 WSL 터미널에 붙여넣어 실행하면 됩니다.",
+                    "설치 명령 복사", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("설치 명령을 복사하지 못했습니다.\n\n오류 내용: " + ex.Message,
+                    "설치 명령 복사 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private string BuildTrainingSetupCommands()
+        {
+            string envName = string.IsNullOrWhiteSpace(_trainingPythonEnvName) ? "e2e_env" : _trainingPythonEnvName.Trim();
+
+            return string.Join(Environment.NewLine, new[]
+            {
+                "# PowerShell에서 WSL이 없을 때만 실행",
+                "wsl --install -d Ubuntu-22.04",
+                "",
+                "# WSL에서 Miniconda 설치 후 아래 명령 실행",
+                "wsl bash -lc '~/miniconda3/bin/conda create -y -n " + envName + " python=3.11'",
+                "wsl bash -lc '~/miniconda3/bin/conda run --no-capture-output -n " + envName + " python -m pip install \"donkeycar[pc]\"'",
+                "wsl bash -lc '~/miniconda3/bin/conda run --no-capture-output -n " + envName + " donkey createcar --path=$HOME/mycar'",
+                "",
+                "# 준비 확인",
+                "wsl bash -lc '~/miniconda3/bin/conda run --no-capture-output -n " + envName + " donkey --help'"
+            });
+        }
+
+        private void ApplyTrainingEnvironmentCheck(TrainingEnvironmentCheck check)
+        {
+            _isTrainingEnvironmentReady = check.IsReady;
+            ApplyTrainingEnvironmentStatus(check.StatusMessage, check.IsReady);
+            UpdateTrainingStartButtonState();
+        }
+
+        private void ApplyTrainingEnvironmentStatus(string message, bool isReady)
+        {
+            if (_lblTrainingEnvironmentStatus != null)
+            {
+                _lblTrainingEnvironmentStatus.Text = message;
+                _lblTrainingEnvironmentStatus.ForeColor = isReady ? System.Drawing.Color.ForestGreen : System.Drawing.Color.Firebrick;
+            }
+
+            stsTrainingStatus.Text = message.Replace("학습 환경:", "학습 상태:");
+        }
+
+        private void UpdateTrainingStartButtonState()
+        {
+            bool isRunning = _trainingProcess is { HasExited: false };
+            btnStartTrainingProcess.Enabled = _isTrainingEnvironmentReady && !isRunning && !_isCheckingTrainingEnvironment;
+        }
+
+        private void SetTrainingEnvironmentButtonsEnabled(bool enabled)
+        {
+            if (_btnCheckTrainingEnvironment != null)
+                _btnCheckTrainingEnvironment.Enabled = enabled;
+            if (_btnAutoSetupTrainingEnvironment != null)
+                _btnAutoSetupTrainingEnvironment.Enabled = enabled;
+            if (_btnCopyTrainingSetupCommands != null)
+                _btnCopyTrainingSetupCommands.Enabled = enabled;
+        }
+
+        private void AppendTrainingLog(string text, bool fromErrorStream = false)
         {
             if (rtbTrainingOutput.IsDisposed) return;
 
+            string? displayText = FormatTrainingLogLine(text, fromErrorStream);
+            if (string.IsNullOrWhiteSpace(displayText)) return;
+
             void Append()
             {
-                rtbTrainingOutput.AppendText(text + Environment.NewLine);
+                rtbTrainingOutput.AppendText(displayText + Environment.NewLine);
                 rtbTrainingOutput.SelectionStart = rtbTrainingOutput.TextLength;
                 rtbTrainingOutput.ScrollToCaret();
             }
@@ -2038,6 +2584,141 @@ namespace TeamApp
                 rtbTrainingOutput.BeginInvoke(new Action(Append));
             else
                 Append();
+        }
+
+        private string? FormatTrainingLogLine(string rawText, bool fromErrorStream)
+        {
+            string text = CleanConsoleControlCharacters(rawText);
+            if (string.IsNullOrWhiteSpace(text)) return null;
+
+            string? progressLine = TryFormatTrainingProgress(text);
+            if (progressLine != null) return progressLine;
+
+            if (text.Contains("Failed writing database file", StringComparison.OrdinalIgnoreCase))
+                return "참고: DonkeyCar 모델 DB 저장은 건너뛰었습니다. 모델 파일 저장에는 영향 없습니다.";
+
+            if (text.Contains("Starting training", StringComparison.OrdinalIgnoreCase))
+                return "학습 시작: 데이터로 모델을 학습하는 중입니다.";
+
+            if (text.Contains("Finished training", StringComparison.OrdinalIgnoreCase))
+                return "학습 종료: 모델 학습 단계가 완료되었습니다.";
+
+            if (text.Contains("TFLite conversion done", StringComparison.OrdinalIgnoreCase))
+                return "변환 완료: TFLite 모델 파일도 생성했습니다.";
+
+            if (text.Contains("saving model to", StringComparison.OrdinalIgnoreCase))
+                return "모델 저장 중: " + ExtractTextAfter(text, "saving model to");
+
+            if (text.Contains("Found datastore at", StringComparison.OrdinalIgnoreCase))
+                return "Tub 데이터 확인: " + ExtractTextAfter(text, "Found datastore at");
+
+            if (text.Contains("Records # Training", StringComparison.OrdinalIgnoreCase))
+                return "학습 데이터 수: " + ExtractTextAfter(text, "Records # Training");
+
+            if (text.Contains("Records # Validation", StringComparison.OrdinalIgnoreCase))
+                return "검증 데이터 수: " + ExtractTextAfter(text, "Records # Validation");
+
+            if (ShouldHideVerboseTrainingLine(text)) return null;
+
+            bool looksLikeRealError =
+                text.Contains("Traceback", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("Exception", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("EnvironmentLocationNotFound", StringComparison.OrdinalIgnoreCase) ||
+                text.StartsWith("ERROR:", StringComparison.OrdinalIgnoreCase);
+
+            if (fromErrorStream && looksLikeRealError)
+                return "오류: " + text;
+
+            return text;
+        }
+
+        private string CleanConsoleControlCharacters(string rawText)
+        {
+            string text = Regex.Replace(rawText, @"\x1B\[[0-9;?]*[ -/]*[@-~]", "");
+            text = text.Replace("\r", "");
+
+            while (text.Contains('\b'))
+            {
+                int index = text.IndexOf('\b');
+                if (index > 0)
+                    text = text.Remove(index - 1, 2);
+                else
+                    text = text.Remove(index, 1);
+            }
+
+            return new string(text.Where(ch => !char.IsControl(ch) || ch == '\t').ToArray()).Trim();
+        }
+
+        private string? TryFormatTrainingProgress(string text)
+        {
+            Match match = Regex.Match(text, @"^\s*(\d+)\s*/\s*(\d+)\s+\[");
+            if (!match.Success) return null;
+
+            int current = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+            int total = int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
+            if (total <= 0) return null;
+
+            int percent = Math.Min(100, Math.Max(0, current * 100 / total));
+            if (percent < 100 && percent == _lastTrainingProgressPercent) return null;
+            _lastTrainingProgressPercent = percent;
+
+            int filled = percent * 20 / 100;
+            string bar = new string('=', filled).PadRight(20, '-');
+            string lossText = ExtractLossSummary(text);
+            return $"학습 진행률 [{bar}] {percent,3}% ({current}/{total}){lossText}";
+        }
+
+        private string ExtractLossSummary(string text)
+        {
+            Match match = Regex.Match(text, @"loss:\s*([0-9.]+)");
+            return match.Success ? $"  loss: {match.Groups[1].Value}" : "";
+        }
+
+        private bool ShouldHideVerboseTrainingLine(string text)
+        {
+            string[] noisyPatterns =
+            {
+                "tensorflow/core",
+                "external/local_",
+                "could not find cuda",
+                "cuda drivers",
+                "cuDNN",
+                "cuFFT",
+                "cuBLAS",
+                "NUMA",
+                "TF-TRT",
+                "oneDNN",
+                "This TensorFlow binary is optimized",
+                "To enable the following instructions",
+                "Skipping registering GPU devices",
+                "Assets written to:",
+                "Summary on the non-converted ops",
+                "Accepted dialects",
+                "Non-Converted Ops",
+                "arith.constant",
+                "(f32:",
+                "Ignored output_format",
+                "Ignored drop_control_dependency",
+                "Reading SavedModel",
+                "Restoring SavedModel",
+                "SavedModel load",
+                "MLIR",
+                "disabling MLIR",
+                "Closing tub",
+                "Closing manifest",
+                "Creating ImageTransformations",
+                "Using last catalog",
+                "Train with image caching"
+            };
+
+            return noisyPatterns.Any(pattern => text.Contains(pattern, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private string ExtractTextAfter(string text, string marker)
+        {
+            int index = text.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (index < 0) return text;
+            return text.Substring(index + marker.Length).Trim(' ', ':');
         }
 
         private void SelectFolderInto(TextBox targetTextBox, string title)
@@ -2072,6 +2753,72 @@ namespace TeamApp
                 txtTrainingModelPath.Text = dialog.FileName;
         }
 
+        private void BtnOpenTrainingModelFolder_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                string modelPath = txtTrainingModelPath.Text.Trim();
+                string? modelDirectory = Path.GetDirectoryName(modelPath);
+
+                if (string.IsNullOrWhiteSpace(modelDirectory))
+                {
+                    MessageBox.Show("모델 저장 경로를 먼저 확인해 주세요.",
+                        "모델 폴더 열기", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                Directory.CreateDirectory(modelDirectory);
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = modelDirectory,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("모델 폴더를 열 수 없습니다.\n\n오류 내용: " + ex.Message,
+                    "모델 폴더 열기 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void BtnCopyModelUseCommand_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                string command = BuildModelUseCommand();
+                Clipboard.SetText(command);
+                MessageBox.Show(
+                    "학습된 모델을 DonkeyCar에서 실행하는 명령을 클립보드에 복사했습니다.\n\n" + command,
+                    "사용 명령 복사", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("모델 사용 명령을 만들 수 없습니다.\n\n오류 내용: " + ex.Message,
+                    "사용 명령 복사 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private string BuildModelUseCommand()
+        {
+            string envName = string.IsNullOrWhiteSpace(_trainingPythonEnvName)
+                ? "e2e_env"
+                : _trainingPythonEnvName.Trim();
+            string mycarPath = string.IsNullOrWhiteSpace(_trainingMycarPath)
+                ? "~/mycar"
+                : _trainingMycarPath.Trim();
+            string modelPath = string.IsNullOrWhiteSpace(txtTrainingModelPath.Text)
+                ? GetDefaultTrainingModelPath()
+                : txtTrainingModelPath.Text.Trim();
+            string modelType = string.IsNullOrWhiteSpace(_trainingModelType)
+                ? "linear"
+                : _trainingModelType.Trim().ToLowerInvariant();
+
+            return "wsl bash -lc " + QuoteForCommandLine(
+                "cd " + QuotePathForBash(mycarPath) + " && " +
+                "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) + " " +
+                "python manage.py drive --model=" + QuotePathForBash(modelPath) + " --type=" + QuoteForBash(modelType));
+        }
+
         private void BtnSaveTrainingConfig_Click(object? sender, EventArgs e)
         {
             try
@@ -2092,11 +2839,11 @@ namespace TeamApp
             Directory.CreateDirectory(Application.UserAppDataPath);
             var settings = new TrainingSettings
             {
-                MycarPath = txtMycarProjectPath.Text.Trim(),
+                MycarPath = _trainingMycarPath.Trim(),
                 TubPath = txtTrainingTubPath.Text.Trim(),
                 ModelPath = txtTrainingModelPath.Text.Trim(),
-                ModelType = cmbTrainingModelType.Text.Trim(),
-                PythonEnvName = txtTrainingPythonEnvName.Text.Trim(),
+                ModelType = _trainingModelType.Trim(),
+                PythonEnvName = _trainingPythonEnvName.Trim(),
                 Epochs = (int)numTrainingEpochs.Value
             };
 
@@ -2115,11 +2862,11 @@ namespace TeamApp
                 var settings = JsonSerializer.Deserialize<TrainingSettings>(json);
                 if (settings == null) return;
 
-                txtMycarProjectPath.Text = string.IsNullOrWhiteSpace(settings.MycarPath) ? "~/mycar" : settings.MycarPath;
+                _trainingMycarPath = string.IsNullOrWhiteSpace(settings.MycarPath) ? "~/mycar" : settings.MycarPath;
                 txtTrainingTubPath.Text = ShouldUseDefaultTubPath(settings.TubPath) ? GetDefaultTrainingTubPath() : settings.TubPath;
                 txtTrainingModelPath.Text = ShouldUseDefaultModelPath(settings.ModelPath) ? GetDefaultTrainingModelPath() : settings.ModelPath;
-                cmbTrainingModelType.Text = string.IsNullOrWhiteSpace(settings.ModelType) ? "linear" : settings.ModelType;
-                txtTrainingPythonEnvName.Text = string.IsNullOrWhiteSpace(settings.PythonEnvName) ||
+                _trainingModelType = string.IsNullOrWhiteSpace(settings.ModelType) ? "linear" : settings.ModelType;
+                _trainingPythonEnvName = string.IsNullOrWhiteSpace(settings.PythonEnvName) ||
                     settings.PythonEnvName.Equals("donkey", StringComparison.OrdinalIgnoreCase)
                     ? ResolveTrainingPythonEnvName()
                     : settings.PythonEnvName;
@@ -2163,6 +2910,36 @@ namespace TeamApp
             public int Epochs { get; set; } = 1;
         }
 
+        private sealed class TrainingEnvironmentCheck
+        {
+            public TrainingEnvironmentCheck(bool isReady, string statusMessage, IReadOnlyList<string> details, IReadOnlyList<string> fallbackCommands)
+            {
+                IsReady = isReady;
+                StatusMessage = statusMessage;
+                Details = details;
+                FallbackCommands = fallbackCommands;
+            }
+
+            public bool IsReady { get; }
+            public string StatusMessage { get; }
+            public IReadOnlyList<string> Details { get; }
+            public IReadOnlyList<string> FallbackCommands { get; }
+        }
+
+        private sealed class ProcessRunResult
+        {
+            public ProcessRunResult(int exitCode, string output, string error)
+            {
+                ExitCode = exitCode;
+                Output = output;
+                Error = error;
+            }
+
+            public int ExitCode { get; }
+            public string Output { get; }
+            public string Error { get; }
+        }
+
         private sealed class TrainingCommand
         {
             public static readonly TrainingCommand Empty = new TrainingCommand(string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
@@ -2197,7 +2974,6 @@ namespace TeamApp
         private void LblPlayInterval_Click(object sender, EventArgs e) { }
         private void LblThrottleValue_Click(object sender, EventArgs e) { }
         private void StsTrainingStatus_Click(object sender, EventArgs e) { }
-        private void BtnSelectMycarPath_Click(object sender, EventArgs e) => SelectFolderInto(txtMycarProjectPath, "mycar 폴더 선택");
         private void GrpDataCleaner_Enter(object sender, EventArgs e) { }
 
         // ScottPlot 차트를 필요할 때 생성합니다.
@@ -2206,6 +2982,9 @@ namespace TeamApp
         {
             if (tabControlMain.SelectedTab == tabGraphStats && _isChartDirty)
                 RenderFrameChart();
+
+            if (tabControlMain.SelectedTab == tabTrainingMonitor)
+                _ = RefreshTrainingEnvironmentAsync(showSuccessMessage: false);
         }
 
         private void InitFrameChart()
