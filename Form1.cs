@@ -2454,7 +2454,7 @@ namespace TeamApp
             int n = chartFrames.Count;
             double[] xs = _isFrameFilterActive
                 ? chartFrames.Select(frame => (double)frame.OriginalIndex).ToArray()
-                : Enumerable.Range(0, n).Select(i => (double)i).ToArray();
+                : Enumerable.Range(0, n).Select(i => (double)i).ToArray(); //
             double[] angleYs = chartFrames.Select(f => f.Angle).ToArray();
             double[] throttleYs = chartFrames.Select(f => f.Throttle).ToArray();
 
