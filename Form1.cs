@@ -2835,7 +2835,8 @@ namespace TeamApp
 
             if (runner == RunnerWslConda)
             {
-                return "stdbuf -oL -eL ~/miniconda3/bin/conda run --no-capture-output -n " +
+                string condaPath = DetectWslCondaPath() ?? "~/miniconda3/bin/conda";
+                return "stdbuf -oL -eL " + QuotePathForBash(condaPath) + " run --no-capture-output -n " +
                     QuoteForBash(envName) + " donkey " + trainArgs;
             }
 
@@ -2901,14 +2902,26 @@ namespace TeamApp
 
         private string? DetectLocalWslDonkeyEnvironment()
         {
+            string condaPath = DetectWslCondaPath() ?? "~/miniconda3/bin/conda";
+
             foreach (string envName in new[] { "e2e_env", "donkey53", "donkey", "base" })
             {
                 string bashCommand =
-                    "test -x ~/miniconda3/bin/conda && " +
-                    "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
+                    "test -x " + QuotePathForBash(condaPath) + " && " +
+                    QuotePathForBash(condaPath) + " run --no-capture-output -n " + QuoteForBash(envName) +
                     " donkey --help >/dev/null 2>&1";
 
                 if (CanRunProcess("wsl", "bash -lc " + QuoteForCommandLine(bashCommand), timeoutMs: 8000))
+                    return envName;
+            }
+
+            foreach (string envName in DetectWslCondaEnvironmentNames(condaPath).Take(20))
+            {
+                string bashCommand =
+                    QuotePathForBash(condaPath) + " run --no-capture-output -n " + QuoteForBash(envName) +
+                    " donkey --help >/dev/null 2>&1";
+
+                if (CanRunProcess("wsl", "bash -lc " + QuoteForCommandLine(bashCommand), timeoutMs: 12000))
                     return envName;
             }
 
@@ -2923,6 +2936,12 @@ namespace TeamApp
                     return projectPath;
             }
 
+            foreach (string projectPath in DetectWslDonkeyProjectPaths().Take(20))
+            {
+                if (IsWslDonkeyProjectPath(projectPath))
+                    return projectPath;
+            }
+
             return null;
         }
 
@@ -2932,10 +2951,71 @@ namespace TeamApp
 
             string bashPath = QuotePathForBash(projectPath);
             string bashCommand =
-                "test -f " + bashPath + "/manage.py && " +
-                "test -f " + bashPath + "/config.py";
+                "test -f " + bashPath + "/config.py || " +
+                "test -f " + bashPath + "/manage.py";
 
             return CanRunProcess("wsl", "bash -lc " + QuoteForCommandLine(bashCommand), timeoutMs: 5000);
+        }
+
+        private string? DetectWslCondaPath()
+        {
+            string script =
+                "which conda 2>/dev/null || " +
+                "ls ~/miniconda3/bin/conda 2>/dev/null || " +
+                "ls ~/anaconda3/bin/conda 2>/dev/null || " +
+                "ls ~/miniforge3/bin/conda 2>/dev/null || " +
+                "find \"$HOME\" -type f -name conda -path '*/bin/conda' 2>/dev/null | head -n 1";
+
+            ProcessRunResult result = RunWslBashAndCapture(script, timeoutMs: 30000);
+            return ParseProcessLines(result.Output).FirstOrDefault();
+        }
+
+        private IEnumerable<string> DetectWslCondaEnvironmentNames(string condaPath)
+        {
+            if (string.IsNullOrWhiteSpace(condaPath))
+                yield break;
+
+            string script = QuotePathForBash(condaPath) + " env list";
+            ProcessRunResult result = RunWslBashAndCapture(script, timeoutMs: 20000);
+            if (result.ExitCode != 0)
+                yield break;
+
+            foreach (string line in ParseProcessLines(result.Output))
+            {
+                string trimmed = line.Trim();
+                if (trimmed.Length == 0 || trimmed.StartsWith("#", StringComparison.Ordinal)) continue;
+
+                string envName = trimmed.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+                if (!string.IsNullOrWhiteSpace(envName) && !envName.Contains("/", StringComparison.Ordinal))
+                    yield return envName;
+            }
+        }
+
+        private IEnumerable<string> DetectWslDonkeyProjectPaths()
+        {
+            string script = "find \"$HOME\" -maxdepth 6 -type f \\( -name config.py -o -name manage.py \\) 2>/dev/null";
+            ProcessRunResult result = RunWslBashAndCapture(script, timeoutMs: 30000);
+            if (result.ExitCode != 0)
+                yield break;
+
+            foreach (string filePath in ParseProcessLines(result.Output))
+            {
+                string projectPath = GetWslDirectoryName(filePath);
+                if (string.IsNullOrWhiteSpace(projectPath)) continue;
+                if (projectPath.Contains("/miniconda3/", StringComparison.Ordinal)) continue;
+                if (projectPath.Contains("/anaconda3/", StringComparison.Ordinal)) continue;
+                if (projectPath.Contains("/miniforge3/", StringComparison.Ordinal)) continue;
+                if (projectPath.Contains("/.conda/", StringComparison.Ordinal)) continue;
+
+                yield return projectPath;
+            }
+        }
+
+        private string GetWslDirectoryName(string path)
+        {
+            string normalized = (path ?? string.Empty).Trim().Replace("\\", "/");
+            int index = normalized.LastIndexOf('/');
+            return index > 0 ? normalized.Substring(0, index) : string.Empty;
         }
 
         private string BuildWslEpochConfigPrelude(string configPath, int epochs, string temporaryConfigPath)
@@ -3092,11 +3172,13 @@ namespace TeamApp
         {
             if (string.IsNullOrWhiteSpace(envName)) return false;
 
+            string condaPath = DetectWslCondaPath() ?? "~/miniconda3/bin/conda";
+
             // 환경 목록을 awk/grep으로 파싱하면 Windows -> WSL 따옴표 전달에서 깨질 수 있습니다.
             // conda run으로 Python을 직접 실행해 보는 방식이 더 단순하고 확실합니다.
             string command =
-                "test -x ~/miniconda3/bin/conda && " +
-                "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
+                "test -x " + QuotePathForBash(condaPath) + " && " +
+                QuotePathForBash(condaPath) + " run --no-capture-output -n " + QuoteForBash(envName) +
                 " python --version >/dev/null 2>&1";
 
             return CanRunProcess("wsl", "bash -lc " + QuoteForCommandLine(command), timeoutMs: 10000);
@@ -3172,8 +3254,9 @@ namespace TeamApp
                 return BuildEnvironmentCheckResult(false, "학습 환경: WSL이 설치되어 있지 않습니다.", details, commands);
             }
 
-            bool condaReady = CanRunWslBashCommand("test -x ~/miniconda3/bin/conda", timeoutMs: 5000);
-            details.Add(condaReady ? "OK: WSL Python 환경 관리자 확인" : "FAIL: WSL에서 miniconda를 찾을 수 없습니다.");
+            string condaPath = DetectWslCondaPath() ?? "~/miniconda3/bin/conda";
+            bool condaReady = CanRunWslBashCommand("test -x " + QuotePathForBash(condaPath), timeoutMs: 5000);
+            details.Add(condaReady ? "OK: WSL Python 환경 관리자 확인 (" + condaPath + ")" : "FAIL: WSL에서 conda를 찾을 수 없습니다.");
             if (!condaReady)
             {
                 commands.Add("Miniconda 설치가 필요합니다. 설치 후 WSL에서 ~/miniconda3/bin/conda가 실행되는지 확인해 주세요.");
@@ -3189,13 +3272,13 @@ namespace TeamApp
             }
 
             bool donkeyReady = CanRunWslBashCommand(
-                "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
+                QuotePathForBash(condaPath) + " run --no-capture-output -n " + QuoteForBash(envName) +
                 " donkey --help >/dev/null 2>&1",
                 timeoutMs: 15000);
             details.Add(donkeyReady ? "OK: DonkeyCar CLI 확인" : "FAIL: DonkeyCar donkey 명령을 실행할 수 없습니다.");
             if (!donkeyReady)
             {
-                commands.Add("wsl bash -lc '~/miniconda3/bin/conda run --no-capture-output -n " + envName + " python -m pip install \"donkeycar[pc]\"'");
+                commands.Add("wsl bash -lc '" + condaPath + " run --no-capture-output -n " + envName + " python -m pip install \"donkeycar[pc]\"'");
                 return BuildEnvironmentCheckResult(false, "학습 환경: DonkeyCar가 설치되어 있지 않습니다.", details, commands);
             }
 
@@ -3204,7 +3287,7 @@ namespace TeamApp
             details.Add(configReady ? "OK: DonkeyCar 작업 폴더 config.py 확인" : "FAIL: DonkeyCar 작업 폴더에 config.py가 없습니다. (" + projectPath + ")");
             if (!configReady)
             {
-                commands.Add("wsl bash -lc '~/miniconda3/bin/conda run --no-capture-output -n " + envName + " donkey createcar --path=" + ToBashLiteralPath(projectPath) + "'");
+                commands.Add("wsl bash -lc '" + condaPath + " run --no-capture-output -n " + envName + " donkey createcar --path=" + ToBashLiteralPath(projectPath) + "'");
                 return BuildEnvironmentCheckResult(false, "학습 환경: DonkeyCar 작업 폴더 설정 파일이 없습니다.", details, commands);
             }
 
@@ -3321,6 +3404,22 @@ namespace TeamApp
         private bool CanRunWslBashCommand(string bashCommand, int timeoutMs)
         {
             return CanRunProcess("wsl", "bash -lc " + QuoteForCommandLine(bashCommand), timeoutMs);
+        }
+
+        private ProcessRunResult RunWslBashAndCapture(string bashCommand, int timeoutMs)
+        {
+            return RunProcessAndCapture("wsl", "bash -lc " + QuoteForCommandLine(bashCommand), timeoutMs);
+        }
+
+        private IEnumerable<string> ParseProcessLines(string text)
+        {
+            return (text ?? string.Empty)
+                .Replace("\0", string.Empty)
+                .Replace("\u001c", string.Empty)
+                .Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim())
+                .Where(line => !line.Contains("Wsl/Service/", StringComparison.OrdinalIgnoreCase))
+                .Where(line => !string.IsNullOrWhiteSpace(line));
         }
 
         private async Task TryAutoSetupTrainingEnvironmentAsync()
