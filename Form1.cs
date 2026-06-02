@@ -45,6 +45,12 @@ namespace TeamApp
         private bool _hasAutoDetectedTrainingTab = false;
         private Process? _trainingProcess;
         private Button? _btnShowReviewCandidates;
+        private readonly StringBuilder _trainingOutputLineBuffer = new StringBuilder();
+        private System.Windows.Forms.Label? _lblTrainingSummaryTitle;
+        private System.Windows.Forms.Label? _lblTrainingSummaryStatus;
+        private System.Windows.Forms.Label? _lblTrainingSummaryEpoch;
+        private System.Windows.Forms.Label? _lblTrainingSummaryProgress;
+        private System.Windows.Forms.Label? _lblTrainingSummaryLoss;
         private System.Windows.Forms.Label? _lblFrameReviewHint;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
@@ -2066,10 +2072,37 @@ namespace TeamApp
             btnStopTrainingProcess.Enabled = false;
             stsTrainingStatus.Text = "학습 상태: 대기";
 
+            ConfigureTrainingSummaryLabels();
             ApplyTrainingControlStyle();
             LayoutTrainingTab();
             grpTrainingConfig.Resize += (_, _) => LayoutTrainingTab();
             tabTrainingMonitor.Resize += (_, _) => LayoutTrainingTab();
+        }
+
+        private void ConfigureTrainingSummaryLabels()
+        {
+            _lblTrainingSummaryTitle ??= CreateTrainingSummaryLabel("lblTrainingSummaryTitle", "학습 요약", true);
+            _lblTrainingSummaryStatus ??= CreateTrainingSummaryLabel("lblTrainingSummaryStatus", "상태: 대기", false);
+            _lblTrainingSummaryEpoch ??= CreateTrainingSummaryLabel("lblTrainingSummaryEpoch", "Epoch: -", false);
+            _lblTrainingSummaryProgress ??= CreateTrainingSummaryLabel("lblTrainingSummaryProgress", "진행률: -", false);
+            _lblTrainingSummaryLoss ??= CreateTrainingSummaryLabel("lblTrainingSummaryLoss", "loss: -", false);
+        }
+
+        private System.Windows.Forms.Label CreateTrainingSummaryLabel(string name, string text, bool bold)
+        {
+            var label = new System.Windows.Forms.Label
+            {
+                Name = name,
+                AutoSize = false,
+                Text = text,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new System.Drawing.Font("맑은 고딕", 10.5F, bold ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular),
+                ForeColor = System.Drawing.Color.FromArgb(40, 40, 40)
+            };
+
+            grpTrainingConfig.Controls.Add(label);
+            label.BringToFront();
+            return label;
         }
 
         /// <summary>
@@ -2150,6 +2183,17 @@ namespace TeamApp
             }
             btnDetectTrainingEnvironment.Text = "자동 감지";
 
+            int summaryY = actionY + buttonHeight + 18;
+            int summaryX = inputX;
+            int summaryGap = 18;
+            int summaryTitleWidth = 110;
+            int summaryItemWidth = Math.Max(150, (buttonX - summaryX - summaryTitleWidth - summaryGap * 4) / 4);
+            PlaceTrainingSummaryLabel(_lblTrainingSummaryTitle, summaryX, summaryY, summaryTitleWidth, buttonHeight);
+            PlaceTrainingSummaryLabel(_lblTrainingSummaryStatus, summaryX + summaryTitleWidth + summaryGap, summaryY, summaryItemWidth, buttonHeight);
+            PlaceTrainingSummaryLabel(_lblTrainingSummaryEpoch, summaryX + summaryTitleWidth + summaryGap + (summaryItemWidth + summaryGap), summaryY, summaryItemWidth, buttonHeight);
+            PlaceTrainingSummaryLabel(_lblTrainingSummaryProgress, summaryX + summaryTitleWidth + summaryGap + (summaryItemWidth + summaryGap) * 2, summaryY, summaryItemWidth, buttonHeight);
+            PlaceTrainingSummaryLabel(_lblTrainingSummaryLoss, summaryX + summaryTitleWidth + summaryGap + (summaryItemWidth + summaryGap) * 3, summaryY, summaryItemWidth, buttonHeight);
+
             grpTrainingOutput.Location = new Point(margin, grpTrainingConfig.Bottom + 16);
             grpTrainingOutput.Size = new Size(groupWidth, Math.Max(260, tabTrainingMonitor.ClientSize.Height - grpTrainingOutput.Top - 42));
             grpTrainingOutput.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -2187,6 +2231,15 @@ namespace TeamApp
             button.Text = button == btnSelectTrainingWslDistro || button == btnSelectCondaPath ? "감지" : "경로 선택";
         }
 
+        private void PlaceTrainingSummaryLabel(System.Windows.Forms.Label? label, int x, int y, int width, int height)
+        {
+            if (label == null) return;
+
+            label.Location = new Point(x, y);
+            label.Size = new Size(width, height);
+            label.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        }
+
         private async void BtnStartTrainingProcess_Click(object? sender, EventArgs e)
         {
             if (_trainingProcess is { HasExited: false })
@@ -2211,6 +2264,7 @@ namespace TeamApp
             btnStartTrainingProcess.Enabled = false;
             btnStopTrainingProcess.Enabled = true;
             stsTrainingStatus.Text = "학습 상태: 실행 중";
+            UpdateTrainingSummary(status: "실행 중", epoch: "-", progress: "-", loss: "-");
             rtbTrainingOutput.Clear();
 
             try
@@ -2245,11 +2299,13 @@ namespace TeamApp
 
                 AppendTrainingLog("");
                 AppendTrainingLog($"학습 프로세스가 종료되었습니다. 종료 코드: {_trainingProcess.ExitCode}");
+                UpdateTrainingSummary(status: _trainingProcess.ExitCode == 0 ? "완료" : "오류");
                 stsTrainingStatus.Text = $"학습 상태: 종료 코드 {_trainingProcess.ExitCode}";
             }
             catch (Exception ex)
             {
                 stsTrainingStatus.Text = "학습 상태: 오류";
+                UpdateTrainingSummary(status: "오류");
                 MessageBox.Show(
                     "학습 실행 중 오류가 발생했습니다.\n\n" +
                     "WSL, conda 환경명, mycar 경로가 올바른지 확인해 주세요.\n\n" +
@@ -2277,6 +2333,7 @@ namespace TeamApp
                 _trainingProcess.Kill(true);
                 AppendTrainingLog("[시스템] 학습이 사용자에 의해 강제 중단되었습니다.");
                 stsTrainingStatus.Text = "학습 상태: 중지됨";
+                UpdateTrainingSummary(status: "중지됨");
             }
             catch (Exception ex)
             {
@@ -2434,6 +2491,7 @@ namespace TeamApp
         private void AppendTrainingLog(string text)
         {
             if (rtbTrainingOutput.IsDisposed) return;
+            UpdateTrainingSummaryFromText(text);
 
             void Append()
             {
@@ -2474,18 +2532,103 @@ namespace TeamApp
             {
                 if (ch == '\r')
                 {
+                    UpdateTrainingSummaryFromText(_trainingOutputLineBuffer.ToString());
+                    _trainingOutputLineBuffer.Clear();
                     RemoveLastTrainingOutputLine();
                     continue;
                 }
 
                 if (ch == '\n')
                 {
+                    UpdateTrainingSummaryFromText(_trainingOutputLineBuffer.ToString());
+                    _trainingOutputLineBuffer.Clear();
                     rtbTrainingOutput.AppendText(Environment.NewLine);
                     continue;
                 }
 
+                _trainingOutputLineBuffer.Append(ch);
                 rtbTrainingOutput.AppendText(ch.ToString());
             }
+        }
+
+        private void UpdateTrainingSummaryFromText(string rawText)
+        {
+            if (string.IsNullOrWhiteSpace(rawText)) return;
+
+            string text = rawText.Trim();
+            if (text.Contains("Starting training", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("Train with", StringComparison.OrdinalIgnoreCase))
+            {
+                UpdateTrainingSummary(status: "학습 중");
+            }
+
+            if (text.Contains("학습 프로세스가 종료", StringComparison.OrdinalIgnoreCase))
+            {
+                UpdateTrainingSummary(status: text.Contains("종료 코드: 0", StringComparison.OrdinalIgnoreCase) ? "완료" : "오류");
+            }
+
+            if (text.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("Traceback", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("Exception", StringComparison.OrdinalIgnoreCase))
+            {
+                UpdateTrainingSummary(status: "오류");
+            }
+
+            Match epochMatch = Regex.Match(text, @"Epoch\s+(\d+)\s*/\s*(\d+)", RegexOptions.IgnoreCase);
+            if (epochMatch.Success)
+            {
+                UpdateTrainingSummary(
+                    status: "학습 중",
+                    epoch: epochMatch.Groups[1].Value + "/" + epochMatch.Groups[2].Value,
+                    progress: "0%");
+            }
+
+            Match progressMatch = Regex.Match(text, @"(?<current>\d+)\s*/\s*(?<total>\d+).*?(?:loss:\s*(?<loss>[0-9.]+))?", RegexOptions.IgnoreCase);
+            if (progressMatch.Success &&
+                int.TryParse(progressMatch.Groups["current"].Value, out int currentStep) &&
+                int.TryParse(progressMatch.Groups["total"].Value, out int totalStep) &&
+                totalStep > 0)
+            {
+                int percent = Math.Max(0, Math.Min(100, currentStep * 100 / totalStep));
+                string? loss = progressMatch.Groups["loss"].Success ? progressMatch.Groups["loss"].Value : null;
+                UpdateTrainingSummary(progress: percent + "%", loss: loss);
+            }
+
+            Match lossMatch = Regex.Match(text, @"(?:^|\s)loss:\s*(?<loss>[0-9.]+)", RegexOptions.IgnoreCase);
+            if (lossMatch.Success)
+                UpdateTrainingSummary(loss: lossMatch.Groups["loss"].Value);
+        }
+
+        private void UpdateTrainingSummary(
+            string? status = null,
+            string? epoch = null,
+            string? progress = null,
+            string? loss = null)
+        {
+            void Apply()
+            {
+                if (_lblTrainingSummaryStatus != null && status != null)
+                {
+                    _lblTrainingSummaryStatus.Text = "상태: " + status;
+                    _lblTrainingSummaryStatus.ForeColor = status.Contains("오류") || status.Contains("중지")
+                        ? System.Drawing.Color.Firebrick
+                        : System.Drawing.Color.ForestGreen;
+                }
+
+                if (_lblTrainingSummaryEpoch != null && epoch != null)
+                    _lblTrainingSummaryEpoch.Text = "Epoch: " + epoch;
+
+                if (_lblTrainingSummaryProgress != null && progress != null)
+                    _lblTrainingSummaryProgress.Text = "진행률: " + progress;
+
+                if (_lblTrainingSummaryLoss != null && loss != null)
+                    _lblTrainingSummaryLoss.Text = "loss: " + loss;
+            }
+
+            if (grpTrainingConfig.InvokeRequired)
+                grpTrainingConfig.BeginInvoke(new Action(Apply));
+            else
+                Apply();
         }
 
         private void RemoveLastTrainingOutputLine()
