@@ -42,6 +42,7 @@ namespace TeamApp
         private int _timelineRangeStartIndex = -1;
         private bool _hasUnsavedCleanupChanges = false;
         private bool _showDriveOverlay = true;
+        private bool _hasAutoDetectedTrainingTab = false;
         private Process? _trainingProcess;
         private Button? _btnShowReviewCandidates;
         private System.Windows.Forms.Label? _lblFrameReviewHint;
@@ -3097,6 +3098,21 @@ namespace TeamApp
             if (tabControlMain.SelectedTab == tabGraphStats && _isChartDirty)
                 RenderFrameChart();
 
+            if (tabControlMain.SelectedTab == tabTrainingMonitor && !_hasAutoDetectedTrainingTab)
+            {
+                _hasAutoDetectedTrainingTab = true;
+                _ = AutoDetectTrainingTabOnFirstOpenAsync();
+            }
+        }
+
+        private async Task AutoDetectTrainingTabOnFirstOpenAsync()
+        {
+            if (_trainingProcess is { HasExited: false })
+                return;
+
+            stsTrainingStatus.Text = "학습 상태: 자동 감지 중";
+            await DetectTrainingEnvironmentAsync(showSuccessMessage: false, clearLog: true);
+            stsTrainingStatus.Text = "학습 상태: 자동 감지 완료";
         }
 
         private void InitFrameChart()
