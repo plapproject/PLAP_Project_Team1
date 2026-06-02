@@ -51,6 +51,8 @@ namespace TeamApp
         private System.Windows.Forms.Label? _lblTrainingSummaryEpoch;
         private System.Windows.Forms.Label? _lblTrainingSummaryProgress;
         private System.Windows.Forms.Label? _lblTrainingSummaryLoss;
+        private System.Windows.Forms.Label? _lblCleanupSummary;
+        private System.Windows.Forms.Label? _lblCleanupWorkflowHint;
         private System.Windows.Forms.Label? _lblFrameReviewHint;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
@@ -118,6 +120,7 @@ namespace TeamApp
             ConfigureFrameCatalogGrid();
             ApplyDataManagerUiStyle();
             ConfigureReviewCandidateControls();
+            ConfigureCleanupGuidanceControls();
 
             btnExcludeSelectedFrames.Text = "선택 프레임 제외";
             btnExportCleanDataset.Text          = "클린 폴더 추출";
@@ -633,6 +636,20 @@ namespace TeamApp
                 case Keys.Space: TogglePlayPause(); e.Handled = true; break;
                 case Keys.Home:  btnFirst_Click(this, EventArgs.Empty); e.Handled = true; break;
                 case Keys.End:   btnLast_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.Delete:
+                    if (tabControlMain.SelectedTab == tabPageDataViewer)
+                    {
+                        BtnExcludeSelectedFrames_Click(this, EventArgs.Empty);
+                        e.Handled = true;
+                    }
+                    break;
+                case Keys.S:
+                    if (e.Control && tabControlMain.SelectedTab == tabPageDataViewer)
+                    {
+                        BtnSaveCleanupState_Click(this, EventArgs.Empty);
+                        e.Handled = true;
+                    }
+                    break;
             }
         }
 
@@ -912,6 +929,58 @@ namespace TeamApp
                 };
                 grpDataExplorer.Controls.Add(_lblFrameReviewHint);
                 _lblFrameReviewHint.BringToFront();
+            }
+        }
+
+        private void ConfigureCleanupGuidanceControls()
+        {
+            if (_lblCleanupSummary == null)
+            {
+                _lblCleanupSummary = new System.Windows.Forms.Label
+                {
+                    Name = "lblCleanupSummary",
+                    Text = "정리 상태: 데이터 없음",
+                    Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                    Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold),
+                    ForeColor = System.Drawing.Color.FromArgb(45, 65, 90)
+                };
+                grpDataCleaner.Controls.Add(_lblCleanupSummary);
+                _lblCleanupSummary.BringToFront();
+            }
+
+            if (_lblCleanupWorkflowHint == null)
+            {
+                _lblCleanupWorkflowHint = new System.Windows.Forms.Label
+                {
+                    Name = "lblCleanupWorkflowHint",
+                    Text = "대량 정리: 표/트랙바를 드래그해 여러 프레임 선택 -> Delete 또는 '선택 제외' -> Ctrl+S로 상태 저장",
+                    Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                    Font = new System.Drawing.Font("맑은 고딕", 9F),
+                    ForeColor = System.Drawing.Color.DimGray
+                };
+                grpDataCleaner.Controls.Add(_lblCleanupWorkflowHint);
+                _lblCleanupWorkflowHint.BringToFront();
+            }
+
+            grpDataCleaner.Resize += (_, _) => LayoutCleanupGuidanceControls();
+            LayoutCleanupGuidanceControls();
+        }
+
+        private void LayoutCleanupGuidanceControls()
+        {
+            int width = Math.Max(300, grpDataCleaner.ClientSize.Width - 40);
+            int y = Math.Max(18, grpDataCleaner.ClientSize.Height - 50);
+
+            if (_lblCleanupSummary != null)
+            {
+                _lblCleanupSummary.Location = new Point(20, y);
+                _lblCleanupSummary.Size = new Size(width, 22);
+            }
+
+            if (_lblCleanupWorkflowHint != null)
+            {
+                _lblCleanupWorkflowHint.Location = new Point(20, y + 23);
+                _lblCleanupWorkflowHint.Size = new Size(width, 22);
             }
         }
 
@@ -1636,13 +1705,22 @@ namespace TeamApp
             stsFrameSummary.Text =
                 $"{filterState}  |  전체: {total}  |  유효: {valid}  |  제외: {deleted}  |  후보: {review}  |  표시: {shown}  |  {saveState}";
 
+            if (_lblCleanupSummary != null)
+            {
+                _lblCleanupSummary.Text =
+                    $"정리 상태: 전체 {total}개 / 학습 사용 {valid}개 / 제외 {deleted}개 / 이상 후보 {review}개 / 현재 표시 {shown}개 / {saveState}";
+                _lblCleanupSummary.ForeColor = _hasUnsavedCleanupChanges
+                    ? System.Drawing.Color.FromArgb(150, 80, 0)
+                    : System.Drawing.Color.FromArgb(45, 65, 90);
+            }
+
             UpdateCleanupSaveUi();
         }
 
         private void MarkCleanupStateChanged()
         {
             _hasUnsavedCleanupChanges = true;
-            UpdateCleanupSaveUi();
+            UpdateStatusLabels();
         }
 
         private void UpdateCleanupSaveUi()
