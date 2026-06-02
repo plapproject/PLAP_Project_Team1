@@ -54,6 +54,10 @@ namespace TeamApp
         private System.Windows.Forms.Label? _lblCleanupSummary;
         private System.Windows.Forms.Label? _lblCleanupWorkflowHint;
         private System.Windows.Forms.Label? _lblFrameReviewHint;
+        private System.Windows.Forms.Label? _lblCleanWorkflowSummary;
+        private System.Windows.Forms.Label? _lblSelectedFrameRange;
+        private Button? _btnSetRangeStart;
+        private Button? _btnSetRangeEnd;
         private ComboBox? _cmbPlaybackSpeed;
         private bool _isTrainingAutoDetectRunning = false;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
@@ -123,6 +127,8 @@ namespace TeamApp
             ApplyDataManagerUiStyle();
             ConfigureReviewCandidateControls();
             ConfigureCleanupGuidanceControls();
+            ConfigureRangeSelectionControls();
+            ConfigureCleanWorkflowSummary();
             ArrangeDataCleanerPanel();
 
             btnExcludeSelectedFrames.Text = "선택 프레임 제외";
@@ -135,6 +141,7 @@ namespace TeamApp
 
             InitializeTrainingControls();
             LoadTrainingSettings();
+            NormalizeTrainingPathsForDisplay();
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
         }
@@ -360,7 +367,7 @@ namespace TeamApp
                 new TutorialStep("데이터 보기", "마지막으로", "현재 필터 결과의 마지막 프레임으로 이동합니다.", btnLast, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "자동 재생", "프레임을 지정한 간격으로 자동 재생합니다. 재생 중에는 버튼이 일시정지로 바뀝니다.", btnAutoPlay, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "재생 속도", "자동 재생 속도를 배속으로 조절합니다. 1.00x는 기본 속도이고, 숫자가 클수록 더 빠르게 넘어갑니다.", numPlaybackIntervalMs, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "현재 프레임 위치를 빠르게 이동하거나, 드래그해서 시작~끝 프레임 범위를 선택할 수 있습니다.", trkFrameTimeline, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "왼쪽 클릭으로 원하는 프레임으로 이동합니다. 여러 프레임은 '시작 지정'과 '끝 지정' 버튼으로 선택합니다.", trkFrameTimeline, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "조향값", "선택한 프레임의 Angle 값을 표시합니다. 왼쪽/오른쪽 조향 상태를 확인할 때 봅니다.", lblAngleValue, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "스로틀값", "선택한 프레임의 Throttle 값을 표시합니다. 전진/정지/후진 정도를 확인할 때 봅니다.", lblThrottleValue, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "모드", "선택한 프레임의 주행 모드 정보를 표시합니다. user/local 같은 상태를 확인합니다.", lblModeValue, tabPageDataViewer),
@@ -370,7 +377,7 @@ namespace TeamApp
                 new TutorialStep("정리", "시나리오 필터", "normal, night, turn 같은 시나리오별로 프레임을 좁혀 봅니다.", cmbScenarioFilter, tabPageDataViewer),
                 new TutorialStep("정리", "필터 적용", "입력한 범위와 선택한 모드/시나리오 조건으로 목록을 필터링합니다.", btnApplyFrameFilter, tabPageDataViewer),
                 new TutorialStep("정리", "필터 해제", "필터 조건을 풀고 원본 프레임 목록을 다시 표시합니다.", btnClearFrameFilter, tabPageDataViewer),
-                new TutorialStep("정리", "여러 프레임 선택", "표에서 마우스로 행을 드래그하거나, 아래 슬라이더를 드래그하면 여러 프레임을 한 번에 선택할 수 있습니다.", dgvFrameCatalog, tabPageDataViewer),
+                new TutorialStep("정리", "여러 프레임 선택", "표에서 행을 드래그하거나, 현재 프레임을 '시작 지정'과 '끝 지정'으로 지정해 여러 프레임을 선택합니다.", dgvFrameCatalog, tabPageDataViewer),
                 new TutorialStep("정리", "선택 프레임 제외", "선택한 여러 프레임을 학습 제외 상태로 바꿉니다. 실제 파일은 삭제하지 않고 제외 표시만 합니다.", btnExcludeSelectedFrames, tabPageDataViewer),
                 new TutorialStep("정리", "복원", "Soft Delete 처리된 프레임을 모두 다시 사용 가능 상태로 되돌립니다.", btnRestoreFrames, tabPageDataViewer),
                 new TutorialStep("정리", "클린 폴더 추출", "제외 표시된 프레임을 빼고 학습에 사용할 수 있는 Clean 폴더를 새로 만듭니다. 원본 폴더는 변경하지 않습니다.", btnExportCleanDataset, tabPageDataViewer),
@@ -744,17 +751,12 @@ namespace TeamApp
                 return;
             }
 
-            if (e.Button == MouseButtons.Right)
-            {
-                _isDraggingTimelineRange = true;
-                _timelineRangeStartIndex = clickedIndex;
-                SelectFrameGridRange(clickedIndex, clickedIndex);
-            }
+            _isDraggingTimelineRange = false;
         }
 
         private void TrkFrameTimeline_MouseMove(object? sender, MouseEventArgs e)
         {
-            if (!_isDraggingTimelineRange || e.Button != MouseButtons.Right || _visibleFrames.Count == 0) return;
+            if (!_isDraggingTimelineRange || _visibleFrames.Count == 0) return;
 
             int currentIndex = GetTimelineIndexAt(e.X);
             if (trkFrameTimeline.Value != currentIndex)
@@ -791,6 +793,36 @@ namespace TeamApp
             return Math.Max(min, Math.Min(max, value));
         }
 
+        private void SetCurrentFrameAsRangePoint(bool isStart)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+            {
+                MessageBox.Show("먼저 데이터 폴더를 열어 주세요.",
+                    "범위 선택", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            int currentIndex = Math.Clamp(_currentFrameIndex, 0, _visibleFrames.Count - 1);
+            if (isStart)
+                _timelineRangeStartIndex = currentIndex;
+            else if (_timelineRangeStartIndex < 0)
+                _timelineRangeStartIndex = currentIndex;
+
+            int from = isStart ? currentIndex : Math.Min(_timelineRangeStartIndex, currentIndex);
+            int to = isStart ? currentIndex : Math.Max(_timelineRangeStartIndex, currentIndex);
+            SelectFrameGridRange(from, to);
+            UpdateSelectedRangeLabel(from, to);
+        }
+
+        private void UpdateSelectedRangeLabel(int from, int to)
+        {
+            if (_lblSelectedFrameRange == null) return;
+
+            _lblSelectedFrameRange.Text = from == to
+                ? $"선택 범위: [{from:0000}]"
+                : $"선택 범위: [{from:0000}] ~ [{to:0000}] ({to - from + 1}개)";
+        }
+
         /// <summary>
         /// 마우스 드래그 선택에서 사용하는 범위 선택입니다.
         /// 선택 자체를 유지해야 하므로 SetIndex를 호출하지 않고 현재 행 표시만 갱신합니다.
@@ -812,6 +844,8 @@ namespace TeamApp
 
             if (endRowIndex >= 0 && endRowIndex < _visibleFrames.Count)
                 DisplayFrameAtIndex(endRowIndex);
+
+            UpdateSelectedRangeLabel(from, to);
         }
 
         /// <summary>
@@ -928,8 +962,8 @@ namespace TeamApp
             int left = panelWidth < 1400 ? 58 : 88;
             int labelWidth = panelWidth < 1400 ? 200 : 170;
             int inputWidth = panelWidth < 1400 ? 120 : 130;
-            int row1 = 68;
-            int row2 = 110;
+            int row1 = 76;
+            int row2 = 118;
             int rowHeight = 30;
 
             int minX = left + labelWidth;
@@ -956,26 +990,49 @@ namespace TeamApp
             PlaceFilterComboRow(lblModeFilter, cmbModeFilter, comboLabelX, comboX, row1, comboLabelWidth, comboWidth, rowHeight);
             PlaceFilterComboRow(lblScenarioFilter, cmbScenarioFilter, comboLabelX, comboX, row2, comboLabelWidth, comboWidth, rowHeight);
 
-            if (_btnShowReviewCandidates != null)
-                PlaceButton(_btnShowReviewCandidates, buttonCol1X, 30, buttonWidth, buttonHeight);
+            if (_lblCleanWorkflowSummary != null)
+            {
+                _lblCleanWorkflowSummary.Location = new Point(left, 30);
+                _lblCleanWorkflowSummary.Size = new Size(Math.Max(300, buttonCol1X - left - 20), 26);
+            }
 
-            PlaceButton(btnExcludeSelectedFrames, buttonCol2X, 30, buttonWidth, buttonHeight);
-            PlaceButton(btnApplyFrameFilter, buttonCol1X, 66, buttonWidth, buttonHeight);
-            PlaceButton(btnClearFrameFilter, buttonCol2X, 66, buttonWidth, buttonHeight);
-            PlaceButton(btnExportCleanDataset, buttonCol1X, 102, buttonWidth, buttonHeight);
-            PlaceButton(btnRestoreFrames, buttonCol2X, 102, buttonWidth, buttonHeight);
-            PlaceButton(btnSaveCleanupState, buttonCol1X, 138, buttonWidth, buttonHeight);
+            if (_btnSetRangeStart != null)
+                PlaceButton(_btnSetRangeStart, buttonCol1X, 30, buttonWidth, buttonHeight);
+            if (_btnSetRangeEnd != null)
+                PlaceButton(_btnSetRangeEnd, buttonCol2X, 30, buttonWidth, buttonHeight);
+            if (_lblSelectedFrameRange != null)
+            {
+                _lblSelectedFrameRange.Location = new Point(buttonCol1X, 56);
+                _lblSelectedFrameRange.Size = new Size(buttonWidth * 2 + buttonGap, 24);
+            }
+
+            if (_btnShowReviewCandidates != null)
+                PlaceButton(_btnShowReviewCandidates, buttonCol1X, 82, buttonWidth, buttonHeight);
+
+            PlaceButton(btnExcludeSelectedFrames, buttonCol2X, 82, buttonWidth, buttonHeight);
+            PlaceButton(btnApplyFrameFilter, buttonCol1X, 114, buttonWidth, buttonHeight);
+            PlaceButton(btnClearFrameFilter, buttonCol2X, 114, buttonWidth, buttonHeight);
+            PlaceButton(btnExportCleanDataset, buttonCol1X, 146, buttonWidth, buttonHeight);
+            PlaceButton(btnRestoreFrames, buttonCol2X, 146, buttonWidth, buttonHeight);
+            PlaceButton(btnSaveCleanupState, buttonCol1X, 178, buttonWidth, buttonHeight);
 
             if (panelWidth < 1180)
             {
                 int singleColX = panelWidth - rightMargin - buttonWidth;
-                PlaceButton(_btnShowReviewCandidates!, singleColX, 24, buttonWidth, buttonHeight);
-                PlaceButton(btnExcludeSelectedFrames, singleColX, 56, buttonWidth, buttonHeight);
-                PlaceButton(btnApplyFrameFilter, singleColX, 88, buttonWidth, buttonHeight);
-                PlaceButton(btnClearFrameFilter, singleColX, 120, buttonWidth, buttonHeight);
-                PlaceButton(btnExportCleanDataset, singleColX, 152, buttonWidth, buttonHeight);
-                PlaceButton(btnRestoreFrames, singleColX, 184, buttonWidth, buttonHeight);
-                PlaceButton(btnSaveCleanupState, singleColX, 216, buttonWidth, buttonHeight);
+                PlaceButton(_btnSetRangeStart!, singleColX, 24, buttonWidth, buttonHeight);
+                PlaceButton(_btnSetRangeEnd!, singleColX, 56, buttonWidth, buttonHeight);
+                if (_lblSelectedFrameRange != null)
+                {
+                    _lblSelectedFrameRange.Location = new Point(singleColX, 88);
+                    _lblSelectedFrameRange.Size = new Size(buttonWidth, 24);
+                }
+                PlaceButton(_btnShowReviewCandidates!, singleColX, 116, buttonWidth, buttonHeight);
+                PlaceButton(btnExcludeSelectedFrames, singleColX, 148, buttonWidth, buttonHeight);
+                PlaceButton(btnApplyFrameFilter, singleColX, 180, buttonWidth, buttonHeight);
+                PlaceButton(btnClearFrameFilter, singleColX, 212, buttonWidth, buttonHeight);
+                PlaceButton(btnExportCleanDataset, singleColX, 244, buttonWidth, buttonHeight);
+                PlaceButton(btnRestoreFrames, singleColX, 276, buttonWidth, buttonHeight);
+                PlaceButton(btnSaveCleanupState, singleColX, 308, buttonWidth, buttonHeight);
             }
 
             LayoutCleanupGuidanceControls();
@@ -1125,7 +1182,7 @@ namespace TeamApp
                 _lblCleanupWorkflowHint = new System.Windows.Forms.Label
                 {
                     Name = "lblCleanupWorkflowHint",
-                    Text = "대량 정리: 표/트랙바 드래그 선택 -> Delete 또는 '선택 제외' -> Ctrl+S 저장",
+                    Text = "대량 정리: 표 드래그 또는 시작/끝 지정 -> '선택 제외' -> Ctrl+S 저장",
                     Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                     Font = new System.Drawing.Font("맑은 고딕", 9F),
                     ForeColor = System.Drawing.Color.DimGray
@@ -1136,6 +1193,69 @@ namespace TeamApp
 
             grpDataCleaner.Resize += (_, _) => LayoutCleanupGuidanceControls();
             LayoutCleanupGuidanceControls();
+        }
+
+        private void ConfigureRangeSelectionControls()
+        {
+            if (_btnSetRangeStart == null)
+            {
+                _btnSetRangeStart = new Button
+                {
+                    Name = "btnSetRangeStart",
+                    Text = "시작 지정",
+                    UseVisualStyleBackColor = false,
+                    BackColor = System.Drawing.Color.FromArgb(245, 249, 255),
+                    Font = new Font("맑은 고딕", 9F)
+                };
+                _btnSetRangeStart.Click += (_, _) => SetCurrentFrameAsRangePoint(isStart: true);
+                grpDataCleaner.Controls.Add(_btnSetRangeStart);
+                _btnSetRangeStart.BringToFront();
+            }
+
+            if (_btnSetRangeEnd == null)
+            {
+                _btnSetRangeEnd = new Button
+                {
+                    Name = "btnSetRangeEnd",
+                    Text = "끝 지정",
+                    UseVisualStyleBackColor = false,
+                    BackColor = System.Drawing.Color.FromArgb(245, 249, 255),
+                    Font = new Font("맑은 고딕", 9F)
+                };
+                _btnSetRangeEnd.Click += (_, _) => SetCurrentFrameAsRangePoint(isStart: false);
+                grpDataCleaner.Controls.Add(_btnSetRangeEnd);
+                _btnSetRangeEnd.BringToFront();
+            }
+
+            if (_lblSelectedFrameRange == null)
+            {
+                _lblSelectedFrameRange = new System.Windows.Forms.Label
+                {
+                    Name = "lblSelectedFrameRange",
+                    Text = "선택 범위: -",
+                    AutoSize = false,
+                    Font = new Font("맑은 고딕", 9F),
+                    ForeColor = System.Drawing.Color.FromArgb(70, 70, 70)
+                };
+                grpDataCleaner.Controls.Add(_lblSelectedFrameRange);
+                _lblSelectedFrameRange.BringToFront();
+            }
+        }
+
+        private void ConfigureCleanWorkflowSummary()
+        {
+            if (_lblCleanWorkflowSummary != null) return;
+
+            _lblCleanWorkflowSummary = new System.Windows.Forms.Label
+            {
+                Name = "lblCleanWorkflowSummary",
+                Text = "학습 데이터 흐름: 원본 보존 -> 제외 표시 저장 -> Clean 폴더 생성 -> Clean 폴더로 학습",
+                AutoSize = false,
+                Font = new Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold),
+                ForeColor = System.Drawing.Color.FromArgb(35, 80, 120)
+            };
+            grpDataCleaner.Controls.Add(_lblCleanWorkflowSummary);
+            _lblCleanWorkflowSummary.BringToFront();
         }
 
         private void LayoutCleanupGuidanceControls()
@@ -1764,7 +1884,10 @@ namespace TeamApp
                 int cleanedCatalogCount = RewriteCleanCatalogFiles(cleanFolder, deletedNames);
 
                 MessageBox.Show(
-                    $"학습용 Clean 폴더가 생성되었습니다.\n\n경로: {cleanFolder}\n삭제된 이미지: {deletedImageCount}개\n정제된 카탈로그: {cleanedCatalogCount}개",
+                    "학습용 Clean 폴더가 생성되었습니다.\n\n" +
+                    "원본 폴더는 그대로 보존됩니다.\n" +
+                    "Clean 폴더에는 제외 표시된 프레임을 제거한 학습용 데이터만 들어갑니다.\n\n" +
+                    $"Clean 경로: {cleanFolder}\n삭제된 이미지: {deletedImageCount}개\n정제된 카탈로그: {cleanedCatalogCount}개",
                     "클린 폴더 추출 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                 var useForTraining = MessageBox.Show(
@@ -2322,16 +2445,18 @@ namespace TeamApp
 
         private void InitializeTrainingControls()
         {
+            lblEpoch.Text = "학습 횟수";
+
             cmbTrainingModelType.Items.Clear();
             cmbTrainingModelType.Items.AddRange(new object[] { "linear", "inferred", "tensorrt_linear", "tflite_linear", "categorical", "rnn", "3d", "imu", "behavior" });
             if (string.IsNullOrWhiteSpace(cmbTrainingModelType.Text))
                 cmbTrainingModelType.Text = "linear";
 
             if (string.IsNullOrWhiteSpace(txtTrainingTubPath.Text))
-                txtTrainingTubPath.Text = "data";
+                txtTrainingTubPath.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "data");
 
             if (string.IsNullOrWhiteSpace(txtTrainingModelPath.Text))
-                txtTrainingModelPath.Text = "models/pilot.keras";
+                txtTrainingModelPath.Text = GetDefaultTrainingModelPath();
 
             numTrainingEpochs.Minimum = 1;
             numTrainingEpochs.Maximum = 10000;
@@ -2348,13 +2473,49 @@ namespace TeamApp
             tabTrainingMonitor.Resize += (_, _) => LayoutTrainingTab();
         }
 
+        private string GetDefaultTrainingModelPath()
+        {
+            string modelFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "donkeycar_models");
+            Directory.CreateDirectory(modelFolder);
+            return Path.Combine(modelFolder, "pilot.keras");
+        }
+
+        private void NormalizeTrainingPathsForDisplay()
+        {
+            txtTrainingTubPath.Text = NormalizeWindowsTrainingPath(
+                txtTrainingTubPath.Text,
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
+
+            txtTrainingModelPath.Text = NormalizeWindowsTrainingPath(
+                txtTrainingModelPath.Text,
+                Path.GetDirectoryName(GetDefaultTrainingModelPath()) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+        }
+
+        private string NormalizeWindowsTrainingPath(string path, string baseFolder)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return path;
+
+            string trimmed = path.Trim();
+            if (trimmed.StartsWith("~/", StringComparison.Ordinal) || trimmed.StartsWith("/", StringComparison.Ordinal))
+                return trimmed;
+
+            if (Path.IsPathRooted(trimmed))
+                return Path.GetFullPath(trimmed);
+
+            Directory.CreateDirectory(baseFolder);
+            return Path.GetFullPath(Path.Combine(baseFolder, Path.GetFileName(trimmed)));
+        }
+
         private void ConfigureTrainingSummaryLabels()
         {
             _lblTrainingSummaryTitle ??= CreateTrainingSummaryLabel("lblTrainingSummaryTitle", "학습 요약", true);
             _lblTrainingSummaryStatus ??= CreateTrainingSummaryLabel("lblTrainingSummaryStatus", "상태: 대기", false);
-            _lblTrainingSummaryEpoch ??= CreateTrainingSummaryLabel("lblTrainingSummaryEpoch", "Epoch: -", false);
+            _lblTrainingSummaryEpoch ??= CreateTrainingSummaryLabel("lblTrainingSummaryEpoch", "학습 횟수: -", false);
             _lblTrainingSummaryProgress ??= CreateTrainingSummaryLabel("lblTrainingSummaryProgress", "진행률: -", false);
-            _lblTrainingSummaryLoss ??= CreateTrainingSummaryLabel("lblTrainingSummaryLoss", "loss: -", false);
+            _lblTrainingSummaryLoss ??= CreateTrainingSummaryLabel("lblTrainingSummaryLoss", "점수: -", false);
         }
 
         private System.Windows.Forms.Label CreateTrainingSummaryLabel(string name, string text, bool bold)
@@ -2531,6 +2692,7 @@ namespace TeamApp
                 }
             }
 
+            NormalizeTrainingPathsForDisplay();
             if (!TryBuildTrainingCommand(out var arguments, out string displayArguments)) return;
 
             btnStartTrainingProcess.Enabled = false;
@@ -2560,6 +2722,7 @@ namespace TeamApp
                     _trainingProcess.StartInfo.ArgumentList.Add(argument);
 
                 AppendTrainingLog("학습 프로세스를 시작합니다.");
+                AppendTrainingLog("첫 학습 횟수는 데이터 캐싱과 모델 준비 때문에 오래 걸릴 수 있습니다.");
                 AppendTrainingLog("실행 명령: wsl " + displayArguments);
 
                 _trainingProcess.Start();
@@ -2816,6 +2979,22 @@ namespace TeamApp
         {
             foreach (char ch in text)
             {
+                if (ch == '\b')
+                {
+                    if (_trainingOutputLineBuffer.Length > 0)
+                        _trainingOutputLineBuffer.Length--;
+
+                    if (rtbTrainingOutput.TextLength > 0)
+                    {
+                        rtbTrainingOutput.Select(rtbTrainingOutput.TextLength - 1, 1);
+                        rtbTrainingOutput.SelectedText = string.Empty;
+                    }
+                    continue;
+                }
+
+                if (char.IsControl(ch) && ch != '\r' && ch != '\n' && ch != '\t')
+                    continue;
+
                 if (ch == '\r')
                 {
                     UpdateTrainingSummaryFromText(_trainingOutputLineBuffer.ToString());
@@ -2876,13 +3055,26 @@ namespace TeamApp
                 totalStep > 0)
             {
                 int percent = Math.Max(0, Math.Min(100, currentStep * 100 / totalStep));
-                string? loss = progressMatch.Groups["loss"].Success ? progressMatch.Groups["loss"].Value : null;
+                string? loss = progressMatch.Groups["loss"].Success ? FormatTrainingScore(progressMatch.Groups["loss"].Value) : null;
                 UpdateTrainingSummary(progress: percent + "%", loss: loss);
             }
 
+            Match valLossMatch = Regex.Match(text, @"(?:^|\s)val_loss:\s*(?<loss>[0-9.]+)", RegexOptions.IgnoreCase);
+            if (valLossMatch.Success)
+                UpdateTrainingSummary(loss: FormatTrainingScore(valLossMatch.Groups["loss"].Value));
+
             Match lossMatch = Regex.Match(text, @"(?:^|\s)loss:\s*(?<loss>[0-9.]+)", RegexOptions.IgnoreCase);
             if (lossMatch.Success)
-                UpdateTrainingSummary(loss: lossMatch.Groups["loss"].Value);
+                UpdateTrainingSummary(loss: FormatTrainingScore(lossMatch.Groups["loss"].Value));
+        }
+
+        private string FormatTrainingScore(string lossText)
+        {
+            if (!double.TryParse(lossText, NumberStyles.Float, CultureInfo.InvariantCulture, out double loss))
+                return "-";
+
+            double score = Math.Clamp((1.0 - loss) * 100.0, 0.0, 100.0);
+            return $"{score:0}점";
         }
 
         private void UpdateTrainingSummary(
@@ -2902,13 +3094,13 @@ namespace TeamApp
                 }
 
                 if (_lblTrainingSummaryEpoch != null && epoch != null)
-                    _lblTrainingSummaryEpoch.Text = "Epoch: " + epoch;
+                    _lblTrainingSummaryEpoch.Text = "학습 횟수: " + epoch;
 
                 if (_lblTrainingSummaryProgress != null && progress != null)
                     _lblTrainingSummaryProgress.Text = "진행률: " + progress;
 
                 if (_lblTrainingSummaryLoss != null && loss != null)
-                    _lblTrainingSummaryLoss.Text = "loss: " + loss;
+                    _lblTrainingSummaryLoss.Text = "점수: " + loss;
             }
 
             if (grpTrainingConfig.InvokeRequired)
