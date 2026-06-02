@@ -54,6 +54,7 @@ namespace TeamApp
         private System.Windows.Forms.Label? _lblCleanupSummary;
         private System.Windows.Forms.Label? _lblCleanupWorkflowHint;
         private System.Windows.Forms.Label? _lblFrameReviewHint;
+        private bool _isTrainingAutoDetectRunning = false;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
         private static readonly Regex AnsiEscapeRegex = new(@"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", RegexOptions.Compiled);
@@ -663,6 +664,11 @@ namespace TeamApp
             dgvFrameCatalog.Columns.Clear();
             dgvFrameCatalog.MultiSelect = true;
             dgvFrameCatalog.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvFrameCatalog.Font = new Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Regular);
+            dgvFrameCatalog.ColumnHeadersDefaultCellStyle.Font = new Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            dgvFrameCatalog.DefaultCellStyle.Font = new Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Regular);
+            dgvFrameCatalog.DefaultCellStyle.WrapMode = DataGridViewTriState.False;
+            dgvFrameCatalog.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.FormattedIndex),
@@ -678,7 +684,9 @@ namespace TeamApp
                 MinimumWidth = 220
             });
 
-            dgvFrameCatalog.RowTemplate.Height = 26;
+            dgvFrameCatalog.RowTemplate.Height = 25;
+            dgvFrameCatalog.ColumnHeadersHeight = 28;
+            dgvFrameCatalog.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
             dgvFrameCatalog.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(248, 250, 252);
             dgvFrameCatalog.DataBindingComplete += (_, _) => ApplyFrameCatalogRowStyle();
             dgvFrameCatalog.MouseDown += DgvFrameCatalog_MouseDown;
@@ -953,7 +961,7 @@ namespace TeamApp
                 _lblCleanupWorkflowHint = new System.Windows.Forms.Label
                 {
                     Name = "lblCleanupWorkflowHint",
-                    Text = "대량 정리: 표/트랙바를 드래그해 여러 프레임 선택 -> Delete 또는 '선택 제외' -> Ctrl+S로 상태 저장",
+                    Text = "대량 정리: 표/트랙바 드래그 선택 -> Delete 또는 '선택 제외' -> Ctrl+S 저장",
                     Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                     Font = new System.Drawing.Font("맑은 고딕", 9F),
                     ForeColor = System.Drawing.Color.DimGray
@@ -1708,7 +1716,7 @@ namespace TeamApp
             if (_lblCleanupSummary != null)
             {
                 _lblCleanupSummary.Text =
-                    $"정리 상태: 전체 {total}개 / 학습 사용 {valid}개 / 제외 {deleted}개 / 이상 후보 {review}개 / 현재 표시 {shown}개 / {saveState}";
+                    $"정리 상태: 전체 {total} / 학습 사용 {valid} / 제외 {deleted} / 이상 후보 {review} / 표시 {shown} / {saveState}";
                 _lblCleanupSummary.ForeColor = _hasUnsavedCleanupChanges
                     ? System.Drawing.Color.FromArgb(150, 80, 0)
                     : System.Drawing.Color.FromArgb(45, 65, 90);
@@ -2204,7 +2212,7 @@ namespace TeamApp
                 }
             }
 
-            rtbTrainingOutput.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Regular);
+            rtbTrainingOutput.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Regular);
             grpTrainingConfig.Font = labelFont;
             grpTrainingOutput.Font = labelFont;
         }
@@ -2746,7 +2754,9 @@ namespace TeamApp
                     return false;
 
                 await DetectCondaEnvironmentsAsync(distro);
-                await DetectDonkeyProjectsAsync(distro);
+                bool projectDetected = await DetectDonkeyProjectsAsync(distro);
+                if (!projectDetected)
+                    return false;
 
                 if (string.IsNullOrWhiteSpace(txtTrainingPythonEnvName.Text) ||
                     string.IsNullOrWhiteSpace(cmbMycarProjectPath.Text))
@@ -2996,7 +3006,7 @@ namespace TeamApp
                 AppendTrainingLog("[감지] Donkey와 TensorFlow를 모두 import할 수 있는 Conda 환경을 찾지 못했습니다.");
         }
 
-        private async Task DetectDonkeyProjectsAsync(string distro)
+        private async Task<bool> DetectDonkeyProjectsAsync(string distro)
         {
             distro = NormalizeWslDistroName(distro);
             string script = "find \"$HOME\" -maxdepth 6 -type f \\( -name config.py -o -name manage.py \\) 2>/dev/null";
@@ -3007,7 +3017,7 @@ namespace TeamApp
                 AppendTrainingLog("[감지 오류] 사용한 WSL Ubuntu: " + distro);
                 AppendTrainingLog(result.Error);
                 AppendTrainingLog(result.Output);
-                return;
+                return false;
             }
 
             var projectPaths = ParseLines(result.Output)
@@ -3022,27 +3032,94 @@ namespace TeamApp
             if (projectPaths.Count == 0)
             {
                 AppendTrainingLog("[감지] Donkey 프로젝트 후보를 찾지 못했습니다.");
-                return;
+                return false;
             }
 
             if (projectPaths.Count == 1)
             {
                 SetComboText(cmbMycarProjectPath, projectPaths[0]);
                 AppendTrainingLog("[감지] Donkey 프로젝트 경로: " + projectPaths[0]);
-                return;
+                return true;
             }
 
             cmbMycarProjectPath.Items.Clear();
             cmbMycarProjectPath.Items.AddRange(projectPaths.Cast<object>().ToArray());
-            if (string.IsNullOrWhiteSpace(cmbMycarProjectPath.Text))
-                cmbMycarProjectPath.Text = projectPaths[0];
 
             AppendTrainingLog("[감지] Donkey 프로젝트 후보:");
             foreach (string path in projectPaths)
                 AppendTrainingLog("  - " + path);
 
-            MessageBox.Show("Donkey 프로젝트 후보가 여러 개 감지되었습니다.\n로그에 표시된 후보 중 사용할 프로젝트 경로를 확인해 주세요.",
-                "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            string? selectedProject = ShowDonkeyProjectSelectionDialog(projectPaths);
+            if (string.IsNullOrWhiteSpace(selectedProject))
+            {
+                AppendTrainingLog("[감지] Donkey 프로젝트 선택이 취소되었습니다.");
+                return false;
+            }
+
+            SetComboText(cmbMycarProjectPath, selectedProject);
+            AppendTrainingLog("[감지] 선택된 Donkey 프로젝트 경로: " + selectedProject);
+            return true;
+        }
+
+        /// <summary>
+        /// Donkey 프로젝트 후보가 여러 개일 때 사용자가 직접 고르게 하는 작은 선택 창입니다.
+        /// Designer 파일을 수정하지 않기 위해 코드에서 일회성 대화창을 만듭니다.
+        /// </summary>
+        private string? ShowDonkeyProjectSelectionDialog(IReadOnlyList<string> projectPaths)
+        {
+            using var dialog = new Form
+            {
+                Text = "Donkey 프로젝트 선택",
+                StartPosition = FormStartPosition.CenterParent,
+                MinimizeBox = false,
+                MaximizeBox = false,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                ClientSize = new Size(640, 320),
+                Font = new Font("맑은 고딕", 10F)
+            };
+
+            var description = new System.Windows.Forms.Label
+            {
+                Text = "자동 감지된 Donkey 프로젝트 후보입니다.\n학습에 사용할 프로젝트 폴더를 선택한 뒤 확인을 누르세요.",
+                Location = new Point(18, 16),
+                Size = new Size(600, 48)
+            };
+
+            var list = new ListBox
+            {
+                Location = new Point(18, 72),
+                Size = new Size(600, 170),
+                HorizontalScrollbar = true
+            };
+            list.Items.AddRange(projectPaths.Cast<object>().ToArray());
+            list.SelectedIndex = 0;
+
+            var okButton = new Button
+            {
+                Text = "확인",
+                DialogResult = DialogResult.OK,
+                Location = new Point(386, 262),
+                Size = new Size(110, 34)
+            };
+
+            var cancelButton = new Button
+            {
+                Text = "취소",
+                DialogResult = DialogResult.Cancel,
+                Location = new Point(508, 262),
+                Size = new Size(110, 34)
+            };
+
+            dialog.Controls.Add(description);
+            dialog.Controls.Add(list);
+            dialog.Controls.Add(okButton);
+            dialog.Controls.Add(cancelButton);
+            dialog.AcceptButton = okButton;
+            dialog.CancelButton = cancelButton;
+
+            return dialog.ShowDialog(this) == DialogResult.OK
+                ? list.SelectedItem?.ToString()
+                : null;
         }
 
         private string GetLinuxDirectoryName(string path)
@@ -3319,9 +3396,10 @@ namespace TeamApp
             if (tabControlMain.SelectedTab == tabGraphStats && _isChartDirty)
                 RenderFrameChart();
 
-            if (tabControlMain.SelectedTab == tabTrainingMonitor && !_hasAutoDetectedTrainingTab)
+            if (tabControlMain.SelectedTab == tabTrainingMonitor &&
+                !_hasAutoDetectedTrainingTab &&
+                !_isTrainingAutoDetectRunning)
             {
-                _hasAutoDetectedTrainingTab = true;
                 _ = AutoDetectTrainingTabOnFirstOpenAsync();
             }
         }
@@ -3331,9 +3409,21 @@ namespace TeamApp
             if (_trainingProcess is { HasExited: false })
                 return;
 
+            _isTrainingAutoDetectRunning = true;
             stsTrainingStatus.Text = "학습 상태: 자동 감지 중";
-            await DetectTrainingEnvironmentAsync(showSuccessMessage: false, clearLog: true);
-            stsTrainingStatus.Text = "학습 상태: 자동 감지 완료";
+
+            try
+            {
+                bool detected = await DetectTrainingEnvironmentAsync(showSuccessMessage: false, clearLog: true);
+                _hasAutoDetectedTrainingTab = detected;
+                stsTrainingStatus.Text = detected
+                    ? "학습 상태: 자동 감지 완료"
+                    : "학습 상태: 자동 감지 필요";
+            }
+            finally
+            {
+                _isTrainingAutoDetectRunning = false;
+            }
         }
 
         private void InitFrameChart()
