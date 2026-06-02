@@ -36,7 +36,10 @@ namespace TeamApp
         private bool _tutorialRunning = false;
         private bool _isFrameFilterActive = false;
         private bool _isFrameSelectionUpdating = false;
+        private bool _hasUnsavedCleanupChanges = false;
+        private bool _showDriveOverlay = true;
         private Process? _trainingProcess;
+        private Button? _btnShowReviewCandidates;
         private Button? _btnSelectTrainingModelPath;
         private Button? _btnOpenTrainingModelFolder;
         private Button? _btnCopyModelUseCommand;
@@ -54,6 +57,7 @@ namespace TeamApp
         private System.Windows.Forms.Label? _lblTrainingSummaryProgress;
         private System.Windows.Forms.Label? _lblTrainingSummaryLoss;
         private System.Windows.Forms.Label? _lblTrainingSummaryModelPath;
+        private System.Windows.Forms.Label? _lblFrameReviewHint;
         private ToolTip? _trainingToolTip;
         private int _lastTrainingProgressPercent = -1;
         private bool _isTrainingEnvironmentReady = false;
@@ -121,9 +125,11 @@ namespace TeamApp
             mnuHelpOpenTutorial.Click        += (s, _) => RunFeatureTutorial("도움말");
 
             tabControlMain.SelectedIndexChanged += TabControl1_SelectedIndexChanged;
+            FormClosing += Form1_FormClosing;
 
             ConfigureFrameCatalogGrid();
             ApplyDataManagerUiStyle();
+            ConfigureReviewCandidateControls();
 
             btnExcludeSelectedFrames.Text = "선택 프레임 제외";
             btnExportCleanDataset.Text          = "클린 폴더 추출";
@@ -144,6 +150,8 @@ namespace TeamApp
 
         private void BtnOpenDataFolder_Click(object sender, EventArgs e)
         {
+            if (!ConfirmUnsavedCleanupBeforeDataChange("새 데이터 폴더 열기")) return;
+
             using var dlg = new FolderBrowserDialog();
             if (dlg.ShowDialog() != DialogResult.OK) return;
             _ = LoadCatalogAsync(dlg.SelectedPath);
@@ -151,6 +159,8 @@ namespace TeamApp
 
         private void BtnReloadData_Click(object sender, EventArgs e)
         {
+            if (!ConfirmUnsavedCleanupBeforeDataChange("현재 데이터 다시 불러오기")) return;
+
             string path = _currentDataFolderPath;
             if (string.IsNullOrEmpty(path))
             {
@@ -437,6 +447,37 @@ namespace TeamApp
 
         private void BtnClearFrameFilter_Click(object? sender, EventArgs e) => ClearFrameFilter();
 
+        private void BtnShowReviewCandidates_Click(object? sender, EventArgs e)
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+            {
+                MessageBox.Show("먼저 데이터 폴더를 열어 주세요.",
+                    "데이터 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            _visibleFrames = _allFrames
+                .Where(frame => !frame.IsDeleted && frame.NeedsReview)
+                .ToList();
+
+            if (_visibleFrames.Count == 0)
+            {
+                MessageBox.Show("현재 기준으로 자동 검토 후보가 없습니다.",
+                    "이상 후보 없음", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            _isFrameFilterActive = true;
+            _isChartDirty = true;
+            RefreshFrameView();
+            SetIndex(0);
+
+            MessageBox.Show(
+                $"검토 후보 {_visibleFrames.Count}개만 표시합니다.\n\n" +
+                "후보 기준: 급조향, 정지에 가까운 속도값, out_of_bound 상황, 카탈로그 누락/값 없음",
+                "이상 후보 보기", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
         // 선택한 구간을 Soft Delete 처리합니다.
         private void BtnExcludeFrameRange_Click(object? sender, EventArgs e)
         {
@@ -670,6 +711,46 @@ namespace TeamApp
         }
 
         /// <summary>
+        /// 이상 후보 확인 UI는 Designer 파일을 수정하지 않고 코드에서 추가합니다.
+        /// 버튼은 검색 버튼 근처에 두고, 힌트 라벨은 현재 프레임 정보 영역에 표시합니다.
+        /// </summary>
+        private void ConfigureReviewCandidateControls()
+        {
+            if (_btnShowReviewCandidates == null)
+            {
+                _btnShowReviewCandidates = new Button
+                {
+                    Name = "btnShowReviewCandidates",
+                    Text = "이상 후보 보기",
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                    Location = new Point(btnApplyFrameFilter.Left, 29),
+                    Size = btnApplyFrameFilter.Size,
+                    UseVisualStyleBackColor = false,
+                    BackColor = System.Drawing.Color.FromArgb(255, 249, 219)
+                };
+                _btnShowReviewCandidates.Click += BtnShowReviewCandidates_Click;
+                grpDataCleaner.Controls.Add(_btnShowReviewCandidates);
+                _btnShowReviewCandidates.BringToFront();
+            }
+
+            if (_lblFrameReviewHint == null)
+            {
+                _lblFrameReviewHint = new System.Windows.Forms.Label
+                {
+                    Name = "lblFrameReviewHint",
+                    Text = "검토: -",
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                    Location = new Point(lblModeValue.Left, lblModeValue.Bottom + 6),
+                    Size = new Size(lblModeValue.Width, 58),
+                    Font = new Font("맑은 고딕", 10F),
+                    ForeColor = System.Drawing.Color.DimGray
+                };
+                grpDataExplorer.Controls.Add(_lblFrameReviewHint);
+                _lblFrameReviewHint.BringToFront();
+            }
+        }
+
+        /// <summary>
         /// 제외된 프레임을 회색/붉은색 계열로 표시해서 학습 제외 대상을 바로 구분합니다.
         /// </summary>
         private void ApplyFrameCatalogRowStyle()
@@ -684,6 +765,13 @@ namespace TeamApp
                     row.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(145, 52, 52);
                     row.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(255, 204, 204);
                     row.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.FromArgb(90, 20, 20);
+                }
+                else if (frame.NeedsReview)
+                {
+                    row.DefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(255, 249, 196);
+                    row.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(80, 60, 0);
+                    row.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(255, 214, 102);
+                    row.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.Black;
                 }
                 else
                 {
@@ -708,6 +796,8 @@ namespace TeamApp
             btnReloadData.Enabled               = !loading;
             btnApplyFrameFilter.Enabled          = !loading;
             btnClearFrameFilter.Enabled          = !loading;
+            if (_btnShowReviewCandidates != null)
+                _btnShowReviewCandidates.Enabled = !loading;
             btnExcludeSelectedFrames.Enabled = !loading;
             btnRestoreFrames.Enabled         = !loading;
             this.Cursor = loading ? Cursors.WaitCursor : Cursors.Default;
@@ -795,12 +885,19 @@ namespace TeamApp
             var frame = _visibleFrames[idx];
 
             string resolvedPath = ResolveImagePath(frame.Name);
-            UpdatePreviewImage(resolvedPath);
+            UpdatePreviewImage(resolvedPath, frame);
 
             lblFrameValue.Text    = $"프레임: {idx + 1} / {_visibleFrames.Count}";
-            lblAngleValue.Text    = $"방향값: {frame.Angle:0.000}";
-            lblThrottleValue.Text = $"속도값: {frame.Throttle:0.000}";
-            lblModeValue.Text     = $"주행 방식: {frame.Mode}";
+            lblAngleValue.Text    = $"방향값: {frame.Angle:0.000} ({frame.SteeringText})";
+            lblThrottleValue.Text = $"속도값: {frame.Throttle:0.000} ({frame.ThrottleText})";
+            lblModeValue.Text     = $"주행 방식: {frame.ModeDescription}";
+            if (_lblFrameReviewHint != null)
+            {
+                _lblFrameReviewHint.Text = $"검토: {frame.ReviewHint}";
+                _lblFrameReviewHint.ForeColor = frame.NeedsReview
+                    ? System.Drawing.Color.FromArgb(150, 95, 0)
+                    : System.Drawing.Color.DimGray;
+            }
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
         }
@@ -822,7 +919,7 @@ namespace TeamApp
             return string.Empty;
         }
 
-        private void UpdatePreviewImage(string path)
+        private void UpdatePreviewImage(string path, FrameData? frame = null)
         {
             try
             {
@@ -835,12 +932,53 @@ namespace TeamApp
                 using var fs  = File.OpenRead(path);
                 using var img = System.Drawing.Image.FromStream(fs);
                 var bmp = new Bitmap(img);
+                if (frame != null && _showDriveOverlay)
+                    DrawDriveOverlay(bmp, frame);
 
                 var old = picFramePreview.Image;
                 picFramePreview.Image = bmp;
                 old?.Dispose();
             }
             catch { /* 이미지 로드 실패는 미리보기만 비우고 무시합니다. */ }
+        }
+
+        /// <summary>
+        /// 미리보기 이미지 위에 작은 주행 방향 화살표와 상태 텍스트를 그립니다.
+        /// 사용자가 사진과 조향값이 서로 맞는지 빠르게 비교할 수 있게 하는 보조 표시입니다.
+        /// </summary>
+        private void DrawDriveOverlay(Bitmap bitmap, FrameData frame)
+        {
+            using Graphics graphics = Graphics.FromImage(bitmap);
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            float scale = Math.Max(0.6f, bitmap.Width / 640f);
+            float arrowLength = Math.Max(22f, bitmap.Height * 0.11f);
+            float arrowWidth = Math.Max(10f, bitmap.Width * 0.018f);
+            float centerX = bitmap.Width / 2f;
+            float centerY = bitmap.Height - Math.Max(32f, bitmap.Height * 0.16f);
+            float directionOffset = (float)Math.Max(-1.0, Math.Min(1.0, frame.Angle)) * arrowLength * 0.7f;
+
+            PointF tip = new PointF(centerX + directionOffset, centerY - arrowLength);
+            PointF baseLeft = new PointF(centerX - arrowWidth, centerY);
+            PointF baseRight = new PointF(centerX + arrowWidth, centerY);
+
+            using var arrowBrush = new SolidBrush(System.Drawing.Color.FromArgb(185, 255, 193, 7));
+            using var arrowPen = new Pen(System.Drawing.Color.FromArgb(210, 60, 45, 0), Math.Max(1.5f, 2f * scale));
+            PointF[] arrow = { tip, baseRight, new PointF(centerX + arrowWidth * 0.35f, centerY), new PointF(centerX + arrowWidth * 0.35f, centerY + arrowLength * 0.45f), new PointF(centerX - arrowWidth * 0.35f, centerY + arrowLength * 0.45f), new PointF(centerX - arrowWidth * 0.35f, centerY), baseLeft };
+            graphics.FillPolygon(arrowBrush, arrow);
+            graphics.DrawPolygon(arrowPen, arrow);
+
+            string overlayText = $"{frame.SteeringText} / {frame.ThrottleText}";
+            if (frame.NeedsReview)
+                overlayText += " / 검토";
+
+            using var font = new System.Drawing.Font("맑은 고딕", Math.Max(8f, 9f * scale), System.Drawing.FontStyle.Bold);
+            SizeF textSize = graphics.MeasureString(overlayText, font);
+            var textBox = new RectangleF(8, 8, textSize.Width + 14, textSize.Height + 8);
+            using var boxBrush = new SolidBrush(System.Drawing.Color.FromArgb(145, 0, 0, 0));
+            using var textBrush = new SolidBrush(frame.NeedsReview ? System.Drawing.Color.Gold : System.Drawing.Color.White);
+            graphics.FillRectangle(boxBrush, textBox);
+            graphics.DrawString(overlayText, font, textBrush, textBox.Left + 7, textBox.Top + 4);
         }
 
         private void TogglePlayPause()
@@ -1080,6 +1218,7 @@ namespace TeamApp
             txtFrameRangeStart.Clear();
             txtFrameRangeEnd.Clear();
 
+            MarkCleanupStateChanged();
             _isChartDirty = true;
             RefreshFrameView();
             RenderFrameChart();
@@ -1100,11 +1239,18 @@ namespace TeamApp
             lblAngleValue.Text = "조향값: 0.000";
             lblThrottleValue.Text = "스로틀값: 0.000";
             lblModeValue.Text = "모드: -";
+            if (_lblFrameReviewHint != null)
+                _lblFrameReviewHint.Text = "검토: -";
         }
 
         private void BtnSaveCleanupState_Click(object? sender, EventArgs e)
         {
-            if (!TryEnsureLoadedFolder()) return;
+            SaveCleanupState(showSuccessMessage: true);
+        }
+
+        private bool SaveCleanupState(bool showSuccessMessage)
+        {
+            if (!TryEnsureLoadedFolder()) return false;
 
             try
             {
@@ -1118,13 +1264,20 @@ namespace TeamApp
                     .ToList();
 
                 File.WriteAllLines(metaPath, deletedNames, Encoding.UTF8);
-                MessageBox.Show("제외 상태가 저장되었습니다.",
-                    "상태 저장", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                _hasUnsavedCleanupChanges = false;
+                UpdateCleanupSaveUi();
+                if (showSuccessMessage)
+                {
+                    MessageBox.Show("제외 상태가 저장되었습니다.",
+                        "상태 저장", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                return true;
             }
             catch (Exception ex)
             {
                 MessageBox.Show("제외 상태 저장 중 오류가 발생했습니다.\n" + ex.Message,
                     "저장 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
             }
         }
 
@@ -1268,6 +1421,7 @@ namespace TeamApp
 
             // 복원 후 전체 프레임을 다시 표시합니다.
             _visibleFrames = _allFrames;
+            MarkCleanupStateChanged();
             _isChartDirty = true;
             RefreshFrameView();
             RenderFrameChart();
@@ -1281,12 +1435,74 @@ namespace TeamApp
         {
             int total   = _allFrames?.Count ?? 0;
             int deleted = _allFrames?.Count(f => f.IsDeleted) ?? 0;
+            int review  = _allFrames?.Count(f => !f.IsDeleted && f.NeedsReview) ?? 0;
             int valid   = Math.Max(0, total - deleted);
             int shown   = _visibleFrames?.Count ?? 0;
             string filterState = _isFrameFilterActive ? "필터 적용" : "전체 보기";
+            string saveState = _hasUnsavedCleanupChanges ? "저장 필요" : "저장됨";
 
             stsFrameSummary.Text =
-                $"{filterState}  |  전체: {total}  |  유효: {valid}  |  제외: {deleted}  |  표시: {shown}";
+                $"{filterState}  |  전체: {total}  |  유효: {valid}  |  제외: {deleted}  |  후보: {review}  |  표시: {shown}  |  {saveState}";
+
+            UpdateCleanupSaveUi();
+        }
+
+        private void MarkCleanupStateChanged()
+        {
+            _hasUnsavedCleanupChanges = true;
+            UpdateCleanupSaveUi();
+        }
+
+        private void UpdateCleanupSaveUi()
+        {
+            if (btnSaveCleanupState == null) return;
+
+            btnSaveCleanupState.BackColor = _hasUnsavedCleanupChanges
+                ? System.Drawing.Color.FromArgb(255, 235, 180)
+                : System.Drawing.Color.FromArgb(235, 239, 255);
+
+            btnSaveCleanupState.Font = new Font(
+                btnSaveCleanupState.Font,
+                _hasUnsavedCleanupChanges ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular);
+
+            Text = _hasUnsavedCleanupChanges
+                ? "Data Manager *"
+                : "Data Manager";
+        }
+
+        private bool ConfirmUnsavedCleanupBeforeDataChange(string actionName)
+        {
+            if (!_hasUnsavedCleanupChanges) return true;
+
+            var answer = MessageBox.Show(
+                $"저장하지 않은 제외/복원 변경사항이 있습니다.\n\n'{actionName}' 전에 현재 제외 상태를 저장할까요?",
+                "저장되지 않은 변경사항",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Warning);
+
+            if (answer == DialogResult.Cancel) return false;
+            if (answer == DialogResult.Yes) return SaveCleanupState(showSuccessMessage: false);
+            return true;
+        }
+
+        private void Form1_FormClosing(object? sender, FormClosingEventArgs e)
+        {
+            if (!_hasUnsavedCleanupChanges) return;
+
+            var answer = MessageBox.Show(
+                "저장하지 않은 제외/복원 변경사항이 있습니다.\n\n종료 전에 현재 제외 상태를 저장할까요?",
+                "저장되지 않은 변경사항",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Warning);
+
+            if (answer == DialogResult.Cancel)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            if (answer == DialogResult.Yes && !SaveCleanupState(showSuccessMessage: false))
+                e.Cancel = true;
         }
 
         // FrameData 데이터 모델
@@ -1328,6 +1544,87 @@ namespace TeamApp
             /// 표의 상태 컬럼에 표시할 삭제 여부입니다.
             /// </summary>
             public string StateText => IsDeleted ? "제외됨" : "사용";
+
+            /// <summary>
+            /// 조향값을 초보자도 이해할 수 있는 말로 바꿔 보여줍니다.
+            /// </summary>
+            public string SteeringText
+            {
+                get
+                {
+                    if (Angle <= -0.7) return "강한 좌회전";
+                    if (Angle < -0.1) return "좌회전";
+                    if (Angle >= 0.7) return "강한 우회전";
+                    if (Angle > 0.1) return "우회전";
+                    return "직진";
+                }
+            }
+
+            /// <summary>
+            /// 속도값을 초보자도 이해할 수 있는 말로 바꿔 보여줍니다.
+            /// </summary>
+            public string ThrottleText
+            {
+                get
+                {
+                    if (Throttle < -0.05) return "후진";
+                    if (Throttle <= 0.05) return "정지에 가까움";
+                    return "전진";
+                }
+            }
+
+            public string ModeDescription => NormalizeDisplayValue(Mode) switch
+            {
+                "user" => "사용자 조작",
+                "local" => "AI 주행",
+                "local_angle" => "AI 조향",
+                _ => string.IsNullOrWhiteSpace(Mode) || Mode == "-" ? "-" : Mode
+            };
+
+            public string ScenarioDescription => NormalizeDisplayValue(Scenario) switch
+            {
+                "normal" => "정상",
+                "night" => "야간",
+                "left_turn" => "좌회전 구간",
+                "right_turn" => "우회전 구간",
+                "out_of_bound" => "차선 이탈",
+                _ => string.IsNullOrWhiteSpace(Scenario) || Scenario == "-" ? "-" : Scenario
+            };
+
+            /// <summary>
+            /// 사람이 먼저 확인하면 좋은 프레임입니다.
+            /// 완전 자동 삭제가 아니라 "검토 후보"로만 표시해서 사용자가 최종 판단하게 합니다.
+            /// </summary>
+            public bool NeedsReview =>
+                IsCatalogMissing ||
+                HasNoData ||
+                Math.Abs(Angle) >= 0.85 ||
+                Math.Abs(Throttle) <= 0.03 ||
+                NormalizeDisplayValue(Scenario).Contains("out_of_bound");
+
+            public string ReviewHint
+            {
+                get
+                {
+                    var reasons = new List<string>();
+                    if (IsCatalogMissing) reasons.Add("카탈로그 없음");
+                    if (HasNoData) reasons.Add("데이터 없음");
+                    if (Math.Abs(Angle) >= 0.85) reasons.Add("급조향");
+                    if (Math.Abs(Throttle) <= 0.03) reasons.Add("정지에 가까운 속도");
+                    if (NormalizeDisplayValue(Scenario).Contains("out_of_bound")) reasons.Add("차선 이탈 상황");
+
+                    return reasons.Count == 0 ? "정상" : string.Join(", ", reasons);
+                }
+            }
+
+            private static string NormalizeDisplayValue(string text)
+            {
+                return (text ?? string.Empty)
+                    .Trim()
+                    .Replace("-", "_")
+                    .Replace(" ", "_")
+                    .ToLowerInvariant();
+            }
 
             /// <summary>
             /// 이전 ListBox 표시 방식과 튜토리얼 설명에서 사용하는 요약 이름입니다.
@@ -1541,6 +1838,7 @@ namespace TeamApp
                 }
 
                 _allFrames = frames;
+                _hasUnsavedCleanupChanges = false;
                 // 초기 로드: 전체 프레임을 표시합니다.
                 RefreshFrameBinding();  // _visibleFrames 설정과 RefreshFrameView 호출
 
