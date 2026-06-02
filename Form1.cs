@@ -1677,7 +1677,7 @@ namespace TeamApp
                 _btnOpenTrainingModelFolder = new Button
                 {
                     Font = new Font("맑은 고딕", 12F),
-                    Location = new Point(699, 298),
+                    Location = new Point(699, 292),
                     Name = "btnOpenTrainingModelFolder",
                     Size = new Size(194, 43),
                     Text = "모델 폴더 열기",
@@ -1692,7 +1692,7 @@ namespace TeamApp
                 _btnCopyModelUseCommand = new Button
                 {
                     Font = new Font("맑은 고딕", 12F),
-                    Location = new Point(939, 298),
+                    Location = new Point(939, 292),
                     Name = "btnCopyModelUseCommand",
                     Size = new Size(220, 43),
                     Text = "사용 명령 복사",
@@ -1716,9 +1716,9 @@ namespace TeamApp
                 {
                     AutoSize = false,
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(45, 352),
+                    Location = new Point(45, 398),
                     Name = "lblTrainingEnvironmentStatus",
-                    Size = new Size(880, 30),
+                    Size = new Size(1450, 24),
                     Text = "학습 환경: 검사 전"
                 };
                 grpTrainingConfig.Controls.Add(_lblTrainingEnvironmentStatus);
@@ -1729,9 +1729,9 @@ namespace TeamApp
                 _btnCheckTrainingEnvironment = new Button
                 {
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(939, 348),
+                    Location = new Point(219, 350),
                     Name = "btnCheckTrainingEnvironment",
-                    Size = new Size(150, 36),
+                    Size = new Size(145, 36),
                     Text = "환경 검사",
                     UseVisualStyleBackColor = true
                 };
@@ -1744,7 +1744,7 @@ namespace TeamApp
                 _btnAutoSetupTrainingEnvironment = new Button
                 {
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(1101, 348),
+                    Location = new Point(379, 350),
                     Name = "btnAutoSetupTrainingEnvironment",
                     Size = new Size(170, 36),
                     Text = "자동 설정 시도",
@@ -1759,9 +1759,9 @@ namespace TeamApp
                 _btnCopyTrainingSetupCommands = new Button
                 {
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(1267, 348),
+                    Location = new Point(564, 350),
                     Name = "btnCopyTrainingSetupCommands",
-                    Size = new Size(160, 36),
+                    Size = new Size(170, 36),
                     Text = "설치 명령 복사",
                     UseVisualStyleBackColor = true
                 };
@@ -1774,9 +1774,9 @@ namespace TeamApp
                 _btnEditTrainingEnvironment = new Button
                 {
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(1435, 348),
+                    Location = new Point(749, 350),
                     Name = "btnEditTrainingEnvironment",
-                    Size = new Size(95, 36),
+                    Size = new Size(120, 36),
                     Text = "환경 설정",
                     UseVisualStyleBackColor = true
                 };
@@ -1868,7 +1868,7 @@ namespace TeamApp
                     AutoSize = false,
                     Font = new Font("맑은 고딕", 9.5F),
                     ForeColor = System.Drawing.Color.DimGray,
-                    Location = new Point(45, 392),
+                    Location = new Point(45, 426),
                     Name = "lblTrainingModelSafetyNote",
                     Size = new Size(1450, 24),
                     Text = "학습 중에는 임시 모델 파일을 사용합니다. 학습 중지를 눌러도 기존 최종 모델은 유지됩니다."
@@ -1903,13 +1903,13 @@ namespace TeamApp
             numTrainingEpochs.Location = new Point(219, 216);
             numTrainingEpochs.Size = new Size(180, 34);
 
-            btnStartTrainingProcess.Location = new Point(219, 298);
-            btnStopTrainingProcess.Location = new Point(459, 298);
+            btnStartTrainingProcess.Location = new Point(219, 292);
+            btnStopTrainingProcess.Location = new Point(459, 292);
             ConfigureTrainingResultButtons();
             ConfigureTrainingEnvironmentControls();
-            grpTrainingConfig.Height = 430;
-            grpTrainingOutput.Location = new Point(15, 460);
-            grpTrainingOutput.Height = Math.Max(240, tabTrainingMonitor.Height - 500);
+            grpTrainingConfig.Height = 470;
+            grpTrainingOutput.Location = new Point(15, 500);
+            grpTrainingOutput.Height = Math.Max(220, tabTrainingMonitor.Height - 540);
         }
 
         private async void BtnStartTrainingProcess_Click(object? sender, EventArgs e)
