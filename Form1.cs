@@ -3803,7 +3803,7 @@ namespace TeamApp
 
             if (chartFrames.Count == 0)
             {
-                plot.Title("유효한 데이터가 없습니다 (모두 제외됨)");
+                plot.Title("No valid frames");
                 _frameChart.Refresh();
                 _isChartDirty = false;
                 return;
@@ -3822,7 +3822,7 @@ namespace TeamApp
             zeroLine.Color = ScottPlot.Color.FromHex("#9E9E9E");
             zeroLine.LineWidth = 1.2f;
             zeroLine.MarkerSize = 0;
-            zeroLine.LegendText = "0 기준선";
+            zeroLine.LegendText = "Zero";
 
             if (_isFrameFilterActive)
             {
@@ -3830,35 +3830,35 @@ namespace TeamApp
                 angleScatter.Color = ScottPlot.Color.FromHex("#4FC3F7");
                 angleScatter.LineWidth = 0;
                 angleScatter.MarkerSize = 6;
-                angleScatter.LegendText = "방향값";
+                angleScatter.LegendText = "Steering";
 
                 var throttleScatter = plot.Add.Scatter(xs, throttleYs);
                 throttleScatter.Color = ScottPlot.Color.FromHex("#81C784");
                 throttleScatter.LineWidth = 0;
                 throttleScatter.MarkerSize = 6;
-                throttleScatter.LegendText = "속도값";
+                throttleScatter.LegendText = "Speed";
             }
             else
             {
                 var sigAngle = plot.Add.SignalXY(xs, angleYs);
                 sigAngle.Color = ScottPlot.Color.FromHex("#4FC3F7");
                 sigAngle.LineWidth = 1.5f;
-                sigAngle.LegendText = "방향값";
+                sigAngle.LegendText = "Steering";
 
                 var sigThrottle = plot.Add.SignalXY(xs, throttleYs);
                 sigThrottle.Color = ScottPlot.Color.FromHex("#81C784");
                 sigThrottle.LineWidth = 1.5f;
-                sigThrottle.LegendText = "속도값";
+                sigThrottle.LegendText = "Speed";
             }
 
             // 축 라벨과 제목
             plot.XLabel(_isFrameFilterActive
-                ? "원본 프레임 번호 (검색 결과 위치)"
-                : "학습에 사용할 프레임 순서 (제외된 프레임은 건너뜀)");
-            plot.YLabel("값 (-1 ~ 1)");
+                ? "Original frame index"
+                : "Training frame order");
+            plot.YLabel("Value (-1 ~ 1)");
             plot.Title(_isFrameFilterActive
-                ? $"검색 결과 분포 [표시: {n} / 전체: {_allFrames.Count}]"
-                : $"방향값/속도값 흐름 [학습 사용: {n} / 전체: {_allFrames.Count} / 제외: {_allFrames.Count(f => f.IsDeleted)}]");
+                ? $"Filtered distribution [shown: {n} / total: {_allFrames.Count}]"
+                : $"Steering/Speed flow [train: {n} / total: {_allFrames.Count} / excluded: {_allFrames.Count(f => f.IsDeleted)}]");
             plot.Axes.SetLimitsY(-1.2, 1.2);
             plot.ShowLegend(Alignment.UpperRight);
             plot.Axes.Color(ScottPlot.Color.FromHex("#DDE3EA"));
