@@ -2065,9 +2065,36 @@ namespace TeamApp
             btnStopTrainingProcess.Enabled = false;
             stsTrainingStatus.Text = "학습 상태: 대기";
 
+            ApplyTrainingControlStyle();
             LayoutTrainingTab();
             grpTrainingConfig.Resize += (_, _) => LayoutTrainingTab();
             tabTrainingMonitor.Resize += (_, _) => LayoutTrainingTab();
+        }
+
+        /// <summary>
+        /// 학습 탭의 글자 크기와 버튼 크기를 통일합니다.
+        /// Designer에서 가져온 컨트롤마다 폰트 크기가 다를 수 있어 실행 시점에 한 번 정리합니다.
+        /// </summary>
+        private void ApplyTrainingControlStyle()
+        {
+            System.Drawing.Font commonFont = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Regular);
+            System.Drawing.Font labelFont = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Regular);
+            System.Drawing.Font buttonFont = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Regular);
+
+            foreach (Control control in grpTrainingConfig.Controls)
+            {
+                control.Font = control is Button ? buttonFont : commonFont;
+
+                if (control is System.Windows.Forms.Label label)
+                {
+                    label.Font = labelFont;
+                    label.AutoEllipsis = true;
+                }
+            }
+
+            rtbTrainingOutput.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Regular);
+            grpTrainingConfig.Font = labelFont;
+            grpTrainingOutput.Font = labelFont;
         }
 
         /// <summary>
@@ -2081,9 +2108,9 @@ namespace TeamApp
             int margin = 16;
             int labelX = 40;
             int inputX = 220;
-            int buttonWidth = 130;
-            int buttonHeight = 34;
-            int rowHeight = 40;
+            int buttonWidth = 140;
+            int buttonHeight = 32;
+            int rowHeight = 39;
             int top = 42;
             int groupWidth = Math.Max(900, tabTrainingMonitor.ClientSize.Width - margin * 2);
             int buttonX = groupWidth - buttonWidth - 40;
@@ -2165,6 +2192,16 @@ namespace TeamApp
             {
                 MessageBox.Show("이미 학습 프로세스가 실행 중입니다.",
                     "학습 실행", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            bool detected = await DetectTrainingEnvironmentAsync(showSuccessMessage: false, clearLog: false);
+            if (!detected)
+            {
+                MessageBox.Show(
+                    "학습 환경 자동 감지에 실패했습니다.\n\n" +
+                    "자동 감지 버튼을 눌러 로그를 확인하거나, WSL Ubuntu / Conda 경로 / Donkey 프로젝트 경로를 직접 선택해 주세요.",
+                    "학습 환경 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -2465,28 +2502,58 @@ namespace TeamApp
 
         private async void BtnDetectTrainingEnvironment_Click(object? sender, EventArgs e)
         {
+            await DetectTrainingEnvironmentAsync(showSuccessMessage: true, clearLog: true);
+        }
+
+        private async Task<bool> DetectTrainingEnvironmentAsync(bool showSuccessMessage, bool clearLog)
+        {
             btnDetectTrainingEnvironment.Enabled = false;
-            rtbTrainingOutput.Clear();
+            if (clearLog)
+                rtbTrainingOutput.Clear();
             AppendTrainingLog("[감지] 학습 환경 자동 감지를 시작합니다.");
 
             try
             {
                 var distros = await DetectWslDistrosAsync();
-                if (!ApplyDetectedWslDistros(distros, requireExistingSelectionWhenMultiple: true))
-                    return;
+                if (!ApplyDetectedWslDistros(distros, requireExistingSelectionWhenMultiple: false, showMessage: showSuccessMessage))
+                    return false;
 
                 string distro = NormalizeWslDistroName(cmbTrainingWslDistro.Text);
-                await DetectCondaPathsAsync(distro);
+                bool condaDetected = await DetectCondaPathsAsync(distro, showMessage: showSuccessMessage);
+                if (!condaDetected)
+                    return false;
+
                 await DetectCondaEnvironmentsAsync(distro);
                 await DetectDonkeyProjectsAsync(distro);
 
-                MessageBox.Show("자동 감지가 완료되었습니다.\n감지된 값이 맞는지 확인한 뒤 학습을 시작해 주세요.",
-                    "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                if (string.IsNullOrWhiteSpace(txtTrainingPythonEnvName.Text) ||
+                    string.IsNullOrWhiteSpace(cmbMycarProjectPath.Text))
+                {
+                    AppendTrainingLog("[감지] Python 환경명 또는 Donkey 프로젝트 경로를 자동으로 확정하지 못했습니다.");
+                    return false;
+                }
+
+                if (showSuccessMessage)
+                {
+                    MessageBox.Show("자동 감지가 완료되었습니다.\n감지된 값이 맞는지 확인한 뒤 학습을 시작해 주세요.",
+                        "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+
+                return true;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("자동 감지 중 오류가 발생했습니다.\n\n오류 내용: " + ex.Message,
-                    "자동 감지 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (showSuccessMessage)
+                {
+                    MessageBox.Show("자동 감지 중 오류가 발생했습니다.\n\n오류 내용: " + ex.Message,
+                        "자동 감지 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                else
+                {
+                    AppendTrainingLog("[감지 오류] " + ex.Message);
+                }
+
+                return false;
             }
             finally
             {
@@ -2502,7 +2569,7 @@ namespace TeamApp
             try
             {
                 var distros = await DetectWslDistrosAsync();
-                ApplyDetectedWslDistros(distros, requireExistingSelectionWhenMultiple: false);
+                ApplyDetectedWslDistros(distros, requireExistingSelectionWhenMultiple: false, showMessage: true);
             }
             catch (Exception ex)
             {
@@ -2573,15 +2640,18 @@ namespace TeamApp
                 .ToList();
         }
 
-        private bool ApplyDetectedWslDistros(List<string> distros, bool requireExistingSelectionWhenMultiple)
+        private bool ApplyDetectedWslDistros(List<string> distros, bool requireExistingSelectionWhenMultiple, bool showMessage)
         {
             cmbTrainingWslDistro.Items.Clear();
             cmbTrainingWslDistro.Items.AddRange(distros.Cast<object>().ToArray());
 
             if (distros.Count == 0)
             {
-                MessageBox.Show("감지된 WSL Ubuntu가 없습니다.\nUbuntu 설치 후 다시 자동 감지를 실행해 주세요.",
-                    "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                if (showMessage)
+                {
+                    MessageBox.Show("감지된 WSL Ubuntu가 없습니다.\nUbuntu 설치 후 다시 자동 감지를 실행해 주세요.",
+                        "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
                 return false;
             }
 
@@ -2598,14 +2668,17 @@ namespace TeamApp
                 cmbTrainingWslDistro.Text = distros[0];
 
             AppendTrainingLog("[감지] 여러 WSL Ubuntu가 감지되었습니다: " + string.Join(", ", distros));
-            MessageBox.Show(
-                "WSL Ubuntu가 여러 개 감지되었습니다.\n목록에서 학습 환경이 설치된 Ubuntu를 선택해 주세요.",
-                "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (showMessage)
+            {
+                MessageBox.Show(
+                    "WSL Ubuntu가 여러 개 감지되었습니다.\n목록에서 학습 환경이 설치된 Ubuntu를 선택해 주세요.",
+                    "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
 
             return hasValidSelection || !requireExistingSelectionWhenMultiple;
         }
 
-        private async Task DetectCondaPathsAsync(string distro)
+        private async Task<bool> DetectCondaPathsAsync(string distro, bool showMessage)
         {
             distro = NormalizeWslDistroName(distro);
             string condaPath = await DetectCondaPathAsync(distro);
@@ -2614,13 +2687,17 @@ namespace TeamApp
             if (string.IsNullOrWhiteSpace(condaPath))
             {
                 AppendTrainingLog("[감지] Conda 경로를 찾지 못했습니다.");
-                MessageBox.Show("Conda 경로를 찾을 수 없습니다.",
-                    "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                if (showMessage)
+                {
+                    MessageBox.Show("Conda 경로를 찾을 수 없습니다.",
+                        "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                return false;
             }
 
             SetComboText(cmbCondaPath, condaPath);
             AppendTrainingLog("[감지] Conda 경로: " + condaPath);
+            return true;
         }
 
         private Task<string> DetectCondaPathAsync(string distro)
