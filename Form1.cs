@@ -58,7 +58,6 @@ namespace TeamApp
         private string _trainingModelType = "linear";
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
-        private const string TrainingDiagnosisSeenFileName = "training_diagnosis_seen.txt";
         private const string RunnerWindowsDonkey = "Windows donkey CLI";
         private const string RunnerWindowsConda = "Windows conda";
         private const string RunnerWslConda = "WSL conda";
@@ -133,7 +132,7 @@ namespace TeamApp
             LoadTrainingSettings();
             UpdateTrainingEnvironmentSummary("검사 전");
             UpdateStatusLabels();
-            BeginInvoke(new Action(RunStartupGuidanceDialogs));
+            BeginInvoke(new Action(AskFirstUseTutorial));
         }
 
         // UI 이벤트 처리
@@ -191,12 +190,6 @@ namespace TeamApp
                 MessageBoxIcon.Information);
         }
 
-        private void RunStartupGuidanceDialogs()
-        {
-            AskFirstUseTutorial();
-            AskFirstTrainingEnvironmentDiagnosis();
-        }
-
         private bool HasSeenFirstUseTutorial()
         {
             try
@@ -225,55 +218,6 @@ namespace TeamApp
         private string GetTutorialSeenPath()
         {
             return Path.Combine(Application.UserAppDataPath, "tutorial_seen.txt");
-        }
-
-        private async void AskFirstTrainingEnvironmentDiagnosis()
-        {
-            if (HasSeenTrainingDiagnosis()) return;
-
-            MarkTrainingDiagnosisSeen();
-
-            var answer = MessageBox.Show(
-                "학습 실행 기능을 사용하려면 WSL, conda, DonkeyCar 프로젝트 상태를 먼저 확인해야 합니다.\n\n" +
-                "지금 간단한 학습 환경 진단을 실행할까요?",
-                "학습 환경 첫 진단",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
-
-            if (answer != DialogResult.Yes) return;
-
-            tabControlMain.SelectedTab = tabTrainingMonitor;
-            await RefreshTrainingEnvironmentAsync(showSuccessMessage: true);
-        }
-
-        private bool HasSeenTrainingDiagnosis()
-        {
-            try
-            {
-                return File.Exists(GetTrainingDiagnosisSeenPath());
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private void MarkTrainingDiagnosisSeen()
-        {
-            try
-            {
-                Directory.CreateDirectory(Application.UserAppDataPath);
-                File.WriteAllText(GetTrainingDiagnosisSeenPath(), DateTime.Now.ToString("O"));
-            }
-            catch
-            {
-                // 진단 안내 표시 여부 저장 실패는 앱 실행을 막지 않습니다.
-            }
-        }
-
-        private string GetTrainingDiagnosisSeenPath()
-        {
-            return Path.Combine(Application.UserAppDataPath, TrainingDiagnosisSeenFileName);
         }
 
         private void RunFeatureTutorial(string title)
