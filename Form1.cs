@@ -36,6 +36,8 @@ namespace TeamApp
         private bool _tutorialRunning = false;
         private bool _isFrameFilterActive = false;
         private bool _isFrameSelectionUpdating = false;
+        private bool _isDraggingFrameRows = false;
+        private int _dragStartFrameRowIndex = -1;
         private bool _hasUnsavedCleanupChanges = false;
         private bool _showDriveOverlay = true;
         private Process? _trainingProcess;
@@ -334,9 +336,8 @@ namespace TeamApp
                 new TutorialStep("정리", "시나리오 필터", "normal, night, turn 같은 시나리오별로 프레임을 좁혀 봅니다.", cmbScenarioFilter, tabPageDataViewer),
                 new TutorialStep("정리", "필터 적용", "입력한 범위와 선택한 모드/시나리오 조건으로 목록을 필터링합니다.", btnApplyFrameFilter, tabPageDataViewer),
                 new TutorialStep("정리", "필터 해제", "필터 조건을 풀고 원본 프레임 목록을 다시 표시합니다.", btnClearFrameFilter, tabPageDataViewer),
-                new TutorialStep("정리", "구간 선택", "제외하고 싶은 시작/끝 프레임 번호를 입력하는 영역입니다.", txtFrameRangeStart, tabPageDataViewer),
-                new TutorialStep("정리", "구간 제외", "선택한 프레임 범위를 Soft Delete 처리합니다. 실제 파일은 삭제하지 않고 학습 제외 표시만 합니다.", btnExcludeFrameRange, tabPageDataViewer),
-                new TutorialStep("정리", "선택 프레임 제외", "목록에서 선택한 프레임들을 기준으로 제외 범위를 만들고 Soft Delete 처리합니다.", btnExcludeSelectedFrames, tabPageDataViewer),
+                new TutorialStep("정리", "여러 프레임 선택", "표에서 Shift를 누른 채 클릭하거나 마우스로 행을 드래그하면 여러 프레임을 한 번에 선택할 수 있습니다.", dgvFrameCatalog, tabPageDataViewer),
+                new TutorialStep("정리", "선택 프레임 제외", "선택한 여러 프레임을 학습 제외 상태로 바꿉니다. 실제 파일은 삭제하지 않고 제외 표시만 합니다.", btnExcludeSelectedFrames, tabPageDataViewer),
                 new TutorialStep("정리", "복원", "Soft Delete 처리된 프레임을 모두 다시 사용 가능 상태로 되돌립니다.", btnRestoreFrames, tabPageDataViewer),
                 new TutorialStep("정리", "클린 폴더 추출", "제외 표시된 프레임을 빼고 학습에 사용할 수 있는 Clean 폴더를 새로 만듭니다. 원본 폴더는 변경하지 않습니다.", btnExportCleanDataset, tabPageDataViewer),
                 new TutorialStep("그래프", "그래프/통계", "필터와 제외 상태를 반영한 조향값/스로틀값 분포 그래프를 확인합니다.", tabControlMain, tabGraphStats),
@@ -559,7 +560,7 @@ namespace TeamApp
 
             int idx = _visibleFrames.IndexOf(selectedFrame);
             if (idx >= 0 && idx < _visibleFrames.Count)
-                SetIndex(idx);
+                DisplayFrameAtIndex(idx);
         }
 
         private void TrkFrameTimeline_Scroll(object sender, EventArgs e)
@@ -613,11 +614,13 @@ namespace TeamApp
         {
             dgvFrameCatalog.AutoGenerateColumns = false;
             dgvFrameCatalog.Columns.Clear();
+            dgvFrameCatalog.MultiSelect = true;
+            dgvFrameCatalog.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.FormattedIndex),
                 HeaderText = "번호",
-                Width = 70,
+                Width = 76,
                 Frozen = true
             });
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
@@ -627,42 +630,75 @@ namespace TeamApp
                 AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
                 MinimumWidth = 220
             });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.Angle),
-                HeaderText = "방향값",
-                Width = 80,
-                DefaultCellStyle = new DataGridViewCellStyle { Format = "0.000" }
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.Throttle),
-                HeaderText = "속도값",
-                Width = 80,
-                DefaultCellStyle = new DataGridViewCellStyle { Format = "0.000" }
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.Mode),
-                HeaderText = "주행 방식",
-                Width = 90
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.Scenario),
-                HeaderText = "상황",
-                Width = 110
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.StateText),
-                HeaderText = "상태",
-                Width = 80
-            });
 
             dgvFrameCatalog.RowTemplate.Height = 26;
             dgvFrameCatalog.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(248, 250, 252);
             dgvFrameCatalog.DataBindingComplete += (_, _) => ApplyFrameCatalogRowStyle();
+            dgvFrameCatalog.MouseDown += DgvFrameCatalog_MouseDown;
+            dgvFrameCatalog.MouseMove += DgvFrameCatalog_MouseMove;
+            dgvFrameCatalog.MouseUp += DgvFrameCatalog_MouseUp;
+        }
+
+        private void DgvFrameCatalog_MouseDown(object? sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left) return;
+
+            int rowIndex = GetFrameGridRowIndexAt(e.Location);
+            if (rowIndex < 0) return;
+
+            _dragStartFrameRowIndex = rowIndex;
+            _isDraggingFrameRows = true;
+
+            if ((ModifierKeys & Keys.Shift) == Keys.Shift)
+            {
+                int anchorIndex = dgvFrameCatalog.CurrentCell?.RowIndex ?? rowIndex;
+                BeginInvoke(new Action(() => SelectFrameGridRange(anchorIndex, rowIndex)));
+            }
+        }
+
+        private void DgvFrameCatalog_MouseMove(object? sender, MouseEventArgs e)
+        {
+            if (!_isDraggingFrameRows || e.Button != MouseButtons.Left) return;
+
+            int rowIndex = GetFrameGridRowIndexAt(e.Location);
+            if (rowIndex < 0 || _dragStartFrameRowIndex < 0) return;
+
+            SelectFrameGridRange(_dragStartFrameRowIndex, rowIndex);
+        }
+
+        private void DgvFrameCatalog_MouseUp(object? sender, MouseEventArgs e)
+        {
+            _isDraggingFrameRows = false;
+            _dragStartFrameRowIndex = -1;
+        }
+
+        private int GetFrameGridRowIndexAt(Point point)
+        {
+            var hit = dgvFrameCatalog.HitTest(point.X, point.Y);
+            return hit.Type == DataGridViewHitTestType.Cell ? hit.RowIndex : -1;
+        }
+
+        /// <summary>
+        /// Shift 선택과 마우스 드래그 선택에서 공통으로 사용하는 범위 선택입니다.
+        /// 선택 자체를 유지해야 하므로 SetIndex를 호출하지 않고 현재 행 표시만 갱신합니다.
+        /// </summary>
+        private void SelectFrameGridRange(int startRowIndex, int endRowIndex)
+        {
+            if (dgvFrameCatalog.Rows.Count == 0) return;
+
+            int from = Math.Max(0, Math.Min(startRowIndex, endRowIndex));
+            int to = Math.Min(dgvFrameCatalog.Rows.Count - 1, Math.Max(startRowIndex, endRowIndex));
+
+            _isFrameSelectionUpdating = true;
+            dgvFrameCatalog.ClearSelection();
+            for (int rowIndex = from; rowIndex <= to; rowIndex++)
+                dgvFrameCatalog.Rows[rowIndex].Selected = true;
+
+            dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[endRowIndex].Cells[0];
+            _isFrameSelectionUpdating = false;
+
+            if (endRowIndex >= 0 && endRowIndex < _visibleFrames.Count)
+                DisplayFrameAtIndex(endRowIndex);
         }
 
         /// <summary>
@@ -723,7 +759,20 @@ namespace TeamApp
             txtFrameRangeEnd.BackColor = System.Drawing.Color.FromArgb(255, 252, 235);
             lblFrameRange.ForeColor = System.Drawing.Color.FromArgb(120, 70, 0);
 
+            HideRangeCleanupControls();
             ArrangeFrameInfoPanel();
+        }
+
+        private void HideRangeCleanupControls()
+        {
+            lblFrameRange.Visible = false;
+            lblFrameRangeSeparator.Visible = false;
+            txtFrameRangeStart.Visible = false;
+            txtFrameRangeEnd.Visible = false;
+            btnExcludeFrameRange.Visible = false;
+
+            btnExcludeSelectedFrames.Location = btnExcludeFrameRange.Location;
+            btnExcludeSelectedFrames.Size = btnExcludeFrameRange.Size;
         }
 
         /// <summary>
@@ -924,6 +973,18 @@ namespace TeamApp
                 dgvFrameCatalog.FirstDisplayedScrollingRowIndex = Math.Max(0, idx);
             }
             _isFrameSelectionUpdating = false;
+
+            if (trkFrameTimeline.Value != idx)
+                trkFrameTimeline.Value = idx;
+
+            DisplayFrameAtIndex(idx);
+        }
+
+        private void DisplayFrameAtIndex(int idx)
+        {
+            if (_visibleFrames == null || idx < 0 || idx >= _visibleFrames.Count) return;
+
+            _currentFrameIndex = idx;
 
             if (trkFrameTimeline.Value != idx)
                 trkFrameTimeline.Value = idx;
