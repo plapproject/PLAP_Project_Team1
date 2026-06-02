@@ -582,34 +582,34 @@ namespace TeamApp
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.Name),
-                HeaderText = "이미지명",
+                HeaderText = "이미지 파일",
                 AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
                 MinimumWidth = 220
             });
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.Angle),
-                HeaderText = "조향각",
+                HeaderText = "방향값",
                 Width = 80,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "0.000" }
             });
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.Throttle),
-                HeaderText = "스로틀",
+                HeaderText = "속도값",
                 Width = 80,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "0.000" }
             });
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.Mode),
-                HeaderText = "모드",
+                HeaderText = "주행 방식",
                 Width = 90
             });
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.Scenario),
-                HeaderText = "시나리오",
+                HeaderText = "상황",
                 Width = 110
             });
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
@@ -629,8 +629,23 @@ namespace TeamApp
         /// </summary>
         private void ApplyDataManagerUiStyle()
         {
-            grpDataCleaner.Text = "터브 정리기 - 필터 / 구간 제외 / 복원 / 클린 추출";
+            tabPageDataViewer.Text = "데이터 확인";
+            tabGraphStats.Text = "그래프/통계";
+            grpDataExplorer.Text = "데이터 탐색";
+            grpDataCleaner.Text = "데이터 정리 - 검색 / 제외 / 복원 / 학습용 폴더 만들기";
             lblFrameRange.Text = "구간 제외/복원";
+            lblAngleRange.Text = "방향값 범위 (-1~1):";
+            lblThrottleRange.Text = "속도값 범위 (-1~1):";
+            lblModeFilter.Text = "주행 방식:";
+            lblScenarioFilter.Text = "상황:";
+            btnOpenDataFolder.Text = "데이터 폴더 열기";
+            btnApplyFrameFilter.Text = "검색 적용";
+            btnClearFrameFilter.Text = "검색 해제";
+            btnExcludeFrameRange.Text = "구간 제외";
+            btnExcludeSelectedFrames.Text = "선택 제외";
+            btnRestoreFrames.Text = "복원";
+            btnSaveCleanupState.Text = "상태 저장";
+            btnExportCleanDataset.Text = "학습용 폴더 만들기";
 
             foreach (var button in new[]
             {
@@ -782,10 +797,10 @@ namespace TeamApp
             string resolvedPath = ResolveImagePath(frame.Name);
             UpdatePreviewImage(resolvedPath);
 
-            lblFrameValue.Text    = $"Frame: {idx + 1} / {_visibleFrames.Count}";
-            lblAngleValue.Text    = $"조향값: {frame.Angle:0.000}";
-            lblThrottleValue.Text = $"스로틀값: {frame.Throttle:0.000}";
-            lblModeValue.Text     = $"모드: {frame.Mode}";
+            lblFrameValue.Text    = $"프레임: {idx + 1} / {_visibleFrames.Count}";
+            lblAngleValue.Text    = $"방향값: {frame.Angle:0.000}";
+            lblThrottleValue.Text = $"속도값: {frame.Throttle:0.000}";
+            lblModeValue.Text     = $"주행 방식: {frame.Mode}";
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
         }
@@ -1081,7 +1096,7 @@ namespace TeamApp
             dgvFrameCatalog.ClearSelection();
             picFramePreview.Image?.Dispose();
             picFramePreview.Image = null;
-            lblFrameValue.Text = "Frame: 0 / 0";
+            lblFrameValue.Text = "프레임: 0 / 0";
             lblAngleValue.Text = "조향값: 0.000";
             lblThrottleValue.Text = "스로틀값: 0.000";
             lblModeValue.Text = "모드: -";
@@ -1618,7 +1633,7 @@ namespace TeamApp
                     Font = new Font("맑은 고딕", 12F),
                     Location = new Point(1335, 156),
                     Name = "btnSelectTrainingModelPath",
-                    Size = new Size(123, 43),
+                    Size = new Size(145, 43),
                     Text = "저장 위치",
                 UseVisualStyleBackColor = true
             };
@@ -1905,6 +1920,7 @@ namespace TeamApp
             lblTrainingTubPath.Location = new Point(45, 116);
             txtTrainingTubPath.Location = new Point(219, 112);
             btnSelectTrainingTubPath.Text = "데이터 선택";
+            btnSelectTrainingTubPath.Size = new Size(145, 43);
             btnSelectTrainingTubPath.Location = new Point(1335, 104);
 
             lblTrainingModelPath.Location = new Point(45, 168);
@@ -3732,6 +3748,11 @@ namespace TeamApp
 
             _frameChart.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1e1e1e");
             _frameChart.Plot.DataBackground.Color   = ScottPlot.Color.FromHex("#2d2d30");
+            if (lblChartDescription != null)
+            {
+                lblChartDescription.Text =
+                    "방향값과 속도값의 흐름을 보여줍니다. 0 기준선에서 멀수록 조작이 강하고, 필터 적용 시에는 원본 프레임 위치 기준의 점으로 표시됩니다.";
+            }
 
             tabGraphStats.Controls.Add(_frameChart);
             _frameChart.BringToFront();
@@ -3782,41 +3803,49 @@ namespace TeamApp
             double[] angleYs = chartFrames.Select(f => f.Angle).ToArray();
             double[] throttleYs = chartFrames.Select(f => f.Throttle).ToArray();
 
+            double[] zeroXs = { xs.Min(), xs.Max() };
+            double[] zeroYs = { 0, 0 };
+            var zeroLine = plot.Add.Scatter(zeroXs, zeroYs);
+            zeroLine.Color = ScottPlot.Color.FromHex("#9E9E9E");
+            zeroLine.LineWidth = 1.2f;
+            zeroLine.MarkerSize = 0;
+            zeroLine.LegendText = "0 기준선";
+
             if (_isFrameFilterActive)
             {
                 var angleScatter = plot.Add.Scatter(xs, angleYs);
                 angleScatter.Color = ScottPlot.Color.FromHex("#4FC3F7");
                 angleScatter.LineWidth = 0;
                 angleScatter.MarkerSize = 6;
-                angleScatter.LegendText = "조향(Angle)";
+                angleScatter.LegendText = "방향값";
 
                 var throttleScatter = plot.Add.Scatter(xs, throttleYs);
                 throttleScatter.Color = ScottPlot.Color.FromHex("#81C784");
                 throttleScatter.LineWidth = 0;
                 throttleScatter.MarkerSize = 6;
-                throttleScatter.LegendText = "스로틀(Throttle)";
+                throttleScatter.LegendText = "속도값";
             }
             else
             {
                 var sigAngle = plot.Add.SignalXY(xs, angleYs);
                 sigAngle.Color = ScottPlot.Color.FromHex("#4FC3F7");
                 sigAngle.LineWidth = 1.5f;
-                sigAngle.LegendText = "조향(Angle)";
+                sigAngle.LegendText = "방향값";
 
                 var sigThrottle = plot.Add.SignalXY(xs, throttleYs);
                 sigThrottle.Color = ScottPlot.Color.FromHex("#81C784");
                 sigThrottle.LineWidth = 1.5f;
-                sigThrottle.LegendText = "스로틀(Throttle)";
+                sigThrottle.LegendText = "속도값";
             }
 
             // 축 라벨과 제목
             plot.XLabel(_isFrameFilterActive
-                ? "원본 프레임 인덱스(필터 결과)"
-                : "유효 프레임 인덱스(제외된 프레임은 건너뜀)");
-            plot.YLabel("값(Angle / Throttle)");
+                ? "원본 프레임 번호 (검색 결과 위치)"
+                : "학습에 사용할 프레임 순서 (제외된 프레임은 건너뜀)");
+            plot.YLabel("값 (-1 ~ 1)");
             plot.Title(_isFrameFilterActive
-                ? $"필터 결과 Scatter 그래프 [표시: {n} / 전체: {_allFrames.Count}]"
-                : $"조향값/스로틀 Line 그래프 [유효: {n} / 전체: {_allFrames.Count}]");
+                ? $"검색 결과 분포 [표시: {n} / 전체: {_allFrames.Count}]"
+                : $"방향값/속도값 흐름 [학습 사용: {n} / 전체: {_allFrames.Count} / 제외: {_allFrames.Count(f => f.IsDeleted)}]");
             plot.Axes.SetLimitsY(-1.2, 1.2);
             plot.ShowLegend(Alignment.UpperRight);
 
