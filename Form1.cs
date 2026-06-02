@@ -1736,7 +1736,7 @@ namespace TeamApp
                     Font = new Font("맑은 고딕", 10F),
                     Location = new Point(219, 350),
                     Name = "btnCheckTrainingEnvironment",
-                    Size = new Size(145, 36),
+                    Size = new Size(170, 36),
                     Text = "환경 검사",
                     UseVisualStyleBackColor = true
                 };
@@ -1749,7 +1749,7 @@ namespace TeamApp
                 _btnAutoSetupTrainingEnvironment = new Button
                 {
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(379, 350),
+                    Location = new Point(404, 350),
                     Name = "btnAutoSetupTrainingEnvironment",
                     Size = new Size(170, 36),
                     Text = "자동 설정 시도",
@@ -1764,7 +1764,7 @@ namespace TeamApp
                 _btnCopyTrainingSetupCommands = new Button
                 {
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(564, 350),
+                    Location = new Point(589, 350),
                     Name = "btnCopyTrainingSetupCommands",
                     Size = new Size(170, 36),
                     Text = "설치 명령 복사",
@@ -1779,9 +1779,9 @@ namespace TeamApp
                 _btnEditTrainingEnvironment = new Button
                 {
                     Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(749, 350),
+                    Location = new Point(774, 350),
                     Name = "btnEditTrainingEnvironment",
-                    Size = new Size(120, 36),
+                    Size = new Size(170, 36),
                     Text = "환경 설정",
                     UseVisualStyleBackColor = true
                 };
