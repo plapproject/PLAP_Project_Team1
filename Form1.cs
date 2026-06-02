@@ -122,6 +122,7 @@ namespace TeamApp
             ApplyDataManagerUiStyle();
             ConfigureReviewCandidateControls();
             ConfigureCleanupGuidanceControls();
+            ArrangeDataCleanerPanel();
 
             btnExcludeSelectedFrames.Text = "선택 프레임 제외";
             btnExportCleanDataset.Text          = "클린 폴더 추출";
@@ -855,7 +856,9 @@ namespace TeamApp
             lblFrameRange.ForeColor = System.Drawing.Color.FromArgb(120, 70, 0);
 
             HideRangeCleanupControls();
+            ArrangeDataCleanerPanel();
             ArrangeFrameInfoPanel();
+            grpDataCleaner.Resize += (_, _) => ArrangeDataCleanerPanel();
         }
 
         private void HideRangeCleanupControls()
@@ -868,6 +871,105 @@ namespace TeamApp
 
             btnExcludeSelectedFrames.Location = btnExcludeFrameRange.Location;
             btnExcludeSelectedFrames.Size = btnExcludeFrameRange.Size;
+        }
+
+        /// <summary>
+        /// 데이터 정리 패널 안의 입력, 버튼, 상태 안내가 서로 겹치지 않도록 한곳에서 위치를 계산합니다.
+        /// WinForms 디자이너 좌표는 화면 크기에 취약하므로, 실행 시 현재 패널 폭을 기준으로 다시 배치합니다.
+        /// </summary>
+        private void ArrangeDataCleanerPanel()
+        {
+            int panelWidth = Math.Max(900, grpDataCleaner.ClientSize.Width);
+            int left = 88;
+            int labelWidth = 170;
+            int inputWidth = 130;
+            int row1 = 70;
+            int row2 = 112;
+            int rowHeight = 30;
+
+            int minX = left + labelWidth;
+            int separatorX = minX + inputWidth + 16;
+            int maxX = separatorX + 28;
+
+            int comboLabelX = maxX + inputWidth + 52;
+            int comboX = comboLabelX + 88;
+            int comboWidth = Math.Max(220, Math.Min(330, panelWidth - comboX - 500));
+
+            int buttonWidth = 215;
+            int buttonHeight = 29;
+            int buttonGap = 18;
+            int right = panelWidth - 84;
+            int buttonCol2X = right - buttonWidth;
+            int buttonCol1X = buttonCol2X - buttonWidth - buttonGap;
+
+            PlaceFilterRangeRow(lblAngleRange, txtAngleMinFilter, lblAngleRangeSeparator, txtAngleMaxFilter,
+                left, minX, separatorX, maxX, row1, labelWidth, inputWidth, rowHeight);
+            PlaceFilterRangeRow(lblThrottleRange, txtThrottleMinFilter, lblThrottleRangeSeparator, txtThrottleMaxFilter,
+                left, minX, separatorX, maxX, row2, labelWidth, inputWidth, rowHeight);
+
+            PlaceFilterComboRow(lblModeFilter, cmbModeFilter, comboLabelX, comboX, row1, comboWidth, rowHeight);
+            PlaceFilterComboRow(lblScenarioFilter, cmbScenarioFilter, comboLabelX, comboX, row2, comboWidth, rowHeight);
+
+            if (_btnShowReviewCandidates != null)
+                PlaceButton(_btnShowReviewCandidates, buttonCol1X, 34, buttonWidth, buttonHeight);
+
+            PlaceButton(btnExcludeSelectedFrames, buttonCol1X, 72, buttonWidth, buttonHeight);
+            PlaceButton(btnApplyFrameFilter, buttonCol1X, 110, buttonWidth, buttonHeight);
+            PlaceButton(btnExportCleanDataset, buttonCol1X, 148, buttonWidth, buttonHeight);
+
+            PlaceButton(btnClearFrameFilter, buttonCol2X, 110, buttonWidth, buttonHeight);
+            PlaceButton(btnRestoreFrames, buttonCol2X, 148, buttonWidth, buttonHeight);
+            PlaceButton(btnSaveCleanupState, buttonCol2X, 186, buttonWidth, buttonHeight);
+
+            LayoutCleanupGuidanceControls();
+        }
+
+        private static void PlaceFilterRangeRow(
+            System.Windows.Forms.Label label,
+            TextBox minTextBox,
+            System.Windows.Forms.Label separator,
+            TextBox maxTextBox,
+            int labelX,
+            int minX,
+            int separatorX,
+            int maxX,
+            int y,
+            int labelWidth,
+            int inputWidth,
+            int rowHeight)
+        {
+            label.AutoSize = false;
+            label.Location = new Point(labelX, y + 3);
+            label.Size = new Size(labelWidth, rowHeight);
+            minTextBox.Location = new Point(minX, y);
+            minTextBox.Size = new Size(inputWidth, rowHeight);
+            separator.Location = new Point(separatorX, y + 4);
+            separator.Size = new Size(28, rowHeight);
+            maxTextBox.Location = new Point(maxX, y);
+            maxTextBox.Size = new Size(inputWidth, rowHeight);
+        }
+
+        private static void PlaceFilterComboRow(
+            System.Windows.Forms.Label label,
+            ComboBox comboBox,
+            int labelX,
+            int comboX,
+            int y,
+            int comboWidth,
+            int rowHeight)
+        {
+            label.AutoSize = false;
+            label.Location = new Point(labelX, y + 3);
+            label.Size = new Size(84, rowHeight);
+            comboBox.Location = new Point(comboX, y);
+            comboBox.Size = new Size(comboWidth, rowHeight);
+        }
+
+        private static void PlaceButton(Button button, int x, int y, int width, int height)
+        {
+            button.Location = new Point(x, y);
+            button.Size = new Size(width, height);
+            button.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         }
 
         /// <summary>
@@ -976,8 +1078,11 @@ namespace TeamApp
 
         private void LayoutCleanupGuidanceControls()
         {
-            int width = Math.Max(300, grpDataCleaner.ClientSize.Width - 40);
-            int y = Math.Max(18, grpDataCleaner.ClientSize.Height - 50);
+            int buttonLeft = btnApplyFrameFilter.Left > 0
+                ? btnApplyFrameFilter.Left
+                : grpDataCleaner.ClientSize.Width - 500;
+            int width = Math.Max(300, buttonLeft - 36);
+            int y = Math.Max(148, grpDataCleaner.ClientSize.Height - 54);
 
             if (_lblCleanupSummary != null)
             {
