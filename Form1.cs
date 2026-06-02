@@ -2064,6 +2064,99 @@ namespace TeamApp
 
             btnStopTrainingProcess.Enabled = false;
             stsTrainingStatus.Text = "학습 상태: 대기";
+
+            LayoutTrainingTab();
+            grpTrainingConfig.Resize += (_, _) => LayoutTrainingTab();
+            tabTrainingMonitor.Resize += (_, _) => LayoutTrainingTab();
+        }
+
+        /// <summary>
+        /// View_fix에서 가져온 학습 탭은 작은 해상도 기준 좌표를 가지고 있습니다.
+        /// 현재 폼 크기에 맞춰 모든 입력칸과 버튼을 다시 배치해서 글자 잘림과 컨트롤 겹침을 방지합니다.
+        /// </summary>
+        private void LayoutTrainingTab()
+        {
+            if (grpTrainingConfig == null || grpTrainingOutput == null) return;
+
+            int margin = 16;
+            int labelX = 40;
+            int inputX = 220;
+            int buttonWidth = 130;
+            int buttonHeight = 34;
+            int rowHeight = 40;
+            int top = 42;
+            int groupWidth = Math.Max(900, tabTrainingMonitor.ClientSize.Width - margin * 2);
+            int buttonX = groupWidth - buttonWidth - 40;
+            int inputWidth = Math.Max(280, buttonX - inputX - 16);
+            int halfWidth = Math.Max(220, (inputWidth - 24) / 2);
+            int rightLabelX = inputX + halfWidth + 54;
+            int rightInputX = rightLabelX + 130;
+            int rightInputWidth = Math.Max(180, buttonX - rightInputX - 16);
+
+            grpTrainingConfig.Location = new Point(margin, 18);
+            grpTrainingConfig.Size = new Size(groupWidth, 382);
+            grpTrainingConfig.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+
+            PlaceTrainingRow(lblMycarProjectPath, cmbMycarProjectPath, btnSelectMycarPath, labelX, inputX, buttonX, top, inputWidth, buttonWidth, buttonHeight);
+            PlaceTrainingRow(lblTrainingTubPath, txtTrainingTubPath, btnSelectTrainingTubPath, labelX, inputX, buttonX, top + rowHeight, inputWidth, buttonWidth, buttonHeight);
+            PlaceTrainingRow(lblTrainingModelPath, txtTrainingModelPath, btnSelectTrainingModelPath, labelX, inputX, buttonX, top + rowHeight * 2, inputWidth, buttonWidth, buttonHeight);
+
+            PlaceTrainingRow(lblTrainingModelType, cmbTrainingModelType, null, labelX, inputX, buttonX, top + rowHeight * 3, halfWidth, buttonWidth, buttonHeight);
+            PlaceTrainingRow(lblTrainingPythonEnvName, txtTrainingPythonEnvName, null, labelX, inputX, buttonX, top + rowHeight * 4, halfWidth, buttonWidth, buttonHeight);
+            PlaceTrainingRow(lblEpoch, numTrainingEpochs, null, labelX, inputX, buttonX, top + rowHeight * 5, 180, buttonWidth, buttonHeight);
+
+            PlaceTrainingRow(lblTrainingWslDistro, cmbTrainingWslDistro, btnSelectTrainingWslDistro, rightLabelX, rightInputX, buttonX, top + rowHeight * 3, rightInputWidth, buttonWidth, buttonHeight);
+            PlaceTrainingRow(lblCondaPath, cmbCondaPath, btnSelectCondaPath, rightLabelX, rightInputX, buttonX, top + rowHeight * 4, rightInputWidth, buttonWidth, buttonHeight);
+
+            int actionY = top + rowHeight * 6 + 16;
+            int actionWidth = 150;
+            btnStartTrainingProcess.Location = new Point(inputX, actionY);
+            btnStopTrainingProcess.Location = new Point(inputX + actionWidth + 24, actionY);
+            btnSaveTrainingConfig.Location = new Point(inputX + (actionWidth + 24) * 2, actionY);
+            btnDetectTrainingEnvironment.Location = new Point(inputX + (actionWidth + 24) * 3, actionY);
+
+            foreach (var button in new[] { btnStartTrainingProcess, btnStopTrainingProcess, btnSaveTrainingConfig, btnDetectTrainingEnvironment })
+            {
+                button.Size = new Size(actionWidth, buttonHeight);
+                button.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            }
+            btnDetectTrainingEnvironment.Text = "자동 감지";
+
+            grpTrainingOutput.Location = new Point(margin, grpTrainingConfig.Bottom + 16);
+            grpTrainingOutput.Size = new Size(groupWidth, Math.Max(260, tabTrainingMonitor.ClientSize.Height - grpTrainingOutput.Top - 42));
+            grpTrainingOutput.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+
+            rtbTrainingOutput.Dock = DockStyle.Fill;
+            statusStripTraining.Dock = DockStyle.Bottom;
+        }
+
+        private void PlaceTrainingRow(
+            System.Windows.Forms.Label label,
+            Control input,
+            Button? button,
+            int labelX,
+            int inputX,
+            int buttonX,
+            int y,
+            int inputWidth,
+            int buttonWidth,
+            int buttonHeight)
+        {
+            label.AutoSize = false;
+            label.TextAlign = ContentAlignment.MiddleLeft;
+            label.Location = new Point(labelX, y + 2);
+            label.Size = new Size(inputX - labelX - 12, buttonHeight);
+
+            input.Location = new Point(inputX, y);
+            input.Size = new Size(inputWidth, buttonHeight);
+            input.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+
+            if (button == null) return;
+
+            button.Location = new Point(buttonX, y);
+            button.Size = new Size(buttonWidth, buttonHeight);
+            button.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            button.Text = button == btnSelectTrainingWslDistro || button == btnSelectCondaPath ? "감지" : "경로 선택";
         }
 
         private async void BtnStartTrainingProcess_Click(object? sender, EventArgs e)
