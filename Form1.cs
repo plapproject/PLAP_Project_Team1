@@ -2516,7 +2516,7 @@ namespace TeamApp
             _lblTrainingSummaryStatus ??= CreateTrainingSummaryLabel("lblTrainingSummaryStatus", "상태: 대기", false);
             _lblTrainingSummaryEpoch ??= CreateTrainingSummaryLabel("lblTrainingSummaryEpoch", "학습 횟수: -", false);
             _lblTrainingSummaryProgress ??= CreateTrainingSummaryLabel("lblTrainingSummaryProgress", "진행률: -", false);
-            _lblTrainingSummaryLoss ??= CreateTrainingSummaryLabel("lblTrainingSummaryLoss", "점수: -", false);
+            _lblTrainingSummaryLoss ??= CreateTrainingSummaryLabel("lblTrainingSummaryLoss", "점수(높을수록 좋음): -", false);
         }
 
         private System.Windows.Forms.Label CreateTrainingSummaryLabel(string name, string text, bool bold)
@@ -2960,7 +2960,7 @@ namespace TeamApp
         {
             if (rtbTrainingOutput.IsDisposed || string.IsNullOrEmpty(chunk)) return;
 
-            string sanitized = AnsiEscapeRegex.Replace(chunk, string.Empty).Replace("\0", string.Empty);
+            string sanitized = NormalizeTrainingLogChunk(chunk);
             if (sanitized.Length == 0) return;
 
             void AppendChunk()
@@ -2974,6 +2974,18 @@ namespace TeamApp
                 rtbTrainingOutput.BeginInvoke(new Action(AppendChunk));
             else
                 AppendChunk();
+        }
+
+        private string NormalizeTrainingLogChunk(string chunk)
+        {
+            string sanitized = AnsiEscapeRegex.Replace(chunk, string.Empty).Replace("\0", string.Empty);
+
+            // DonkeyCar may log this as ERROR even when the training process exits with code 0.
+            // It means the optional model database file was not written, not that the model training failed.
+            return sanitized.Replace(
+                "ERROR:donkeycar.pipeline.database:Failed writing database file:",
+                "[참고] 모델 기록 DB 저장 실패(학습 모델 저장과는 별개):",
+                StringComparison.OrdinalIgnoreCase);
         }
 
         private void ApplyTrainingOutputChunk(string text)
@@ -3106,7 +3118,7 @@ namespace TeamApp
                     _lblTrainingSummaryProgress.Text = "진행률: " + progress;
 
                 if (_lblTrainingSummaryLoss != null && loss != null)
-                    _lblTrainingSummaryLoss.Text = "점수: " + loss;
+                    _lblTrainingSummaryLoss.Text = "점수(높을수록 좋음): " + loss;
             }
 
             if (grpTrainingConfig.InvokeRequired)
