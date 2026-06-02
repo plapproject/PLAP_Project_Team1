@@ -133,8 +133,7 @@ namespace TeamApp
             LoadTrainingSettings();
             UpdateTrainingEnvironmentSummary("검사 전");
             UpdateStatusLabels();
-            BeginInvoke(new Action(AskFirstUseTutorial));
-            BeginInvoke(new Action(AskFirstTrainingEnvironmentDiagnosis));
+            BeginInvoke(new Action(RunStartupGuidanceDialogs));
         }
 
         // UI 이벤트 처리
@@ -190,6 +189,12 @@ namespace TeamApp
                 "튜토리얼 안내",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
+        }
+
+        private void RunStartupGuidanceDialogs()
+        {
+            AskFirstUseTutorial();
+            AskFirstTrainingEnvironmentDiagnosis();
         }
 
         private bool HasSeenFirstUseTutorial()
