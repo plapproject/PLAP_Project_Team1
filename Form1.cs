@@ -731,19 +731,30 @@ namespace TeamApp
 
         private void TrkFrameTimeline_MouseDown(object? sender, MouseEventArgs e)
         {
-            if (e.Button != MouseButtons.Left || _visibleFrames.Count == 0) return;
+            if (_visibleFrames.Count == 0) return;
 
             int clickedIndex = GetTimelineIndexAt(e.X);
-
-            _isDraggingTimelineRange = true;
-            _timelineRangeStartIndex = clickedIndex;
             trkFrameTimeline.Value = clickedIndex;
-            SelectFrameGridRange(clickedIndex, clickedIndex);
+
+            if (e.Button == MouseButtons.Left)
+            {
+                _isDraggingTimelineRange = false;
+                _timelineRangeStartIndex = -1;
+                SetIndex(clickedIndex);
+                return;
+            }
+
+            if (e.Button == MouseButtons.Right)
+            {
+                _isDraggingTimelineRange = true;
+                _timelineRangeStartIndex = clickedIndex;
+                SelectFrameGridRange(clickedIndex, clickedIndex);
+            }
         }
 
         private void TrkFrameTimeline_MouseMove(object? sender, MouseEventArgs e)
         {
-            if (!_isDraggingTimelineRange || e.Button != MouseButtons.Left || _visibleFrames.Count == 0) return;
+            if (!_isDraggingTimelineRange || e.Button != MouseButtons.Right || _visibleFrames.Count == 0) return;
 
             int currentIndex = GetTimelineIndexAt(e.X);
             if (trkFrameTimeline.Value != currentIndex)
@@ -754,6 +765,8 @@ namespace TeamApp
 
         private void TrkFrameTimeline_MouseUp(object? sender, MouseEventArgs e)
         {
+            if (e.Button != MouseButtons.Right) return;
+
             _isDraggingTimelineRange = false;
             _timelineRangeStartIndex = -1;
         }
@@ -930,17 +943,18 @@ namespace TeamApp
             int buttonCol2X = panelWidth - rightMargin - buttonWidth;
             int buttonCol1X = buttonCol2X - buttonWidth - buttonGap;
 
-            int comboLabelX = Math.Min(maxX + inputWidth + 52, buttonCol1X - 300);
-            int comboX = comboLabelX + 88;
-            int comboWidth = Math.Max(170, buttonCol1X - comboX - 20);
+            int comboLabelWidth = panelWidth < 1400 ? 96 : 105;
+            int comboLabelX = Math.Min(maxX + inputWidth + 36, buttonCol1X - 420);
+            int comboX = comboLabelX + comboLabelWidth;
+            int comboWidth = Math.Max(220, Math.Min(panelWidth < 1400 ? 320 : 380, buttonCol1X - comboX - 18));
 
             PlaceFilterRangeRow(lblAngleRange, txtAngleMinFilter, lblAngleRangeSeparator, txtAngleMaxFilter,
                 left, minX, separatorX, maxX, row1, labelWidth, inputWidth, rowHeight);
             PlaceFilterRangeRow(lblThrottleRange, txtThrottleMinFilter, lblThrottleRangeSeparator, txtThrottleMaxFilter,
                 left, minX, separatorX, maxX, row2, labelWidth, inputWidth, rowHeight);
 
-            PlaceFilterComboRow(lblModeFilter, cmbModeFilter, comboLabelX, comboX, row1, comboWidth, rowHeight);
-            PlaceFilterComboRow(lblScenarioFilter, cmbScenarioFilter, comboLabelX, comboX, row2, comboWidth, rowHeight);
+            PlaceFilterComboRow(lblModeFilter, cmbModeFilter, comboLabelX, comboX, row1, comboLabelWidth, comboWidth, rowHeight);
+            PlaceFilterComboRow(lblScenarioFilter, cmbScenarioFilter, comboLabelX, comboX, row2, comboLabelWidth, comboWidth, rowHeight);
 
             if (_btnShowReviewCandidates != null)
                 PlaceButton(_btnShowReviewCandidates, buttonCol1X, 30, buttonWidth, buttonHeight);
@@ -998,12 +1012,13 @@ namespace TeamApp
             int labelX,
             int comboX,
             int y,
+            int labelWidth,
             int comboWidth,
             int rowHeight)
         {
             label.AutoSize = false;
             label.Location = new Point(labelX, y + 3);
-            label.Size = new Size(84, rowHeight);
+            label.Size = new Size(labelWidth, rowHeight);
             comboBox.Location = new Point(comboX, y);
             comboBox.Size = new Size(comboWidth, rowHeight);
         }
@@ -2657,6 +2672,7 @@ namespace TeamApp
             string wslCondaPath = ConvertToWslPath(condaPath);
             string wslTubPath = ConvertToWslPath(tubPath);
             string wslModelPath = ConvertToWslPath(modelPath);
+            string wslTrainingConfigPath = "/tmp/teamapp_train_config.py";
 
             string command =
                 "export PYTHONUNBUFFERED=1 && " +
@@ -2667,12 +2683,15 @@ namespace TeamApp
                 "cd " + QuotePathForBash(wslMycarPath) + " && " +
                 "if [ ! -f config.py ] && [ ! -f manage.py ]; then echo " +
                 QuoteForBash("[error] Donkey 프로젝트 파일(config.py 또는 manage.py)을 찾을 수 없습니다: " + wslMycarPath) + "; exit 2; fi && " +
+                "if [ -f config.py ]; then cp config.py " + QuotePathForBash(wslTrainingConfigPath) + "; else : > " + QuotePathForBash(wslTrainingConfigPath) + "; fi && " +
+                "printf " + QuoteForBash("\n# TeamApp runtime training settings\nMAX_EPOCHS = " + epochCount.ToString(CultureInfo.InvariantCulture) + "\n") +
+                " >> " + QuotePathForBash(wslTrainingConfigPath) + " && " +
                 QuotePathForBash(wslCondaPath) + " run --no-capture-output -n " + QuoteForBash(envName) + " " +
                 "donkey train " +
                 "--tub " + QuotePathForBash(wslTubPath) + " " +
                 "--model " + QuotePathForBash(wslModelPath) + " " +
                 "--type " + QuoteForBash(modelType) + " " +
-                "--epochs " + epochCount.ToString(CultureInfo.InvariantCulture);
+                "--config " + QuotePathForBash(wslTrainingConfigPath);
 
             arguments.AddRange(new[] { "-d", wslDistro, "bash", "-lc", command });
             displayArguments = "-d " + QuoteProcessArgument(wslDistro) + " bash -lc " + QuoteForBash(command);
