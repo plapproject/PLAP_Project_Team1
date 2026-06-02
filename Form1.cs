@@ -3735,27 +3735,35 @@ namespace TeamApp
 
         private void InitFrameChart()
         {
+            if (lblChartDescription != null)
+            {
+                lblChartDescription.AutoSize = false;
+                lblChartDescription.Font = new Font("맑은 고딕", 10F);
+                lblChartDescription.Location = new Point(20, 14);
+                lblChartDescription.Size = new Size(Math.Max(300, tabGraphStats.ClientSize.Width - 40), 48);
+                lblChartDescription.TextAlign = ContentAlignment.MiddleLeft;
+                lblChartDescription.Text =
+                    "방향값과 속도값의 흐름을 보여줍니다. 0 기준선에서 멀수록 조작이 강하고, 검색 적용 시에는 원본 프레임 위치 기준의 점으로 표시됩니다.";
+            }
+
+            pnlChartHost.Location = new Point(20, 76);
+            pnlChartHost.Size = new Size(
+                Math.Max(300, tabGraphStats.ClientSize.Width - 40),
+                Math.Max(300, tabGraphStats.ClientSize.Height - 96));
+            pnlChartHost.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            pnlChartHost.BackColor = System.Drawing.Color.FromArgb(30, 30, 30);
+
             _frameChart = new FormsPlot
             {
-                Location = new System.Drawing.Point(0, 42),
-                Size     = new System.Drawing.Size(
-                    tabGraphStats.ClientSize.Width,
-                    tabGraphStats.ClientSize.Height - 42),
-                Anchor = AnchorStyles.Top | AnchorStyles.Bottom |
-                         AnchorStyles.Left | AnchorStyles.Right,
+                Dock = DockStyle.Fill,
                 Name = "formsPlotMain"
             };
 
             _frameChart.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1e1e1e");
             _frameChart.Plot.DataBackground.Color   = ScottPlot.Color.FromHex("#2d2d30");
-            if (lblChartDescription != null)
-            {
-                lblChartDescription.Text =
-                    "방향값과 속도값의 흐름을 보여줍니다. 0 기준선에서 멀수록 조작이 강하고, 필터 적용 시에는 원본 프레임 위치 기준의 점으로 표시됩니다.";
-            }
 
-            tabGraphStats.Controls.Add(_frameChart);
-            _frameChart.BringToFront();
+            pnlChartHost.Controls.Clear();
+            pnlChartHost.Controls.Add(_frameChart);
         }
 
         // 기본 모드는 선 그래프, 필터 모드는 원본 인덱스 기준 점 그래프로 표시합니다.
@@ -3781,6 +3789,11 @@ namespace TeamApp
             _frameChart.Plot.Axes.Left.Label.FontName            = "Malgun Gothic";
             _frameChart.Plot.Axes.Bottom.TickLabelStyle.FontName = "Malgun Gothic";
             _frameChart.Plot.Axes.Left.TickLabelStyle.FontName   = "Malgun Gothic";
+            plot.Legend.FontName = "Malgun Gothic";
+            plot.Legend.FontSize = 13;
+            plot.Legend.FontColor = ScottPlot.Color.FromHex("#222222");
+            plot.Legend.BackgroundColor = ScottPlot.Color.FromHex("#F7F7F7");
+            plot.Legend.OutlineColor = ScottPlot.Color.FromHex("#777777");
 
             plot.Clear();
 
@@ -3848,6 +3861,7 @@ namespace TeamApp
                 : $"방향값/속도값 흐름 [학습 사용: {n} / 전체: {_allFrames.Count} / 제외: {_allFrames.Count(f => f.IsDeleted)}]");
             plot.Axes.SetLimitsY(-1.2, 1.2);
             plot.ShowLegend(Alignment.UpperRight);
+            plot.Axes.Color(ScottPlot.Color.FromHex("#DDE3EA"));
 
             plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#444444");
 
