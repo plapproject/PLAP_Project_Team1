@@ -38,6 +38,8 @@ namespace TeamApp
         private bool _isFrameSelectionUpdating = false;
         private bool _isDraggingFrameRows = false;
         private int _dragStartFrameRowIndex = -1;
+        private bool _isDraggingTimelineRange = false;
+        private int _timelineRangeStartIndex = -1;
         private bool _hasUnsavedCleanupChanges = false;
         private bool _showDriveOverlay = true;
         private Process? _trainingProcess;
@@ -326,7 +328,7 @@ namespace TeamApp
                 new TutorialStep("데이터 보기", "마지막으로", "현재 필터 결과의 마지막 프레임으로 이동합니다.", btnLast, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "자동 재생", "프레임을 지정한 간격으로 자동 재생합니다. 재생 중에는 버튼이 일시정지로 바뀝니다.", btnAutoPlay, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "재생 속도", "자동 재생 속도를 배속으로 조절합니다. 1.00x는 기본 속도이고, 숫자가 클수록 더 빠르게 넘어갑니다.", numPlaybackIntervalMs, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "현재 프레임 위치를 빠르게 이동합니다. 많은 프레임을 훑어볼 때 사용합니다.", trkFrameTimeline, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "현재 프레임 위치를 빠르게 이동하거나, 드래그해서 시작~끝 프레임 범위를 선택할 수 있습니다. Shift를 누른 채 클릭하면 현재 프레임부터 선택됩니다.", trkFrameTimeline, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "조향값", "선택한 프레임의 Angle 값을 표시합니다. 왼쪽/오른쪽 조향 상태를 확인할 때 봅니다.", lblAngleValue, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "스로틀값", "선택한 프레임의 Throttle 값을 표시합니다. 전진/정지/후진 정도를 확인할 때 봅니다.", lblThrottleValue, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "모드", "선택한 프레임의 주행 모드 정보를 표시합니다. user/local 같은 상태를 확인합니다.", lblModeValue, tabPageDataViewer),
@@ -336,7 +338,7 @@ namespace TeamApp
                 new TutorialStep("정리", "시나리오 필터", "normal, night, turn 같은 시나리오별로 프레임을 좁혀 봅니다.", cmbScenarioFilter, tabPageDataViewer),
                 new TutorialStep("정리", "필터 적용", "입력한 범위와 선택한 모드/시나리오 조건으로 목록을 필터링합니다.", btnApplyFrameFilter, tabPageDataViewer),
                 new TutorialStep("정리", "필터 해제", "필터 조건을 풀고 원본 프레임 목록을 다시 표시합니다.", btnClearFrameFilter, tabPageDataViewer),
-                new TutorialStep("정리", "여러 프레임 선택", "표에서 Shift를 누른 채 클릭하거나 마우스로 행을 드래그하면 여러 프레임을 한 번에 선택할 수 있습니다.", dgvFrameCatalog, tabPageDataViewer),
+                new TutorialStep("정리", "여러 프레임 선택", "표에서 Shift 클릭/마우스 드래그를 하거나, 아래 슬라이더를 드래그하면 여러 프레임을 한 번에 선택할 수 있습니다.", dgvFrameCatalog, tabPageDataViewer),
                 new TutorialStep("정리", "선택 프레임 제외", "선택한 여러 프레임을 학습 제외 상태로 바꿉니다. 실제 파일은 삭제하지 않고 제외 표시만 합니다.", btnExcludeSelectedFrames, tabPageDataViewer),
                 new TutorialStep("정리", "복원", "Soft Delete 처리된 프레임을 모두 다시 사용 가능 상태로 되돌립니다.", btnRestoreFrames, tabPageDataViewer),
                 new TutorialStep("정리", "클린 폴더 추출", "제외 표시된 프레임을 빼고 학습에 사용할 수 있는 Clean 폴더를 새로 만듭니다. 원본 폴더는 변경하지 않습니다.", btnExportCleanDataset, tabPageDataViewer),
@@ -567,7 +569,12 @@ namespace TeamApp
         {
             int idx = trkFrameTimeline.Value;
             if (idx >= 0 && idx < _visibleFrames.Count)
-                SetIndex(idx);
+            {
+                if (_isDraggingTimelineRange || (ModifierKeys & Keys.Shift) == Keys.Shift)
+                    SelectFrameGridRange(GetTimelineRangeAnchorIndex(idx), idx);
+                else
+                    SetIndex(idx);
+            }
         }
 
         private void btnFirst_Click(object sender, EventArgs e) => SetIndex(0);
@@ -637,6 +644,9 @@ namespace TeamApp
             dgvFrameCatalog.MouseDown += DgvFrameCatalog_MouseDown;
             dgvFrameCatalog.MouseMove += DgvFrameCatalog_MouseMove;
             dgvFrameCatalog.MouseUp += DgvFrameCatalog_MouseUp;
+            trkFrameTimeline.MouseDown += TrkFrameTimeline_MouseDown;
+            trkFrameTimeline.MouseMove += TrkFrameTimeline_MouseMove;
+            trkFrameTimeline.MouseUp += TrkFrameTimeline_MouseUp;
         }
 
         private void DgvFrameCatalog_MouseDown(object? sender, MouseEventArgs e)
@@ -672,10 +682,68 @@ namespace TeamApp
             _dragStartFrameRowIndex = -1;
         }
 
+        private void TrkFrameTimeline_MouseDown(object? sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left || _visibleFrames.Count == 0) return;
+
+            int clickedIndex = GetTimelineIndexAt(e.X);
+            trkFrameTimeline.Value = clickedIndex;
+
+            if ((ModifierKeys & Keys.Shift) == Keys.Shift)
+            {
+                int anchorIndex = _currentFrameIndex >= 0 ? _currentFrameIndex : clickedIndex;
+                SelectFrameGridRange(anchorIndex, clickedIndex);
+                return;
+            }
+
+            _isDraggingTimelineRange = true;
+            _timelineRangeStartIndex = clickedIndex;
+            SelectFrameGridRange(clickedIndex, clickedIndex);
+        }
+
+        private void TrkFrameTimeline_MouseMove(object? sender, MouseEventArgs e)
+        {
+            if (!_isDraggingTimelineRange || e.Button != MouseButtons.Left || _visibleFrames.Count == 0) return;
+
+            int currentIndex = GetTimelineIndexAt(e.X);
+            if (trkFrameTimeline.Value != currentIndex)
+                trkFrameTimeline.Value = currentIndex;
+
+            SelectFrameGridRange(_timelineRangeStartIndex, currentIndex);
+        }
+
+        private void TrkFrameTimeline_MouseUp(object? sender, MouseEventArgs e)
+        {
+            _isDraggingTimelineRange = false;
+            _timelineRangeStartIndex = -1;
+        }
+
         private int GetFrameGridRowIndexAt(Point point)
         {
             var hit = dgvFrameCatalog.HitTest(point.X, point.Y);
             return hit.Type == DataGridViewHitTestType.Cell ? hit.RowIndex : -1;
+        }
+
+        private int GetTimelineIndexAt(int mouseX)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return 0;
+
+            int min = trkFrameTimeline.Minimum;
+            int max = trkFrameTimeline.Maximum;
+            if (max <= min) return min;
+
+            double ratio = Math.Clamp(mouseX / (double)Math.Max(1, trkFrameTimeline.ClientSize.Width), 0.0, 1.0);
+            int value = min + (int)Math.Round((max - min) * ratio);
+            return Math.Max(min, Math.Min(max, value));
+        }
+
+        private int GetTimelineRangeAnchorIndex(int currentIndex)
+        {
+            if (_timelineRangeStartIndex >= 0)
+                return _timelineRangeStartIndex;
+
+            return _currentFrameIndex >= 0 ? _currentFrameIndex : currentIndex;
         }
 
         /// <summary>
