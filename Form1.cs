@@ -694,7 +694,7 @@ namespace TeamApp
             numPlaybackIntervalMs.DecimalPlaces = 2;
             numPlaybackIntervalMs.Increment = 0.25M;
             numPlaybackIntervalMs.Minimum = 0.25M;
-            numPlaybackIntervalMs.Maximum = 4.00M;
+            numPlaybackIntervalMs.Maximum = 10.00M;
             numPlaybackIntervalMs.Value = 1.00M;
             numPlaybackIntervalMs.ValueChanged += (_, _) =>
             {
@@ -996,6 +996,9 @@ namespace TeamApp
         {
             using Graphics graphics = Graphics.FromImage(bitmap);
             graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+            graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
 
             float scale = Math.Max(0.4f, bitmap.Width / 640f);
             float arrowLength = Math.Max(12f, bitmap.Height * 0.075f);
@@ -1018,20 +1021,26 @@ namespace TeamApp
             if (frame.NeedsReview)
                 overlayText += " / 검토";
 
-            using var font = new System.Drawing.Font("맑은 고딕", Math.Max(4.5f, 4.8f * scale), System.Drawing.FontStyle.Bold);
+            using var font = new System.Drawing.Font("맑은 고딕", Math.Max(5.2f, 5.6f * scale), System.Drawing.FontStyle.Bold);
             SizeF textSize = graphics.MeasureString(overlayText, font);
-            var textBox = new RectangleF(5, 5, textSize.Width + 8, textSize.Height + 5);
-            using var boxBrush = new SolidBrush(System.Drawing.Color.FromArgb(145, 0, 0, 0));
+            float boxWidth = textSize.Width + 12;
+            float boxHeight = textSize.Height + 7;
+            var textBox = new RectangleF((bitmap.Width - boxWidth) / 2f, 6, boxWidth, boxHeight);
+            using var boxBrush = new SolidBrush(System.Drawing.Color.FromArgb(165, 0, 0, 0));
+            using var outlineBrush = new SolidBrush(System.Drawing.Color.FromArgb(180, 40, 30, 0));
             using var textBrush = new SolidBrush(frame.NeedsReview ? System.Drawing.Color.Gold : System.Drawing.Color.White);
             graphics.FillRectangle(boxBrush, textBox);
-            graphics.DrawString(overlayText, font, textBrush, textBox.Left + 4, textBox.Top + 2);
+            float textX = textBox.Left + 6;
+            float textY = textBox.Top + 3;
+            graphics.DrawString(overlayText, font, outlineBrush, textX + 0.8f, textY + 0.8f);
+            graphics.DrawString(overlayText, font, textBrush, textX, textY);
         }
 
         private int GetPlaybackIntervalFromSpeed()
         {
             decimal speed = Math.Max(0.25M, numPlaybackIntervalMs.Value);
             const int baseIntervalMs = 200;
-            return Math.Max(25, (int)Math.Round(baseIntervalMs / speed));
+            return Math.Max(20, (int)Math.Round(baseIntervalMs / speed));
         }
 
         private void TogglePlayPause()
