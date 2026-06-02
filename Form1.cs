@@ -54,6 +54,7 @@ namespace TeamApp
         private System.Windows.Forms.Label? _lblCleanupSummary;
         private System.Windows.Forms.Label? _lblCleanupWorkflowHint;
         private System.Windows.Forms.Label? _lblFrameReviewHint;
+        private ComboBox? _cmbPlaybackSpeed;
         private bool _isTrainingAutoDetectRunning = false;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
@@ -95,25 +96,25 @@ namespace TeamApp
         private void Form1_Load(object sender, EventArgs e)
         {
             // 버튼 이벤트를 코드에서 연결합니다.
-            btnClearFrameFilter.Click      += BtnClearFrameFilter_Click;
-            btnExcludeFrameRange.Click     += BtnExcludeFrameRange_Click;
+            btnClearFrameFilter.Click += BtnClearFrameFilter_Click;
+            btnExcludeFrameRange.Click += BtnExcludeFrameRange_Click;
             btnExcludeSelectedFrames.Click += BtnExcludeSelectedFrames_Click;
-            btnExportCleanDataset.Click      += BtnExportCleanDataset_Click;
-            btnRestoreFrames.Click     += BtnRestoreFrames_Click;
-            btnSaveCleanupState.Click        += BtnSaveCleanupState_Click;
-            btnStartTrainingProcess.Click    += BtnStartTrainingProcess_Click;
-            btnStopTrainingProcess.Click     += BtnStopTrainingProcess_Click;
-            btnSaveTrainingConfig.Click     += BtnSaveTrainingConfig_Click;
+            btnExportCleanDataset.Click += BtnExportCleanDataset_Click;
+            btnRestoreFrames.Click += BtnRestoreFrames_Click;
+            btnSaveCleanupState.Click += BtnSaveCleanupState_Click;
+            btnStartTrainingProcess.Click += BtnStartTrainingProcess_Click;
+            btnStopTrainingProcess.Click += BtnStopTrainingProcess_Click;
+            btnSaveTrainingConfig.Click += BtnSaveTrainingConfig_Click;
             btnSelectTrainingTubPath.Click += (_, _) => SelectFolderInto(txtTrainingTubPath, "Tub 폴더 선택");
             btnSelectTrainingModelPath.Click += BtnSelectTrainingModelPath_Click;
             btnDetectTrainingEnvironment.Click += BtnDetectTrainingEnvironment_Click;
             btnSelectTrainingWslDistro.Click += BtnSelectTrainingWslDistro_Click;
             btnSelectCondaPath.Click += BtnSelectCondaPath_Click;
 
-            mnuFileOpenDataFolder.Click   += (s, _) => BtnOpenDataFolder_Click(s!, EventArgs.Empty);
-            mnuFileReloadData.Click       += (s, _) => BtnReloadData_Click(s!, EventArgs.Empty);
-            mnuExit.Click             += (s, _) => Application.Exit();
-            mnuHelpOpenTutorial.Click        += (s, _) => RunFeatureTutorial("도움말");
+            mnuFileOpenDataFolder.Click += (s, _) => BtnOpenDataFolder_Click(s!, EventArgs.Empty);
+            mnuFileReloadData.Click += (s, _) => BtnReloadData_Click(s!, EventArgs.Empty);
+            mnuExit.Click += (s, _) => Application.Exit();
+            mnuHelpOpenTutorial.Click += (s, _) => RunFeatureTutorial("도움말");
 
             tabControlMain.SelectedIndexChanged += TabControl1_SelectedIndexChanged;
             FormClosing += Form1_FormClosing;
@@ -125,10 +126,10 @@ namespace TeamApp
             ArrangeDataCleanerPanel();
 
             btnExcludeSelectedFrames.Text = "선택 프레임 제외";
-            btnExportCleanDataset.Text          = "클린 폴더 추출";
-            btnRestoreFrames.Text         = "복원";
-            txtAngleMinFilter.Text    = "-1";
-            txtAngleMaxFilter.Text    = "1";
+            btnExportCleanDataset.Text = "클린 폴더 추출";
+            btnRestoreFrames.Text = "복원";
+            txtAngleMinFilter.Text = "-1";
+            txtAngleMaxFilter.Text = "1";
             txtThrottleMinFilter.Text = "-1";
             txtThrottleMaxFilter.Text = "1";
 
@@ -157,8 +158,11 @@ namespace TeamApp
             if (string.IsNullOrEmpty(path))
             {
                 if (string.IsNullOrEmpty(stsDataPath.Text) ||
-                    stsDataPath.Text == "경로: -") return;
-                path = stsDataPath.Text.Replace("경로: ", "").Trim();
+                    stsDataPath.Text.EndsWith("-", StringComparison.Ordinal)) return;
+                path = stsDataPath.Text
+                    .Replace("데이터 폴더: ", "")
+                    .Replace("경로: ", "")
+                    .Trim();
             }
             if (Directory.Exists(path)) _ = LoadCatalogAsync(path);
         }
@@ -606,9 +610,9 @@ namespace TeamApp
         }
 
         private void btnFirst_Click(object sender, EventArgs e) => SetIndex(0);
-        private void btnPrev_Click(object sender, EventArgs e)  => SetIndex(Math.Max(0, _currentFrameIndex - 1));
-        private void btnNext_Click(object sender, EventArgs e)  => SetIndex(Math.Min(_visibleFrames.Count - 1, _currentFrameIndex + 1));
-        private void btnLast_Click(object sender, EventArgs e)  => SetIndex(_visibleFrames.Count - 1);
+        private void btnPrev_Click(object sender, EventArgs e) => SetIndex(Math.Max(0, _currentFrameIndex - 1));
+        private void btnNext_Click(object sender, EventArgs e) => SetIndex(Math.Min(_visibleFrames.Count - 1, _currentFrameIndex + 1));
+        private void btnLast_Click(object sender, EventArgs e) => SetIndex(_visibleFrames.Count - 1);
 
         // 자동 재생 타이머 처리
         private void PlayTimer_Tick(object? sender, EventArgs e)
@@ -634,10 +638,10 @@ namespace TeamApp
             switch (e.KeyCode)
             {
                 case Keys.Right: btnNext_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.Left:  btnPrev_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.Left: btnPrev_Click(this, EventArgs.Empty); e.Handled = true; break;
                 case Keys.Space: TogglePlayPause(); e.Handled = true; break;
-                case Keys.Home:  btnFirst_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.End:   btnLast_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.Home: btnFirst_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.End: btnLast_Click(this, EventArgs.Empty); e.Handled = true; break;
                 case Keys.Delete:
                     if (tabControlMain.SelectedTab == tabPageDataViewer)
                     {
@@ -819,20 +823,13 @@ namespace TeamApp
             btnRestoreFrames.Text = "복원";
             btnSaveCleanupState.Text = "상태 저장";
             btnExportCleanDataset.Text = "학습용 폴더 만들기";
+            btnFirst.Text = "처음";
+            btnPrev.Text = "이전";
+            btnNext.Text = "다음";
+            btnLast.Text = "마지막";
             lblPlayInterval.Text = "재생속도";
 
-            // 기존 컨트롤 이름은 numPlaybackIntervalMs이지만, 화면에서는 배속 입력으로 사용합니다.
-            // 1.00x를 기준으로 내부 재생 간격을 계산해 사용자가 ms 값을 몰라도 조절할 수 있게 합니다.
-            numPlaybackIntervalMs.DecimalPlaces = 2;
-            numPlaybackIntervalMs.Increment = 0.25M;
-            numPlaybackIntervalMs.Minimum = 0.25M;
-            numPlaybackIntervalMs.Maximum = 10.00M;
-            numPlaybackIntervalMs.Value = 1.00M;
-            numPlaybackIntervalMs.ValueChanged += (_, _) =>
-            {
-                if (_isPlaybackRunning)
-                    _playbackTimer.Interval = GetPlaybackIntervalFromSpeed();
-            };
+            ConfigurePlaybackSpeedComboBox();
 
             foreach (var button in new[]
             {
@@ -861,6 +858,38 @@ namespace TeamApp
             grpDataCleaner.Resize += (_, _) => ArrangeDataCleanerPanel();
         }
 
+        /// <summary>
+        /// 기존 숫자 입력 컨트롤은 숨기고, 사용자가 바로 이해할 수 있는 1~10배 콤보박스를 표시합니다.
+        /// </summary>
+        private void ConfigurePlaybackSpeedComboBox()
+        {
+            numPlaybackIntervalMs.Visible = false;
+
+            if (_cmbPlaybackSpeed == null)
+            {
+                _cmbPlaybackSpeed = new ComboBox
+                {
+                    Name = "cmbPlaybackSpeed",
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Font = new Font("맑은 고딕", 9.5F),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right
+                };
+
+                for (int speed = 1; speed <= 10; speed++)
+                    _cmbPlaybackSpeed.Items.Add($"{speed}배");
+
+                _cmbPlaybackSpeed.SelectedIndex = 0;
+                _cmbPlaybackSpeed.SelectedIndexChanged += (_, _) =>
+                {
+                    if (_isPlaybackRunning)
+                        _playbackTimer.Interval = GetPlaybackIntervalFromSpeed();
+                };
+
+                grpDataExplorer.Controls.Add(_cmbPlaybackSpeed);
+                _cmbPlaybackSpeed.BringToFront();
+            }
+        }
+
         private void HideRangeCleanupControls()
         {
             lblFrameRange.Visible = false;
@@ -880,27 +909,30 @@ namespace TeamApp
         private void ArrangeDataCleanerPanel()
         {
             int panelWidth = Math.Max(900, grpDataCleaner.ClientSize.Width);
-            int left = 88;
-            int labelWidth = 170;
-            int inputWidth = 130;
-            int row1 = 70;
-            int row2 = 112;
+            grpDataCleaner.Dock = DockStyle.None;
+            grpDataCleaner.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+
+            int left = panelWidth < 1400 ? 58 : 88;
+            int labelWidth = panelWidth < 1400 ? 200 : 170;
+            int inputWidth = panelWidth < 1400 ? 120 : 130;
+            int row1 = 68;
+            int row2 = 110;
             int rowHeight = 30;
 
             int minX = left + labelWidth;
             int separatorX = minX + inputWidth + 16;
             int maxX = separatorX + 28;
 
-            int comboLabelX = maxX + inputWidth + 52;
-            int comboX = comboLabelX + 88;
-            int comboWidth = Math.Max(220, Math.Min(330, panelWidth - comboX - 500));
-
-            int buttonWidth = 215;
-            int buttonHeight = 29;
-            int buttonGap = 18;
-            int right = panelWidth - 84;
-            int buttonCol2X = right - buttonWidth;
+            int buttonWidth = panelWidth < 1400 ? 180 : 215;
+            int buttonHeight = 28;
+            int buttonGap = panelWidth < 1400 ? 12 : 18;
+            int rightMargin = panelWidth < 1400 ? 18 : 84;
+            int buttonCol2X = panelWidth - rightMargin - buttonWidth;
             int buttonCol1X = buttonCol2X - buttonWidth - buttonGap;
+
+            int comboLabelX = Math.Min(maxX + inputWidth + 52, buttonCol1X - 300);
+            int comboX = comboLabelX + 88;
+            int comboWidth = Math.Max(170, buttonCol1X - comboX - 20);
 
             PlaceFilterRangeRow(lblAngleRange, txtAngleMinFilter, lblAngleRangeSeparator, txtAngleMaxFilter,
                 left, minX, separatorX, maxX, row1, labelWidth, inputWidth, rowHeight);
@@ -911,15 +943,26 @@ namespace TeamApp
             PlaceFilterComboRow(lblScenarioFilter, cmbScenarioFilter, comboLabelX, comboX, row2, comboWidth, rowHeight);
 
             if (_btnShowReviewCandidates != null)
-                PlaceButton(_btnShowReviewCandidates, buttonCol1X, 34, buttonWidth, buttonHeight);
+                PlaceButton(_btnShowReviewCandidates, buttonCol1X, 30, buttonWidth, buttonHeight);
 
-            PlaceButton(btnExcludeSelectedFrames, buttonCol1X, 72, buttonWidth, buttonHeight);
-            PlaceButton(btnApplyFrameFilter, buttonCol1X, 110, buttonWidth, buttonHeight);
-            PlaceButton(btnExportCleanDataset, buttonCol1X, 148, buttonWidth, buttonHeight);
+            PlaceButton(btnExcludeSelectedFrames, buttonCol2X, 30, buttonWidth, buttonHeight);
+            PlaceButton(btnApplyFrameFilter, buttonCol1X, 66, buttonWidth, buttonHeight);
+            PlaceButton(btnClearFrameFilter, buttonCol2X, 66, buttonWidth, buttonHeight);
+            PlaceButton(btnExportCleanDataset, buttonCol1X, 102, buttonWidth, buttonHeight);
+            PlaceButton(btnRestoreFrames, buttonCol2X, 102, buttonWidth, buttonHeight);
+            PlaceButton(btnSaveCleanupState, buttonCol1X, 138, buttonWidth, buttonHeight);
 
-            PlaceButton(btnClearFrameFilter, buttonCol2X, 110, buttonWidth, buttonHeight);
-            PlaceButton(btnRestoreFrames, buttonCol2X, 148, buttonWidth, buttonHeight);
-            PlaceButton(btnSaveCleanupState, buttonCol2X, 186, buttonWidth, buttonHeight);
+            if (panelWidth < 1180)
+            {
+                int singleColX = panelWidth - rightMargin - buttonWidth;
+                PlaceButton(_btnShowReviewCandidates!, singleColX, 24, buttonWidth, buttonHeight);
+                PlaceButton(btnExcludeSelectedFrames, singleColX, 56, buttonWidth, buttonHeight);
+                PlaceButton(btnApplyFrameFilter, singleColX, 88, buttonWidth, buttonHeight);
+                PlaceButton(btnClearFrameFilter, singleColX, 120, buttonWidth, buttonHeight);
+                PlaceButton(btnExportCleanDataset, singleColX, 152, buttonWidth, buttonHeight);
+                PlaceButton(btnRestoreFrames, singleColX, 184, buttonWidth, buttonHeight);
+                PlaceButton(btnSaveCleanupState, singleColX, 216, buttonWidth, buttonHeight);
+            }
 
             LayoutCleanupGuidanceControls();
         }
@@ -967,6 +1010,7 @@ namespace TeamApp
 
         private static void PlaceButton(Button button, int x, int y, int width, int height)
         {
+            if (button == null) return;
             button.Location = new Point(x, y);
             button.Size = new Size(width, height);
             button.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -998,8 +1042,11 @@ namespace TeamApp
 
             lblPlayInterval.Location = new Point(left, 390);
             lblPlayInterval.Size = new Size(92, 28);
-            numPlaybackIntervalMs.Location = new Point(left + 96, 389);
-            numPlaybackIntervalMs.Size = new Size(width - 96, 27);
+            if (_cmbPlaybackSpeed != null)
+            {
+                _cmbPlaybackSpeed.Location = new Point(left + 96, 389);
+                _cmbPlaybackSpeed.Size = new Size(Math.Max(90, width - 96), 27);
+            }
         }
 
         /// <summary>
@@ -1082,18 +1129,18 @@ namespace TeamApp
                 ? btnApplyFrameFilter.Left
                 : grpDataCleaner.ClientSize.Width - 500;
             int width = Math.Max(300, buttonLeft - 36);
-            int y = Math.Max(148, grpDataCleaner.ClientSize.Height - 54);
+            int y = Math.Max(168, grpDataCleaner.ClientSize.Height - 44);
 
             if (_lblCleanupSummary != null)
             {
                 _lblCleanupSummary.Location = new Point(20, y);
-                _lblCleanupSummary.Size = new Size(width, 22);
+                _lblCleanupSummary.Size = new Size(width, 19);
             }
 
             if (_lblCleanupWorkflowHint != null)
             {
-                _lblCleanupWorkflowHint.Location = new Point(20, y + 23);
-                _lblCleanupWorkflowHint.Size = new Size(width, 22);
+                _lblCleanupWorkflowHint.Location = new Point(20, y + 19);
+                _lblCleanupWorkflowHint.Size = new Size(width, 19);
             }
         }
 
@@ -1139,14 +1186,14 @@ namespace TeamApp
         /// </summary>
         private void SetLoadingState(bool loading)
         {
-            btnOpenDataFolder.Enabled           = !loading;
-            btnReloadData.Enabled               = !loading;
-            btnApplyFrameFilter.Enabled          = !loading;
-            btnClearFrameFilter.Enabled          = !loading;
+            btnOpenDataFolder.Enabled = !loading;
+            btnReloadData.Enabled = !loading;
+            btnApplyFrameFilter.Enabled = !loading;
+            btnClearFrameFilter.Enabled = !loading;
             if (_btnShowReviewCandidates != null)
                 _btnShowReviewCandidates.Enabled = !loading;
             btnExcludeSelectedFrames.Enabled = !loading;
-            btnRestoreFrames.Enabled         = !loading;
+            btnRestoreFrames.Enabled = !loading;
             this.Cursor = loading ? Cursors.WaitCursor : Cursors.Default;
             if (loading) stsFrameSummary.Text = "로딩 중...";
         }
@@ -1246,10 +1293,10 @@ namespace TeamApp
             string resolvedPath = ResolveImagePath(frame.Name);
             UpdatePreviewImage(resolvedPath, frame);
 
-            lblFrameValue.Text    = $"프레임: {idx + 1} / {_visibleFrames.Count}";
-            lblAngleValue.Text    = $"방향값: {frame.Angle:0.000} ({frame.SteeringText})";
+            lblFrameValue.Text = $"프레임: {idx + 1} / {_visibleFrames.Count}";
+            lblAngleValue.Text = $"방향값: {frame.Angle:0.000} ({frame.SteeringText})";
             lblThrottleValue.Text = $"속도값: {frame.Throttle:0.000} ({frame.ThrottleText})";
-            lblModeValue.Text     = $"주행 방식: {frame.ModeDescription}";
+            lblModeValue.Text = $"주행 방식: {frame.ModeDescription}";
             if (_lblFrameReviewHint != null)
             {
                 _lblFrameReviewHint.Text = $"검토: {frame.ReviewHint}";
@@ -1288,7 +1335,7 @@ namespace TeamApp
                     picFramePreview.Image = null;
                     return;
                 }
-                using var fs  = File.OpenRead(path);
+                using var fs = File.OpenRead(path);
                 using var img = System.Drawing.Image.FromStream(fs);
                 var bmp = new Bitmap(img);
                 if (frame != null && _showDriveOverlay)
@@ -1351,9 +1398,18 @@ namespace TeamApp
 
         private int GetPlaybackIntervalFromSpeed()
         {
-            decimal speed = Math.Max(0.25M, numPlaybackIntervalMs.Value);
+            int speed = 1;
+            if (_cmbPlaybackSpeed?.SelectedItem != null)
+            {
+                string text = _cmbPlaybackSpeed.SelectedItem.ToString() ?? "1배";
+                string numberText = text.Replace("배", "").Trim();
+                if (!int.TryParse(numberText, out speed))
+                    speed = 1;
+            }
+
+            speed = Math.Clamp(speed, 1, 10);
             const int baseIntervalMs = 200;
-            return Math.Max(20, (int)Math.Round(baseIntervalMs / speed));
+            return Math.Max(20, baseIntervalMs / speed);
         }
 
         private void TogglePlayPause()
@@ -1418,7 +1474,7 @@ namespace TeamApp
             // 제외되지 않은 프레임 중 범위 조건에 맞는 항목만 남깁니다.
             _visibleFrames = _allFrames
                 .Where(f => !f.IsDeleted &&
-                            f.Angle    >= angleMin && f.Angle    <= angleMax &&
+                            f.Angle >= angleMin && f.Angle <= angleMax &&
                             f.Throttle >= throttleMin && f.Throttle <= throttleMax &&
                             MatchesComboFilter(cmbModeFilter, f.Mode) &&
                             MatchesComboFilter(cmbScenarioFilter, f.Scenario))
@@ -1437,10 +1493,10 @@ namespace TeamApp
             angleMin = angleMax = throttleMin = throttleMax = 0;
 
             bool ok =
-                double.TryParse(txtAngleMinFilter.Text.Trim(),   NumberStyles.Float, CultureInfo.InvariantCulture, out angleMin) &&
-                double.TryParse(txtAngleMaxFilter.Text.Trim(),   NumberStyles.Float, CultureInfo.InvariantCulture, out angleMax) &&
-                double.TryParse(txtThrottleMinFilter.Text.Trim(),NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMin) &&
-                double.TryParse(txtThrottleMaxFilter.Text.Trim(),NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMax);
+                double.TryParse(txtAngleMinFilter.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out angleMin) &&
+                double.TryParse(txtAngleMaxFilter.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out angleMax) &&
+                double.TryParse(txtThrottleMinFilter.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMin) &&
+                double.TryParse(txtThrottleMaxFilter.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMax);
 
             if (!ok)
             {
@@ -1501,7 +1557,7 @@ namespace TeamApp
             if (_allFrames == null || _allFrames.Count == 0) return;
 
             int safeFrom = Math.Max(0, from);
-            int safeTo   = Math.Min(_allFrames.Count - 1, to);
+            int safeTo = Math.Min(_allFrames.Count - 1, to);
 
             if (safeFrom > safeTo)
             {
@@ -1807,11 +1863,11 @@ namespace TeamApp
 
         private void UpdateStatusLabels()
         {
-            int total   = _allFrames?.Count ?? 0;
+            int total = _allFrames?.Count ?? 0;
             int deleted = _allFrames?.Count(f => f.IsDeleted) ?? 0;
-            int review  = _allFrames?.Count(f => !f.IsDeleted && f.NeedsReview) ?? 0;
-            int valid   = Math.Max(0, total - deleted);
-            int shown   = _visibleFrames?.Count ?? 0;
+            int review = _allFrames?.Count(f => !f.IsDeleted && f.NeedsReview) ?? 0;
+            int valid = Math.Max(0, total - deleted);
+            int shown = _visibleFrames?.Count ?? 0;
             string filterState = _isFrameFilterActive ? "필터 적용" : "전체 보기";
             string saveState = _hasUnsavedCleanupChanges ? "저장 필요" : "저장됨";
 
@@ -1892,12 +1948,12 @@ namespace TeamApp
 
         private class FrameData
         {
-            public string ImagePath  { get; set; } = string.Empty;
-            public double Angle      { get; set; }
-            public double Throttle   { get; set; }
-            public string Mode       { get; set; } = "-";
-            public string Scenario   { get; set; } = "-";
-            public string Name       { get; set; } = string.Empty;
+            public string ImagePath { get; set; } = string.Empty;
+            public double Angle { get; set; }
+            public double Throttle { get; set; }
+            public string Mode { get; set; } = "-";
+            public string Scenario { get; set; } = "-";
+            public string Name { get; set; } = string.Empty;
             public int OriginalIndex { get; set; } = -1;
 
             /// <summary>
@@ -2225,7 +2281,7 @@ namespace TeamApp
                 // 초기 로드: 전체 프레임을 표시합니다.
                 RefreshFrameBinding();  // _visibleFrames 설정과 RefreshFrameView 호출
 
-                stsDataPath.Text = "경로: " + folder;
+                UpdateDataFolderStatus(folder);
                 _isChartDirty = true;
                 SetIndex(0);
             }
@@ -2238,6 +2294,13 @@ namespace TeamApp
             {
                 SetLoadingState(false);
             }
+        }
+
+        private void UpdateDataFolderStatus(string folder)
+        {
+            string displayPath = string.IsNullOrWhiteSpace(folder) ? "경로: -" : "데이터 폴더: " + folder;
+            stsDataPath.Text = displayPath;
+            stsDataFooterPath.Text = displayPath;
         }
 
         // 학습 실행 기능
@@ -2440,14 +2503,17 @@ namespace TeamApp
                 return;
             }
 
-            bool detected = await DetectTrainingEnvironmentAsync(showSuccessMessage: false, clearLog: false);
-            if (!detected)
+            if (!HasTrainingEnvironmentInputs())
             {
-                MessageBox.Show(
-                    "학습 환경 자동 감지에 실패했습니다.\n\n" +
-                    "자동 감지 버튼을 눌러 로그를 확인하거나, WSL Ubuntu / Conda 경로 / Donkey 프로젝트 경로를 직접 선택해 주세요.",
-                    "학습 환경 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                bool detected = await DetectTrainingEnvironmentAsync(showSuccessMessage: false, clearLog: false);
+                if (!detected)
+                {
+                    MessageBox.Show(
+                        "학습 환경 자동 감지에 실패했습니다.\n\n" +
+                        "자동 감지 버튼을 눌러 로그를 확인하거나, WSL Ubuntu / Conda 경로 / Donkey 프로젝트 경로를 직접 선택해 주세요.",
+                        "학습 환경 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
             }
 
             if (!TryBuildTrainingCommand(out var arguments, out string displayArguments)) return;
@@ -2545,6 +2611,7 @@ namespace TeamApp
             string modelPath = txtTrainingModelPath.Text.Trim();
             string wslDistro = NormalizeWslDistroName(cmbTrainingWslDistro.Text);
             string condaPath = cmbCondaPath.Text.Trim();
+            int epochCount = Math.Max(1, (int)numTrainingEpochs.Value);
 
             if (string.IsNullOrWhiteSpace(wslDistro))
             {
@@ -2604,11 +2671,20 @@ namespace TeamApp
                 "donkey train " +
                 "--tub " + QuotePathForBash(wslTubPath) + " " +
                 "--model " + QuotePathForBash(wslModelPath) + " " +
-                "--type " + QuoteForBash(modelType);
+                "--type " + QuoteForBash(modelType) + " " +
+                "--epochs " + epochCount.ToString(CultureInfo.InvariantCulture);
 
             arguments.AddRange(new[] { "-d", wslDistro, "bash", "-lc", command });
             displayArguments = "-d " + QuoteProcessArgument(wslDistro) + " bash -lc " + QuoteForBash(command);
             return true;
+        }
+
+        private bool HasTrainingEnvironmentInputs()
+        {
+            return !string.IsNullOrWhiteSpace(NormalizeWslDistroName(cmbTrainingWslDistro.Text)) &&
+                   !string.IsNullOrWhiteSpace(cmbCondaPath.Text.Trim()) &&
+                   !string.IsNullOrWhiteSpace(txtTrainingPythonEnvName.Text.Trim()) &&
+                   !string.IsNullOrWhiteSpace(cmbMycarProjectPath.Text.Trim());
         }
 
         private string ConvertToWslPath(string winPath)
@@ -3558,7 +3634,7 @@ namespace TeamApp
             };
 
             _frameChart.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1e1e1e");
-            _frameChart.Plot.DataBackground.Color   = ScottPlot.Color.FromHex("#2d2d30");
+            _frameChart.Plot.DataBackground.Color = ScottPlot.Color.FromHex("#2d2d30");
 
             pnlChartHost.Controls.Clear();
             pnlChartHost.Controls.Add(_frameChart);
@@ -3582,11 +3658,11 @@ namespace TeamApp
             var plot = _frameChart!.Plot;
 
             // 한글 폰트를 지정해 차트 라벨이 깨지지 않도록 합니다.
-            _frameChart.Plot.Axes.Title.Label.FontName           = "Malgun Gothic";
-            _frameChart.Plot.Axes.Bottom.Label.FontName          = "Malgun Gothic";
-            _frameChart.Plot.Axes.Left.Label.FontName            = "Malgun Gothic";
+            _frameChart.Plot.Axes.Title.Label.FontName = "Malgun Gothic";
+            _frameChart.Plot.Axes.Bottom.Label.FontName = "Malgun Gothic";
+            _frameChart.Plot.Axes.Left.Label.FontName = "Malgun Gothic";
             _frameChart.Plot.Axes.Bottom.TickLabelStyle.FontName = "Malgun Gothic";
-            _frameChart.Plot.Axes.Left.TickLabelStyle.FontName   = "Malgun Gothic";
+            _frameChart.Plot.Axes.Left.TickLabelStyle.FontName = "Malgun Gothic";
             plot.Legend.FontName = "Malgun Gothic";
             plot.Legend.FontSize = 13;
             plot.Legend.FontColor = ScottPlot.Color.FromHex("#222222");
@@ -3665,6 +3741,11 @@ namespace TeamApp
 
             _frameChart.Refresh();
             _isChartDirty = false;
+        }
+
+        private void cmbTrainingModelType_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }
