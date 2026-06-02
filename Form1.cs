@@ -38,6 +38,7 @@ namespace TeamApp
         private bool _isFrameSelectionUpdating = false;
         private bool _isDraggingFrameRows = false;
         private int _dragStartFrameRowIndex = -1;
+        private int _frameSelectionAnchorIndex = -1;
         private bool _isDraggingTimelineRange = false;
         private int _timelineRangeStartIndex = -1;
         private bool _hasUnsavedCleanupChanges = false;
@@ -179,9 +180,49 @@ namespace TeamApp
 
         private void btnGuide_Click(object sender, EventArgs e)
         {
-            MessageBox.Show(
-                "단계별 가이드 버튼은 다음 안내 기능을 위해 비워두었습니다.\n\n현재 기능별 튜토리얼은 상단 도움말 메뉴에서 볼 수 있습니다.",
-                "단계별 가이드", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ShowWorkflowGuide();
+        }
+
+        private void ShowWorkflowGuide()
+        {
+            string nextAction = GetRecommendedNextAction();
+            string guide =
+                "권장 작업 순서\n\n" +
+                "1. 데이터 폴더 열기\n" +
+                "2. 이상 후보 보기 또는 표/슬라이더로 범위 선택\n" +
+                "3. 선택 제외 또는 복원\n" +
+                "4. 상태 저장\n" +
+                "5. 학습용 폴더 만들기\n" +
+                "6. 학습 실행 탭에서 Clean 폴더로 학습\n\n" +
+                "현재 다음 추천 작업\n" +
+                nextAction + "\n\n" +
+                "기능별 설명을 다시 보고 싶으면 상단 '도움말' 메뉴를 누르세요.";
+
+            MessageBox.Show(guide, "단계별 가이드", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private string GetRecommendedNextAction()
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+                return "- 먼저 '데이터 폴더 열기'로 DonkeyCar tub 폴더를 불러오세요.";
+
+            int selectedCount = GetSelectedFrames().Count;
+            if (selectedCount > 1)
+                return $"- 현재 {selectedCount}개 프레임이 선택되어 있습니다. 제외할 구간이 맞으면 '선택 제외'를 누르세요.";
+
+            int reviewCount = _allFrames.Count(frame => !frame.IsDeleted && frame.NeedsReview);
+            if (reviewCount > 0 && !_isFrameFilterActive)
+                return $"- 자동 검토 후보가 {reviewCount}개 있습니다. 먼저 '이상 후보 보기'로 확인하세요.";
+
+            if (_hasUnsavedCleanupChanges)
+                return "- 제외/복원 변경사항이 저장되지 않았습니다. '상태 저장'을 눌러 작업 내용을 보관하세요.";
+
+            int validCount = _allFrames.Count(frame => !frame.IsDeleted);
+            int deletedCount = _allFrames.Count - validCount;
+            if (deletedCount > 0)
+                return $"- 제외 {deletedCount}개, 사용 {validCount}개 상태입니다. 학습 전 '학습용 폴더 만들기'로 Clean 폴더를 만드세요.";
+
+            return "- 데이터를 훑어보며 이상 후보나 직접 선택한 구간을 제외하세요. 표/슬라이더 드래그로 여러 프레임을 선택할 수 있습니다.";
         }
 
         private void AskFirstUseTutorial()
@@ -562,7 +603,12 @@ namespace TeamApp
 
             int idx = _visibleFrames.IndexOf(selectedFrame);
             if (idx >= 0 && idx < _visibleFrames.Count)
+            {
+                if (!_isDraggingFrameRows && !_isDraggingTimelineRange && (ModifierKeys & Keys.Shift) != Keys.Shift)
+                    _frameSelectionAnchorIndex = idx;
+
                 DisplayFrameAtIndex(idx);
+            }
         }
 
         private void TrkFrameTimeline_Scroll(object sender, EventArgs e)
@@ -661,9 +707,12 @@ namespace TeamApp
 
             if ((ModifierKeys & Keys.Shift) == Keys.Shift)
             {
-                int anchorIndex = dgvFrameCatalog.CurrentCell?.RowIndex ?? rowIndex;
+                int anchorIndex = GetValidSelectionAnchor(rowIndex);
                 BeginInvoke(new Action(() => SelectFrameGridRange(anchorIndex, rowIndex)));
+                return;
             }
+
+            _frameSelectionAnchorIndex = rowIndex;
         }
 
         private void DgvFrameCatalog_MouseMove(object? sender, MouseEventArgs e)
@@ -687,17 +736,19 @@ namespace TeamApp
             if (e.Button != MouseButtons.Left || _visibleFrames.Count == 0) return;
 
             int clickedIndex = GetTimelineIndexAt(e.X);
-            trkFrameTimeline.Value = clickedIndex;
 
             if ((ModifierKeys & Keys.Shift) == Keys.Shift)
             {
-                int anchorIndex = _currentFrameIndex >= 0 ? _currentFrameIndex : clickedIndex;
+                int anchorIndex = GetValidSelectionAnchor(clickedIndex);
+                trkFrameTimeline.Value = clickedIndex;
                 SelectFrameGridRange(anchorIndex, clickedIndex);
                 return;
             }
 
             _isDraggingTimelineRange = true;
             _timelineRangeStartIndex = clickedIndex;
+            _frameSelectionAnchorIndex = clickedIndex;
+            trkFrameTimeline.Value = clickedIndex;
             SelectFrameGridRange(clickedIndex, clickedIndex);
         }
 
@@ -743,7 +794,18 @@ namespace TeamApp
             if (_timelineRangeStartIndex >= 0)
                 return _timelineRangeStartIndex;
 
-            return _currentFrameIndex >= 0 ? _currentFrameIndex : currentIndex;
+            return GetValidSelectionAnchor(currentIndex);
+        }
+
+        private int GetValidSelectionAnchor(int fallbackIndex)
+        {
+            if (_frameSelectionAnchorIndex >= 0 && _frameSelectionAnchorIndex < _visibleFrames.Count)
+                return _frameSelectionAnchorIndex;
+
+            if (_currentFrameIndex >= 0 && _currentFrameIndex < _visibleFrames.Count)
+                return _currentFrameIndex;
+
+            return fallbackIndex;
         }
 
         /// <summary>
@@ -767,6 +829,8 @@ namespace TeamApp
 
             if (endRowIndex >= 0 && endRowIndex < _visibleFrames.Count)
                 DisplayFrameAtIndex(endRowIndex);
+
+            _frameSelectionAnchorIndex = startRowIndex;
         }
 
         /// <summary>
