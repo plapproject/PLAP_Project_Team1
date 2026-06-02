@@ -323,7 +323,7 @@ namespace TeamApp
                 new TutorialStep("데이터 보기", "다음 프레임", "현재 프레임 바로 다음 프레임으로 이동합니다.", btnNext, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "마지막으로", "현재 필터 결과의 마지막 프레임으로 이동합니다.", btnLast, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "자동 재생", "프레임을 지정한 간격으로 자동 재생합니다. 재생 중에는 버튼이 일시정지로 바뀝니다.", btnAutoPlay, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "재생 간격", "자동 재생 속도를 ms 단위로 조절합니다. 숫자가 작을수록 더 빠르게 넘어갑니다.", numPlaybackIntervalMs, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "재생 속도", "자동 재생 속도를 배속으로 조절합니다. 1.00x는 기본 속도이고, 숫자가 클수록 더 빠르게 넘어갑니다.", numPlaybackIntervalMs, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "현재 프레임 위치를 빠르게 이동합니다. 많은 프레임을 훑어볼 때 사용합니다.", trkFrameTimeline, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "조향값", "선택한 프레임의 Angle 값을 표시합니다. 왼쪽/오른쪽 조향 상태를 확인할 때 봅니다.", lblAngleValue, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "스로틀값", "선택한 프레임의 Throttle 값을 표시합니다. 전진/정지/후진 정도를 확인할 때 봅니다.", lblThrottleValue, tabPageDataViewer),
@@ -687,6 +687,20 @@ namespace TeamApp
             btnRestoreFrames.Text = "복원";
             btnSaveCleanupState.Text = "상태 저장";
             btnExportCleanDataset.Text = "학습용 폴더 만들기";
+            lblPlayInterval.Text = "재생속도";
+
+            // 기존 컨트롤 이름은 numPlaybackIntervalMs이지만, 화면에서는 배속 입력으로 사용합니다.
+            // 1.00x를 기준으로 내부 재생 간격을 계산해 사용자가 ms 값을 몰라도 조절할 수 있게 합니다.
+            numPlaybackIntervalMs.DecimalPlaces = 2;
+            numPlaybackIntervalMs.Increment = 0.25M;
+            numPlaybackIntervalMs.Minimum = 0.25M;
+            numPlaybackIntervalMs.Maximum = 4.00M;
+            numPlaybackIntervalMs.Value = 1.00M;
+            numPlaybackIntervalMs.ValueChanged += (_, _) =>
+            {
+                if (_isPlaybackRunning)
+                    _playbackTimer.Interval = GetPlaybackIntervalFromSpeed();
+            };
 
             foreach (var button in new[]
             {
@@ -708,6 +722,38 @@ namespace TeamApp
             txtFrameRangeStart.BackColor = System.Drawing.Color.FromArgb(255, 252, 235);
             txtFrameRangeEnd.BackColor = System.Drawing.Color.FromArgb(255, 252, 235);
             lblFrameRange.ForeColor = System.Drawing.Color.FromArgb(120, 70, 0);
+
+            ArrangeFrameInfoPanel();
+        }
+
+        /// <summary>
+        /// 오른쪽 프레임 정보 영역을 촘촘하게 재배치합니다.
+        /// 검토 힌트와 재생속도 입력이 겹치지 않도록 런타임에서 위치를 정리합니다.
+        /// </summary>
+        private void ArrangeFrameInfoPanel()
+        {
+            int left = lblFrameValue.Left;
+            int width = lblFrameValue.Width;
+
+            lblFrameValue.Font = new Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
+            lblAngleValue.Font = new Font("맑은 고딕", 10.5F);
+            lblThrottleValue.Font = new Font("맑은 고딕", 10.5F);
+            lblModeValue.Font = new Font("맑은 고딕", 10.5F);
+            lblPlayInterval.Font = new Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+
+            lblFrameValue.Location = new Point(left, 58);
+            lblFrameValue.Size = new Size(width, 32);
+            lblAngleValue.Location = new Point(left, 212);
+            lblAngleValue.Size = new Size(width, 31);
+            lblThrottleValue.Location = new Point(left, 245);
+            lblThrottleValue.Size = new Size(width, 42);
+            lblModeValue.Location = new Point(left, 289);
+            lblModeValue.Size = new Size(width, 30);
+
+            lblPlayInterval.Location = new Point(left, 390);
+            lblPlayInterval.Size = new Size(92, 28);
+            numPlaybackIntervalMs.Location = new Point(left + 96, 389);
+            numPlaybackIntervalMs.Size = new Size(width - 96, 27);
         }
 
         /// <summary>
@@ -740,9 +786,9 @@ namespace TeamApp
                     Name = "lblFrameReviewHint",
                     Text = "검토: -",
                     Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                    Location = new Point(lblModeValue.Left, lblModeValue.Bottom + 6),
-                    Size = new Size(lblModeValue.Width, 58),
-                    Font = new Font("맑은 고딕", 10F),
+                    Location = new Point(lblModeValue.Left, 326),
+                    Size = new Size(lblModeValue.Width, 54),
+                    Font = new Font("맑은 고딕", 9F),
                     ForeColor = System.Drawing.Color.DimGray
                 };
                 grpDataExplorer.Controls.Add(_lblFrameReviewHint);
@@ -951,9 +997,9 @@ namespace TeamApp
             using Graphics graphics = Graphics.FromImage(bitmap);
             graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-            float scale = Math.Max(0.6f, bitmap.Width / 640f);
-            float arrowLength = Math.Max(22f, bitmap.Height * 0.11f);
-            float arrowWidth = Math.Max(10f, bitmap.Width * 0.018f);
+            float scale = Math.Max(0.4f, bitmap.Width / 640f);
+            float arrowLength = Math.Max(12f, bitmap.Height * 0.075f);
+            float arrowWidth = Math.Max(5f, bitmap.Width * 0.010f);
             float centerX = bitmap.Width / 2f;
             float centerY = bitmap.Height - Math.Max(32f, bitmap.Height * 0.16f);
             float directionOffset = (float)Math.Max(-1.0, Math.Min(1.0, frame.Angle)) * arrowLength * 0.7f;
@@ -963,7 +1009,7 @@ namespace TeamApp
             PointF baseRight = new PointF(centerX + arrowWidth, centerY);
 
             using var arrowBrush = new SolidBrush(System.Drawing.Color.FromArgb(185, 255, 193, 7));
-            using var arrowPen = new Pen(System.Drawing.Color.FromArgb(210, 60, 45, 0), Math.Max(1.5f, 2f * scale));
+            using var arrowPen = new Pen(System.Drawing.Color.FromArgb(210, 60, 45, 0), Math.Max(1f, 1.2f * scale));
             PointF[] arrow = { tip, baseRight, new PointF(centerX + arrowWidth * 0.35f, centerY), new PointF(centerX + arrowWidth * 0.35f, centerY + arrowLength * 0.45f), new PointF(centerX - arrowWidth * 0.35f, centerY + arrowLength * 0.45f), new PointF(centerX - arrowWidth * 0.35f, centerY), baseLeft };
             graphics.FillPolygon(arrowBrush, arrow);
             graphics.DrawPolygon(arrowPen, arrow);
@@ -972,13 +1018,20 @@ namespace TeamApp
             if (frame.NeedsReview)
                 overlayText += " / 검토";
 
-            using var font = new System.Drawing.Font("맑은 고딕", Math.Max(8f, 9f * scale), System.Drawing.FontStyle.Bold);
+            using var font = new System.Drawing.Font("맑은 고딕", Math.Max(4.5f, 4.8f * scale), System.Drawing.FontStyle.Bold);
             SizeF textSize = graphics.MeasureString(overlayText, font);
-            var textBox = new RectangleF(8, 8, textSize.Width + 14, textSize.Height + 8);
+            var textBox = new RectangleF(5, 5, textSize.Width + 8, textSize.Height + 5);
             using var boxBrush = new SolidBrush(System.Drawing.Color.FromArgb(145, 0, 0, 0));
             using var textBrush = new SolidBrush(frame.NeedsReview ? System.Drawing.Color.Gold : System.Drawing.Color.White);
             graphics.FillRectangle(boxBrush, textBox);
-            graphics.DrawString(overlayText, font, textBrush, textBox.Left + 7, textBox.Top + 4);
+            graphics.DrawString(overlayText, font, textBrush, textBox.Left + 4, textBox.Top + 2);
+        }
+
+        private int GetPlaybackIntervalFromSpeed()
+        {
+            decimal speed = Math.Max(0.25M, numPlaybackIntervalMs.Value);
+            const int baseIntervalMs = 200;
+            return Math.Max(25, (int)Math.Round(baseIntervalMs / speed));
         }
 
         private void TogglePlayPause()
@@ -991,7 +1044,7 @@ namespace TeamApp
             }
             else
             {
-                _playbackTimer.Interval = (int)numPlaybackIntervalMs.Value;
+                _playbackTimer.Interval = GetPlaybackIntervalFromSpeed();
                 _playbackTimer.Start();
                 _isPlaybackRunning = true;
                 btnAutoPlay.Text = "일시정지";
