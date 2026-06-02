@@ -746,7 +746,6 @@ namespace TeamApp
             if (e.Button == MouseButtons.Left)
             {
                 _isDraggingTimelineRange = false;
-                _timelineRangeStartIndex = -1;
                 SetIndex(clickedIndex);
                 return;
             }
@@ -971,7 +970,7 @@ namespace TeamApp
             int maxX = separatorX + 28;
 
             int buttonWidth = panelWidth < 1400 ? 180 : 215;
-            int buttonHeight = 28;
+            int buttonHeight = 30;
             int buttonGap = panelWidth < 1400 ? 12 : 18;
             int rightMargin = panelWidth < 1400 ? 18 : 84;
             int buttonCol2X = panelWidth - rightMargin - buttonWidth;
@@ -1002,19 +1001,19 @@ namespace TeamApp
                 PlaceButton(_btnSetRangeEnd, buttonCol2X, 30, buttonWidth, buttonHeight);
             if (_lblSelectedFrameRange != null)
             {
-                _lblSelectedFrameRange.Location = new Point(buttonCol1X, 56);
+                _lblSelectedFrameRange.Location = new Point(buttonCol1X, 62);
                 _lblSelectedFrameRange.Size = new Size(buttonWidth * 2 + buttonGap, 24);
             }
 
             if (_btnShowReviewCandidates != null)
-                PlaceButton(_btnShowReviewCandidates, buttonCol1X, 82, buttonWidth, buttonHeight);
+                PlaceButton(_btnShowReviewCandidates, buttonCol1X, 88, buttonWidth, buttonHeight);
 
-            PlaceButton(btnExcludeSelectedFrames, buttonCol2X, 82, buttonWidth, buttonHeight);
-            PlaceButton(btnApplyFrameFilter, buttonCol1X, 114, buttonWidth, buttonHeight);
-            PlaceButton(btnClearFrameFilter, buttonCol2X, 114, buttonWidth, buttonHeight);
-            PlaceButton(btnExportCleanDataset, buttonCol1X, 146, buttonWidth, buttonHeight);
-            PlaceButton(btnRestoreFrames, buttonCol2X, 146, buttonWidth, buttonHeight);
-            PlaceButton(btnSaveCleanupState, buttonCol1X, 178, buttonWidth, buttonHeight);
+            PlaceButton(btnExcludeSelectedFrames, buttonCol2X, 88, buttonWidth, buttonHeight);
+            PlaceButton(btnApplyFrameFilter, buttonCol1X, 120, buttonWidth, buttonHeight);
+            PlaceButton(btnClearFrameFilter, buttonCol2X, 120, buttonWidth, buttonHeight);
+            PlaceButton(btnExportCleanDataset, buttonCol1X, 152, buttonWidth, buttonHeight);
+            PlaceButton(btnRestoreFrames, buttonCol2X, 152, buttonWidth, buttonHeight);
+            PlaceButton(btnSaveCleanupState, buttonCol1X, 184, buttonWidth, buttonHeight);
 
             if (panelWidth < 1180)
             {
@@ -1086,6 +1085,8 @@ namespace TeamApp
             button.Location = new Point(x, y);
             button.Size = new Size(width, height);
             button.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            button.Enabled = true;
+            button.BringToFront();
         }
 
         /// <summary>
@@ -3014,6 +3015,11 @@ namespace TeamApp
                 _trainingOutputLineBuffer.Append(ch);
                 rtbTrainingOutput.AppendText(ch.ToString());
             }
+
+            // Keras progress output is often updated in-place without a newline.
+            // Parse the current unfinished line too, so the summary labels update while training is running.
+            if (_trainingOutputLineBuffer.Length > 0)
+                UpdateTrainingSummaryFromText(_trainingOutputLineBuffer.ToString());
         }
 
         private void UpdateTrainingSummaryFromText(string rawText)
@@ -3032,7 +3038,8 @@ namespace TeamApp
                 UpdateTrainingSummary(status: text.Contains("종료 코드: 0", StringComparison.OrdinalIgnoreCase) ? "완료" : "오류");
             }
 
-            if (text.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+            if (text.Contains("[error]", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("train: error", StringComparison.OrdinalIgnoreCase) ||
                 text.Contains("Traceback", StringComparison.OrdinalIgnoreCase) ||
                 text.Contains("Exception", StringComparison.OrdinalIgnoreCase))
             {
@@ -3048,15 +3055,14 @@ namespace TeamApp
                     progress: "0%");
             }
 
-            Match progressMatch = Regex.Match(text, @"(?<current>\d+)\s*/\s*(?<total>\d+).*?(?:loss:\s*(?<loss>[0-9.]+))?", RegexOptions.IgnoreCase);
+            Match progressMatch = Regex.Match(text, @"(?<current>\d+)\s*/\s*(?<total>\d+)", RegexOptions.IgnoreCase);
             if (progressMatch.Success &&
                 int.TryParse(progressMatch.Groups["current"].Value, out int currentStep) &&
                 int.TryParse(progressMatch.Groups["total"].Value, out int totalStep) &&
                 totalStep > 0)
             {
                 int percent = Math.Max(0, Math.Min(100, currentStep * 100 / totalStep));
-                string? loss = progressMatch.Groups["loss"].Success ? FormatTrainingScore(progressMatch.Groups["loss"].Value) : null;
-                UpdateTrainingSummary(progress: percent + "%", loss: loss);
+                UpdateTrainingSummary(progress: percent + "%");
             }
 
             Match valLossMatch = Regex.Match(text, @"(?:^|\s)val_loss:\s*(?<loss>[0-9.]+)", RegexOptions.IgnoreCase);
