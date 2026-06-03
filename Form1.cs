@@ -1,17 +1,19 @@
-﻿using System;
+﻿using ScottPlot;
+using ScottPlot.WinForms;
+using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Globalization;
 using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Text;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using ScottPlot;
-using ScottPlot.WinForms;
 
 namespace TeamApp
 {
@@ -36,26 +38,50 @@ namespace TeamApp
         private bool _tutorialRunning = false;
         private bool _isFrameFilterActive = false;
         private bool _isFrameSelectionUpdating = false;
+        private bool _isDraggingFrameRows = false;
+        private int _dragStartFrameRowIndex = -1;
+        private bool _isDraggingTimelineRange = false;
+        private int _timelineRangeStartIndex = -1;
+        private bool _hasUnsavedCleanupChanges = false;
+        private bool _showDriveOverlay = true;
+        private bool _hasAutoDetectedTrainingTab = false;
         private Process? _trainingProcess;
-        private Button? _btnSelectTrainingModelPath;
-        private Button? _btnOpenTrainingModelFolder;
-        private Button? _btnCopyModelUseCommand;
-        private Button? _btnCheckTrainingEnvironment;
-        private Button? _btnAutoSetupTrainingEnvironment;
-        private Button? _btnCopyTrainingSetupCommands;
-        private System.Windows.Forms.Label? _lblTrainingEnvironmentStatus;
-        private int _lastTrainingProgressPercent = -1;
-        private bool _isTrainingEnvironmentReady = false;
-        private bool _isCheckingTrainingEnvironment = false;
-        private string _trainingMycarPath = "~/mycar";
-        private string _trainingPythonEnvName = "e2e_env";
-        private string _trainingModelType = "linear";
+        private Button? _btnShowReviewCandidates;
+        private readonly StringBuilder _trainingOutputLineBuffer = new StringBuilder();
+        private System.Windows.Forms.Label? _lblTrainingSummaryTitle;
+        private System.Windows.Forms.Label? _lblTrainingSummaryStatus;
+        private System.Windows.Forms.Label? _lblTrainingSummaryEpoch;
+        private System.Windows.Forms.Label? _lblTrainingSummaryProgress;
+        private System.Windows.Forms.Label? _lblTrainingSummaryLoss;
+        private System.Windows.Forms.Label? _lblCleanupSummary;
+        private System.Windows.Forms.Label? _lblCleanupWorkflowHint;
+        private System.Windows.Forms.Label? _lblFrameReviewHint;
+        private System.Windows.Forms.Label? _lblCleanWorkflowSummary;
+        private System.Windows.Forms.Label? _lblSelectedFrameRange;
+        private Button? _btnSetRangeStart;
+        private Button? _btnSetRangeEnd;
+        private ComboBox? _cmbPlaybackSpeed;
+        private bool _isTrainingAutoDetectRunning = false;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
-        private const string RunnerWindowsDonkey = "Windows donkey CLI";
-        private const string RunnerWindowsConda = "Windows conda";
-        private const string RunnerWslConda = "WSL conda";
-        private const string RunnerWslDonkey = "WSL donkey CLI";
+        private static readonly Regex AnsiEscapeRegex = new(@"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", RegexOptions.Compiled);
+
+        // 외부 폰트 콜렉션 추가
+        PrivateFontCollection mainFonts = new PrivateFontCollection();
+        PrivateFontCollection cliFonts = new PrivateFontCollection();
+
+        private void ApplyFont(Control parent, Font font)
+        {
+            foreach (Control control in parent.Controls)
+            {
+                control.Font = font;
+
+                if (control.Controls.Count > 0)
+                {
+                    ApplyFont(control, font);
+                }
+            }
+        }
 
         private sealed class TutorialStep
         {
@@ -93,45 +119,68 @@ namespace TeamApp
         private void Form1_Load(object sender, EventArgs e)
         {
             // 버튼 이벤트를 코드에서 연결합니다.
-            btnClearFrameFilter.Click      += BtnClearFrameFilter_Click;
-            btnExcludeFrameRange.Click     += BtnExcludeFrameRange_Click;
+            btnClearFrameFilter.Click += BtnClearFrameFilter_Click;
+            btnExcludeFrameRange.Click += BtnExcludeFrameRange_Click;
             btnExcludeSelectedFrames.Click += BtnExcludeSelectedFrames_Click;
-            btnExportCleanDataset.Click      += BtnExportCleanDataset_Click;
-            btnRestoreFrames.Click     += BtnRestoreFrames_Click;
-            btnSaveCleanupState.Click        += BtnSaveCleanupState_Click;
-            btnStartTrainingProcess.Click    += BtnStartTrainingProcess_Click;
-            btnStopTrainingProcess.Click     += BtnStopTrainingProcess_Click;
-            btnSaveTrainingConfig.Click     += BtnSaveTrainingConfig_Click;
-            btnSelectTrainingTubPath.Click          += (_, _) => SelectFolderInto(txtTrainingTubPath, "Tub 폴더 선택");
+            btnExportCleanDataset.Click += BtnExportCleanDataset_Click;
+            btnRestoreFrames.Click += BtnRestoreFrames_Click;
+            btnSaveCleanupState.Click += BtnSaveCleanupState_Click;
+            btnStartTrainingProcess.Click += BtnStartTrainingProcess_Click;
+            btnStopTrainingProcess.Click += BtnStopTrainingProcess_Click;
+            btnSaveTrainingConfig.Click += BtnSaveTrainingConfig_Click;
+            btnSelectTrainingTubPath.Click += (_, _) => SelectFolderInto(txtTrainingTubPath, "Tub 폴더 선택");
+            btnSelectTrainingModelPath.Click += BtnSelectTrainingModelPath_Click;
+            btnDetectTrainingEnvironment.Click += BtnDetectTrainingEnvironment_Click;
+            btnSelectTrainingWslDistro.Click += BtnSelectTrainingWslDistro_Click;
+            btnSelectCondaPath.Click += BtnSelectCondaPath_Click;
 
-            mnuFileOpenDataFolder.Click   += (s, _) => BtnOpenDataFolder_Click(s!, EventArgs.Empty);
-            mnuFileReloadData.Click       += (s, _) => BtnReloadData_Click(s!, EventArgs.Empty);
-            mnuExit.Click             += (s, _) => Application.Exit();
-            mnuHelpOpenTutorial.Click        += (s, _) => RunFeatureTutorial("도움말");
+            mnuFileOpenDataFolder.Click += (s, _) => BtnOpenDataFolder_Click(s!, EventArgs.Empty);
+            mnuFileReloadData.Click += (s, _) => BtnReloadData_Click(s!, EventArgs.Empty);
+            mnuExit.Click += (s, _) => Application.Exit();
+            mnuHelpOpenTutorial.Click += (s, _) => RunFeatureTutorial("도움말");
 
             tabControlMain.SelectedIndexChanged += TabControl1_SelectedIndexChanged;
+            FormClosing += Form1_FormClosing;
 
             ConfigureFrameCatalogGrid();
             ApplyDataManagerUiStyle();
+            ConfigureReviewCandidateControls();
+            ConfigureCleanupGuidanceControls();
+            ConfigureRangeSelectionControls();
+            ConfigureCleanWorkflowSummary();
+            ArrangeDataCleanerPanel();
 
             btnExcludeSelectedFrames.Text = "선택 프레임 제외";
-            btnExportCleanDataset.Text          = "클린 폴더 추출";
-            btnRestoreFrames.Text         = "복원";
-            txtAngleMinFilter.Text    = "-1";
-            txtAngleMaxFilter.Text    = "1";
+            btnExportCleanDataset.Text = "클린 폴더 추출";
+            btnRestoreFrames.Text = "복원";
+            txtAngleMinFilter.Text = "-1";
+            txtAngleMaxFilter.Text = "1";
             txtThrottleMinFilter.Text = "-1";
             txtThrottleMaxFilter.Text = "1";
 
             InitializeTrainingControls();
             LoadTrainingSettings();
+            NormalizeTrainingPathsForDisplay();
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
+
+            // 로드 시 폰트 불러오기
+            mainFonts.AddFontFile("resource/PretendardVariable.ttf");
+            cliFonts.AddFontFile("resource/JetBrainsMono-Medium.ttf");
+
+            Font myFont1 = new Font(mainFonts.Families[0], 11f);
+            Font myFont2 = new Font(cliFonts.Families[0], 12f);
+
+            ApplyFont(this, myFont1);
+            rtbTrainingOutput.Font = myFont2;
         }
 
         // UI 이벤트 처리
 
         private void BtnOpenDataFolder_Click(object sender, EventArgs e)
         {
+            if (!ConfirmUnsavedCleanupBeforeDataChange("새 데이터 폴더 열기")) return;
+
             using var dlg = new FolderBrowserDialog();
             if (dlg.ShowDialog() != DialogResult.OK) return;
             _ = LoadCatalogAsync(dlg.SelectedPath);
@@ -139,12 +188,17 @@ namespace TeamApp
 
         private void BtnReloadData_Click(object sender, EventArgs e)
         {
+            if (!ConfirmUnsavedCleanupBeforeDataChange("현재 데이터 다시 불러오기")) return;
+
             string path = _currentDataFolderPath;
             if (string.IsNullOrEmpty(path))
             {
                 if (string.IsNullOrEmpty(stsDataPath.Text) ||
-                    stsDataPath.Text == "경로: -") return;
-                path = stsDataPath.Text.Replace("경로: ", "").Trim();
+                    stsDataPath.Text.EndsWith("-", StringComparison.Ordinal)) return;
+                path = stsDataPath.Text
+                    .Replace("데이터 폴더: ", "")
+                    .Replace("경로: ", "")
+                    .Trim();
             }
             if (Directory.Exists(path)) _ = LoadCatalogAsync(path);
         }
@@ -153,9 +207,49 @@ namespace TeamApp
 
         private void btnGuide_Click(object sender, EventArgs e)
         {
-            MessageBox.Show(
-                "단계별 가이드 버튼은 다음 안내 기능을 위해 비워두었습니다.\n\n현재 기능별 튜토리얼은 상단 도움말 메뉴에서 볼 수 있습니다.",
-                "단계별 가이드", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ShowWorkflowGuide();
+        }
+
+        private void ShowWorkflowGuide()
+        {
+            string nextAction = GetRecommendedNextAction();
+            string guide =
+                "권장 작업 순서\n\n" +
+                "1. 데이터 폴더 열기\n" +
+                "2. 이상 후보 보기 또는 표/슬라이더로 범위 선택\n" +
+                "3. 선택 제외 또는 복원\n" +
+                "4. 상태 저장\n" +
+                "5. 학습용 폴더 만들기\n" +
+                "6. 학습 실행 탭에서 Clean 폴더로 학습\n\n" +
+                "현재 다음 추천 작업\n" +
+                nextAction + "\n\n" +
+                "기능별 설명을 다시 보고 싶으면 상단 '도움말' 메뉴를 누르세요.";
+
+            MessageBox.Show(guide, "단계별 가이드", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private string GetRecommendedNextAction()
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+                return "- 먼저 '데이터 폴더 열기'로 DonkeyCar tub 폴더를 불러오세요.";
+
+            int selectedCount = GetSelectedFrames().Count;
+            if (selectedCount > 1)
+                return $"- 현재 {selectedCount}개 프레임이 선택되어 있습니다. 제외할 구간이 맞으면 '선택 제외'를 누르세요.";
+
+            int reviewCount = _allFrames.Count(frame => !frame.IsDeleted && frame.NeedsReview);
+            if (reviewCount > 0 && !_isFrameFilterActive)
+                return $"- 자동 검토 후보가 {reviewCount}개 있습니다. 먼저 '이상 후보 보기'로 확인하세요.";
+
+            if (_hasUnsavedCleanupChanges)
+                return "- 제외/복원 변경사항이 저장되지 않았습니다. '상태 저장'을 눌러 작업 내용을 보관하세요.";
+
+            int validCount = _allFrames.Count(frame => !frame.IsDeleted);
+            int deletedCount = _allFrames.Count - validCount;
+            if (deletedCount > 0)
+                return $"- 제외 {deletedCount}개, 사용 {validCount}개 상태입니다. 학습 전 '학습용 폴더 만들기'로 Clean 폴더를 만드세요.";
+
+            return "- 데이터를 훑어보며 이상 후보나 직접 선택한 구간을 제외하세요. 표/슬라이더 드래그로 여러 프레임을 선택할 수 있습니다.";
         }
 
         private void AskFirstUseTutorial()
@@ -212,6 +306,7 @@ namespace TeamApp
         {
             return Path.Combine(Application.UserAppDataPath, "tutorial_seen.txt");
         }
+
         private void RunFeatureTutorial(string title)
         {
             if (_tutorialRunning)
@@ -257,7 +352,7 @@ namespace TeamApp
                 Location = new Point(18, 18),
                 Size = new Size(394, 46),
                 Text = "보고 싶은 튜토리얼 섹션을 선택하세요.\nX를 누르면 튜토리얼을 시작하지 않습니다.",
-                Font = new Font("맑은 고딕", 10F),
+                Font = new Font("resource/PretendardVariable.ttf", 10F),
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
@@ -300,8 +395,8 @@ namespace TeamApp
                 new TutorialStep("데이터 보기", "다음 프레임", "현재 프레임 바로 다음 프레임으로 이동합니다.", btnNext, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "마지막으로", "현재 필터 결과의 마지막 프레임으로 이동합니다.", btnLast, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "자동 재생", "프레임을 지정한 간격으로 자동 재생합니다. 재생 중에는 버튼이 일시정지로 바뀝니다.", btnAutoPlay, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "재생 간격", "자동 재생 속도를 ms 단위로 조절합니다. 숫자가 작을수록 더 빠르게 넘어갑니다.", numPlaybackIntervalMs, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "현재 프레임 위치를 빠르게 이동합니다. 많은 프레임을 훑어볼 때 사용합니다.", trkFrameTimeline, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "재생 속도", "자동 재생 속도를 배속으로 조절합니다. 1.00x는 기본 속도이고, 숫자가 클수록 더 빠르게 넘어갑니다.", numPlaybackIntervalMs, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "왼쪽 클릭으로 원하는 프레임으로 이동합니다. 여러 프레임은 '시작 지정'과 '끝 지정' 버튼으로 선택합니다.", trkFrameTimeline, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "조향값", "선택한 프레임의 Angle 값을 표시합니다. 왼쪽/오른쪽 조향 상태를 확인할 때 봅니다.", lblAngleValue, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "스로틀값", "선택한 프레임의 Throttle 값을 표시합니다. 전진/정지/후진 정도를 확인할 때 봅니다.", lblThrottleValue, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "모드", "선택한 프레임의 주행 모드 정보를 표시합니다. user/local 같은 상태를 확인합니다.", lblModeValue, tabPageDataViewer),
@@ -311,13 +406,12 @@ namespace TeamApp
                 new TutorialStep("정리", "시나리오 필터", "normal, night, turn 같은 시나리오별로 프레임을 좁혀 봅니다.", cmbScenarioFilter, tabPageDataViewer),
                 new TutorialStep("정리", "필터 적용", "입력한 범위와 선택한 모드/시나리오 조건으로 목록을 필터링합니다.", btnApplyFrameFilter, tabPageDataViewer),
                 new TutorialStep("정리", "필터 해제", "필터 조건을 풀고 원본 프레임 목록을 다시 표시합니다.", btnClearFrameFilter, tabPageDataViewer),
-                new TutorialStep("정리", "구간 선택", "제외하고 싶은 시작/끝 프레임 번호를 입력하는 영역입니다.", txtFrameRangeStart, tabPageDataViewer),
-                new TutorialStep("정리", "구간 제외", "선택한 프레임 범위를 Soft Delete 처리합니다. 실제 파일은 삭제하지 않고 학습 제외 표시만 합니다.", btnExcludeFrameRange, tabPageDataViewer),
-                new TutorialStep("정리", "선택 프레임 제외", "목록에서 선택한 프레임들을 기준으로 제외 범위를 만들고 Soft Delete 처리합니다.", btnExcludeSelectedFrames, tabPageDataViewer),
+                new TutorialStep("정리", "여러 프레임 선택", "표에서 행을 드래그하거나, 현재 프레임을 '시작 지정'과 '끝 지정'으로 지정해 여러 프레임을 선택합니다.", dgvFrameCatalog, tabPageDataViewer),
+                new TutorialStep("정리", "선택 프레임 제외", "선택한 여러 프레임을 학습 제외 상태로 바꿉니다. 실제 파일은 삭제하지 않고 제외 표시만 합니다.", btnExcludeSelectedFrames, tabPageDataViewer),
                 new TutorialStep("정리", "복원", "Soft Delete 처리된 프레임을 모두 다시 사용 가능 상태로 되돌립니다.", btnRestoreFrames, tabPageDataViewer),
                 new TutorialStep("정리", "클린 폴더 추출", "제외 표시된 프레임을 빼고 학습에 사용할 수 있는 Clean 폴더를 새로 만듭니다. 원본 폴더는 변경하지 않습니다.", btnExportCleanDataset, tabPageDataViewer),
                 new TutorialStep("그래프", "그래프/통계", "필터와 제외 상태를 반영한 조향값/스로틀값 분포 그래프를 확인합니다.", tabControlMain, tabGraphStats),
-                new TutorialStep("학습", "학습 설정", "Python, mycar, Tub, 모델 저장 경로와 학습 횟수를 입력하는 영역입니다. 학습 실행 기능을 연결할 때 사용합니다.", grpTrainingConfig, tabTrainingMonitor),
+                new TutorialStep("학습", "학습 설정", "Python 환경, DonkeyCar 작업 폴더, 학습 데이터 폴더, 모델 저장 경로와 학습 횟수를 확인합니다.", grpTrainingConfig, tabTrainingMonitor),
                 new TutorialStep("학습", "학습 로그", "학습 실행 과정의 로그를 표시할 영역입니다.", grpTrainingOutput, tabTrainingMonitor)
             };
         }
@@ -391,7 +485,7 @@ namespace TeamApp
                 Location = new Point(18, 18),
                 Size = new Size(484, 120),
                 Text = description + "\n\n다음 버튼을 누르면 다음 기능으로 넘어갑니다. X 또는 스킵을 누르면 튜토리얼을 종료합니다.",
-                Font = new Font("맑은 고딕", 10F),
+                Font = new Font("resource/PretendardVariable.ttf", 10F),
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
@@ -423,6 +517,37 @@ namespace TeamApp
         private void BtnApplyFrameFilter_Click(object sender, EventArgs e) => ApplyFrameFilter();
 
         private void BtnClearFrameFilter_Click(object? sender, EventArgs e) => ClearFrameFilter();
+
+        private void BtnShowReviewCandidates_Click(object? sender, EventArgs e)
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+            {
+                MessageBox.Show("먼저 데이터 폴더를 열어 주세요.",
+                    "데이터 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            _visibleFrames = _allFrames
+                .Where(frame => !frame.IsDeleted && frame.NeedsReview)
+                .ToList();
+
+            if (_visibleFrames.Count == 0)
+            {
+                MessageBox.Show("현재 기준으로 자동 검토 후보가 없습니다.",
+                    "이상 후보 없음", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            _isFrameFilterActive = true;
+            _isChartDirty = true;
+            RefreshFrameView();
+            SetIndex(0);
+
+            MessageBox.Show(
+                $"검토 후보 {_visibleFrames.Count}개만 표시합니다.\n\n" +
+                "후보 기준: 급조향, 정지에 가까운 속도값, out_of_bound 상황, 카탈로그 누락/값 없음",
+                "이상 후보 보기", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
 
         // 선택한 구간을 Soft Delete 처리합니다.
         private void BtnExcludeFrameRange_Click(object? sender, EventArgs e)
@@ -505,20 +630,25 @@ namespace TeamApp
 
             int idx = _visibleFrames.IndexOf(selectedFrame);
             if (idx >= 0 && idx < _visibleFrames.Count)
-                SetIndex(idx);
+                DisplayFrameAtIndex(idx);
         }
 
         private void TrkFrameTimeline_Scroll(object sender, EventArgs e)
         {
             int idx = trkFrameTimeline.Value;
             if (idx >= 0 && idx < _visibleFrames.Count)
-                SetIndex(idx);
+            {
+                if (_isDraggingTimelineRange)
+                    SelectFrameGridRange(_timelineRangeStartIndex, idx);
+                else
+                    SetIndex(idx);
+            }
         }
 
         private void btnFirst_Click(object sender, EventArgs e) => SetIndex(0);
-        private void btnPrev_Click(object sender, EventArgs e)  => SetIndex(Math.Max(0, _currentFrameIndex - 1));
-        private void btnNext_Click(object sender, EventArgs e)  => SetIndex(Math.Min(_visibleFrames.Count - 1, _currentFrameIndex + 1));
-        private void btnLast_Click(object sender, EventArgs e)  => SetIndex(_visibleFrames.Count - 1);
+        private void btnPrev_Click(object sender, EventArgs e) => SetIndex(Math.Max(0, _currentFrameIndex - 1));
+        private void btnNext_Click(object sender, EventArgs e) => SetIndex(Math.Min(_visibleFrames.Count - 1, _currentFrameIndex + 1));
+        private void btnLast_Click(object sender, EventArgs e) => SetIndex(_visibleFrames.Count - 1);
 
         // 자동 재생 타이머 처리
         private void PlayTimer_Tick(object? sender, EventArgs e)
@@ -544,10 +674,24 @@ namespace TeamApp
             switch (e.KeyCode)
             {
                 case Keys.Right: btnNext_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.Left:  btnPrev_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.Left: btnPrev_Click(this, EventArgs.Empty); e.Handled = true; break;
                 case Keys.Space: TogglePlayPause(); e.Handled = true; break;
-                case Keys.Home:  btnFirst_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.End:   btnLast_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.Home: btnFirst_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.End: btnLast_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.Delete:
+                    if (tabControlMain.SelectedTab == tabPageDataViewer)
+                    {
+                        BtnExcludeSelectedFrames_Click(this, EventArgs.Empty);
+                        e.Handled = true;
+                    }
+                    break;
+                case Keys.S:
+                    if (e.Control && tabControlMain.SelectedTab == tabPageDataViewer)
+                    {
+                        BtnSaveCleanupState_Click(this, EventArgs.Empty);
+                        e.Handled = true;
+                    }
+                    break;
             }
         }
 
@@ -559,56 +703,178 @@ namespace TeamApp
         {
             dgvFrameCatalog.AutoGenerateColumns = false;
             dgvFrameCatalog.Columns.Clear();
+            dgvFrameCatalog.MultiSelect = true;
+            dgvFrameCatalog.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvFrameCatalog.Font = new Font("resource/PretendardVariable.ttf", 10F, System.Drawing.FontStyle.Regular);
+            dgvFrameCatalog.ColumnHeadersDefaultCellStyle.Font = new Font("resource/PretendardVariable.ttf", 10F, System.Drawing.FontStyle.Bold);
+            dgvFrameCatalog.DefaultCellStyle.Font = new Font("resource/PretendardVariable.ttf", 10F, System.Drawing.FontStyle.Regular);
+            dgvFrameCatalog.EnableHeadersVisualStyles = false;
+            dgvFrameCatalog.DefaultCellStyle.WrapMode = DataGridViewTriState.False;
+            dgvFrameCatalog.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.FormattedIndex),
                 HeaderText = "번호",
-                Width = 70,
+                Width = 76,
                 Frozen = true
             });
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(FrameData.Name),
-                HeaderText = "이미지명",
+                HeaderText = "이미지 파일",
                 AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
                 MinimumWidth = 220
             });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.Angle),
-                HeaderText = "조향각",
-                Width = 80,
-                DefaultCellStyle = new DataGridViewCellStyle { Format = "0.000" }
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.Throttle),
-                HeaderText = "스로틀",
-                Width = 80,
-                DefaultCellStyle = new DataGridViewCellStyle { Format = "0.000" }
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.Mode),
-                HeaderText = "모드",
-                Width = 90
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.Scenario),
-                HeaderText = "시나리오",
-                Width = 110
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(FrameData.StateText),
-                HeaderText = "상태",
-                Width = 80
-            });
 
-            dgvFrameCatalog.RowTemplate.Height = 26;
+            dgvFrameCatalog.RowTemplate.Height = 25;
+            dgvFrameCatalog.ColumnHeadersHeight = 28;
+            dgvFrameCatalog.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
             dgvFrameCatalog.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(248, 250, 252);
             dgvFrameCatalog.DataBindingComplete += (_, _) => ApplyFrameCatalogRowStyle();
+            dgvFrameCatalog.MouseDown += DgvFrameCatalog_MouseDown;
+            dgvFrameCatalog.MouseMove += DgvFrameCatalog_MouseMove;
+            dgvFrameCatalog.MouseUp += DgvFrameCatalog_MouseUp;
+            trkFrameTimeline.MouseDown += TrkFrameTimeline_MouseDown;
+            trkFrameTimeline.MouseMove += TrkFrameTimeline_MouseMove;
+            trkFrameTimeline.MouseUp += TrkFrameTimeline_MouseUp;
+        }
+
+        private void DgvFrameCatalog_MouseDown(object? sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left) return;
+
+            int rowIndex = GetFrameGridRowIndexAt(e.Location);
+            if (rowIndex < 0) return;
+
+            _dragStartFrameRowIndex = rowIndex;
+            _isDraggingFrameRows = true;
+        }
+
+        private void DgvFrameCatalog_MouseMove(object? sender, MouseEventArgs e)
+        {
+            if (!_isDraggingFrameRows || e.Button != MouseButtons.Left) return;
+
+            int rowIndex = GetFrameGridRowIndexAt(e.Location);
+            if (rowIndex < 0 || _dragStartFrameRowIndex < 0) return;
+
+            SelectFrameGridRange(_dragStartFrameRowIndex, rowIndex);
+        }
+
+        private void DgvFrameCatalog_MouseUp(object? sender, MouseEventArgs e)
+        {
+            _isDraggingFrameRows = false;
+            _dragStartFrameRowIndex = -1;
+        }
+
+        private void TrkFrameTimeline_MouseDown(object? sender, MouseEventArgs e)
+        {
+            if (_visibleFrames.Count == 0) return;
+
+            int clickedIndex = GetTimelineIndexAt(e.X);
+            trkFrameTimeline.Value = clickedIndex;
+
+            if (e.Button == MouseButtons.Left)
+            {
+                _isDraggingTimelineRange = false;
+                SetIndex(clickedIndex);
+                return;
+            }
+
+            _isDraggingTimelineRange = false;
+        }
+
+        private void TrkFrameTimeline_MouseMove(object? sender, MouseEventArgs e)
+        {
+            if (!_isDraggingTimelineRange || _visibleFrames.Count == 0) return;
+
+            int currentIndex = GetTimelineIndexAt(e.X);
+            if (trkFrameTimeline.Value != currentIndex)
+                trkFrameTimeline.Value = currentIndex;
+
+            SelectFrameGridRange(_timelineRangeStartIndex, currentIndex);
+        }
+
+        private void TrkFrameTimeline_MouseUp(object? sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right) return;
+
+            _isDraggingTimelineRange = false;
+            _timelineRangeStartIndex = -1;
+        }
+
+        private int GetFrameGridRowIndexAt(Point point)
+        {
+            var hit = dgvFrameCatalog.HitTest(point.X, point.Y);
+            return hit.Type == DataGridViewHitTestType.Cell ? hit.RowIndex : -1;
+        }
+
+        private int GetTimelineIndexAt(int mouseX)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return 0;
+
+            int min = trkFrameTimeline.Minimum;
+            int max = trkFrameTimeline.Maximum;
+            if (max <= min) return min;
+
+            double ratio = Math.Clamp(mouseX / (double)Math.Max(1, trkFrameTimeline.ClientSize.Width), 0.0, 1.0);
+            int value = min + (int)Math.Round((max - min) * ratio);
+            return Math.Max(min, Math.Min(max, value));
+        }
+
+        private void SetCurrentFrameAsRangePoint(bool isStart)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+            {
+                MessageBox.Show("먼저 데이터 폴더를 열어 주세요.",
+                    "범위 선택", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            int currentIndex = Math.Clamp(_currentFrameIndex, 0, _visibleFrames.Count - 1);
+            if (isStart)
+                _timelineRangeStartIndex = currentIndex;
+            else if (_timelineRangeStartIndex < 0)
+                _timelineRangeStartIndex = currentIndex;
+
+            int from = isStart ? currentIndex : Math.Min(_timelineRangeStartIndex, currentIndex);
+            int to = isStart ? currentIndex : Math.Max(_timelineRangeStartIndex, currentIndex);
+            SelectFrameGridRange(from, to);
+            UpdateSelectedRangeLabel(from, to);
+        }
+
+        private void UpdateSelectedRangeLabel(int from, int to)
+        {
+            if (_lblSelectedFrameRange == null) return;
+
+            _lblSelectedFrameRange.Text = from == to
+                ? $"선택 범위: [{from:0000}]"
+                : $"선택 범위: [{from:0000}] ~ [{to:0000}] ({to - from + 1}개)";
+        }
+
+        /// <summary>
+        /// 마우스 드래그 선택에서 사용하는 범위 선택입니다.
+        /// 선택 자체를 유지해야 하므로 SetIndex를 호출하지 않고 현재 행 표시만 갱신합니다.
+        /// </summary>
+        private void SelectFrameGridRange(int startRowIndex, int endRowIndex)
+        {
+            if (dgvFrameCatalog.Rows.Count == 0) return;
+
+            int from = Math.Max(0, Math.Min(startRowIndex, endRowIndex));
+            int to = Math.Min(dgvFrameCatalog.Rows.Count - 1, Math.Max(startRowIndex, endRowIndex));
+
+            _isFrameSelectionUpdating = true;
+            dgvFrameCatalog.ClearSelection();
+            for (int rowIndex = from; rowIndex <= to; rowIndex++)
+                dgvFrameCatalog.Rows[rowIndex].Selected = true;
+
+            dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[endRowIndex].Cells[0];
+            _isFrameSelectionUpdating = false;
+
+            if (endRowIndex >= 0 && endRowIndex < _visibleFrames.Count)
+                DisplayFrameAtIndex(endRowIndex);
+
+            UpdateSelectedRangeLabel(from, to);
         }
 
         /// <summary>
@@ -616,8 +882,30 @@ namespace TeamApp
         /// </summary>
         private void ApplyDataManagerUiStyle()
         {
-            grpDataCleaner.Text = "터브 정리기 - 필터 / 구간 제외 / 복원 / 클린 추출";
+            tabPageDataViewer.Text = "데이터 확인";
+            tabGraphStats.Text = "그래프/통계";
+            grpDataExplorer.Text = "데이터 탐색";
+            grpDataCleaner.Text = "데이터 정리 - 검색 / 제외 / 복원 / 학습용 폴더 만들기";
             lblFrameRange.Text = "구간 제외/복원";
+            lblAngleRange.Text = "방향값 범위 (-1~1):";
+            lblThrottleRange.Text = "속도값 범위 (-1~1):";
+            lblModeFilter.Text = "주행 방식:";
+            lblScenarioFilter.Text = "상황:";
+            btnOpenDataFolder.Text = "데이터 폴더 열기";
+            btnApplyFrameFilter.Text = "검색 적용";
+            btnClearFrameFilter.Text = "검색 해제";
+            btnExcludeFrameRange.Text = "구간 제외";
+            btnExcludeSelectedFrames.Text = "선택 제외";
+            btnRestoreFrames.Text = "복원";
+            btnSaveCleanupState.Text = "상태 저장";
+            btnExportCleanDataset.Text = "학습용 폴더 만들기";
+            btnFirst.Text = "처음";
+            btnPrev.Text = "이전";
+            btnNext.Text = "다음";
+            btnLast.Text = "마지막";
+            lblPlayInterval.Text = "재생속도";
+
+            ConfigurePlaybackSpeedComboBox();
 
             foreach (var button in new[]
             {
@@ -639,6 +927,387 @@ namespace TeamApp
             txtFrameRangeStart.BackColor = System.Drawing.Color.FromArgb(255, 252, 235);
             txtFrameRangeEnd.BackColor = System.Drawing.Color.FromArgb(255, 252, 235);
             lblFrameRange.ForeColor = System.Drawing.Color.FromArgb(120, 70, 0);
+
+            HideRangeCleanupControls();
+            ArrangeDataCleanerPanel();
+            ArrangeFrameInfoPanel();
+            grpDataCleaner.Resize += (_, _) => ArrangeDataCleanerPanel();
+        }
+
+        /// <summary>
+        /// 기존 숫자 입력 컨트롤은 숨기고, 사용자가 바로 이해할 수 있는 1~10배 콤보박스를 표시합니다.
+        /// </summary>
+        private void ConfigurePlaybackSpeedComboBox()
+        {
+            numPlaybackIntervalMs.Visible = false;
+
+            if (_cmbPlaybackSpeed == null)
+            {
+                _cmbPlaybackSpeed = new ComboBox
+                {
+                    Name = "cmbPlaybackSpeed",
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Font = new Font("resource/PretendardVariable.ttf", 9.5F),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right
+                };
+
+                for (int speed = 1; speed <= 10; speed++)
+                    _cmbPlaybackSpeed.Items.Add($"{speed}배");
+
+                _cmbPlaybackSpeed.SelectedIndex = 0;
+                _cmbPlaybackSpeed.SelectedIndexChanged += (_, _) =>
+                {
+                    if (_isPlaybackRunning)
+                        _playbackTimer.Interval = GetPlaybackIntervalFromSpeed();
+                };
+
+                grpDataExplorer.Controls.Add(_cmbPlaybackSpeed);
+                _cmbPlaybackSpeed.BringToFront();
+            }
+        }
+
+        private void HideRangeCleanupControls()
+        {
+            lblFrameRange.Visible = false;
+            lblFrameRangeSeparator.Visible = false;
+            txtFrameRangeStart.Visible = false;
+            txtFrameRangeEnd.Visible = false;
+            btnExcludeFrameRange.Visible = false;
+
+            btnExcludeSelectedFrames.Location = btnExcludeFrameRange.Location;
+            btnExcludeSelectedFrames.Size = btnExcludeFrameRange.Size;
+        }
+
+        /// <summary>
+        /// 데이터 정리 패널 안의 입력, 버튼, 상태 안내가 서로 겹치지 않도록 한곳에서 위치를 계산합니다.
+        /// WinForms 디자이너 좌표는 화면 크기에 취약하므로, 실행 시 현재 패널 폭을 기준으로 다시 배치합니다.
+        /// </summary>
+        private void ArrangeDataCleanerPanel()
+        {
+            int panelWidth = Math.Max(900, grpDataCleaner.ClientSize.Width);
+            grpDataCleaner.Dock = DockStyle.None;
+            grpDataCleaner.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+
+            int left = panelWidth < 1400 ? 58 : 88;
+            int labelWidth = panelWidth < 1400 ? 200 : 170;
+            int inputWidth = panelWidth < 1400 ? 120 : 130;
+            int row1 = 76;
+            int row2 = 118;
+            int rowHeight = 30;
+
+            int minX = left + labelWidth;
+            int separatorX = minX + inputWidth + 16;
+            int maxX = separatorX + 28;
+
+            int buttonWidth = panelWidth < 1400 ? 180 : 215;
+            int buttonHeight = 30;
+            int buttonGap = panelWidth < 1400 ? 12 : 18;
+            int rightMargin = panelWidth < 1400 ? 18 : 84;
+            int buttonCol2X = panelWidth - rightMargin - buttonWidth;
+            int buttonCol1X = buttonCol2X - buttonWidth - buttonGap;
+
+            int comboLabelWidth = panelWidth < 1400 ? 96 : 105;
+            int comboLabelX = Math.Min(maxX + inputWidth + 36, buttonCol1X - 420);
+            int comboX = comboLabelX + comboLabelWidth;
+            int comboWidth = Math.Max(220, Math.Min(panelWidth < 1400 ? 320 : 380, buttonCol1X - comboX - 18));
+
+            PlaceFilterRangeRow(lblAngleRange, txtAngleMinFilter, lblAngleRangeSeparator, txtAngleMaxFilter,
+                left, minX, separatorX, maxX, row1, labelWidth, inputWidth, rowHeight);
+            PlaceFilterRangeRow(lblThrottleRange, txtThrottleMinFilter, lblThrottleRangeSeparator, txtThrottleMaxFilter,
+                left, minX, separatorX, maxX, row2, labelWidth, inputWidth, rowHeight);
+
+            PlaceFilterComboRow(lblModeFilter, cmbModeFilter, comboLabelX, comboX, row1, comboLabelWidth, comboWidth, rowHeight);
+            PlaceFilterComboRow(lblScenarioFilter, cmbScenarioFilter, comboLabelX, comboX, row2, comboLabelWidth, comboWidth, rowHeight);
+
+            if (_lblCleanWorkflowSummary != null)
+            {
+                _lblCleanWorkflowSummary.Location = new Point(left, 30);
+                _lblCleanWorkflowSummary.Size = new Size(Math.Max(300, buttonCol1X - left - 20), 26);
+            }
+
+            if (_btnSetRangeStart != null)
+                PlaceButton(_btnSetRangeStart, buttonCol1X, 30, buttonWidth, buttonHeight);
+            if (_btnSetRangeEnd != null)
+                PlaceButton(_btnSetRangeEnd, buttonCol2X, 30, buttonWidth, buttonHeight);
+            if (_lblSelectedFrameRange != null)
+            {
+                _lblSelectedFrameRange.Location = new Point(buttonCol1X, 62);
+                _lblSelectedFrameRange.Size = new Size(buttonWidth * 2 + buttonGap, 24);
+            }
+
+            if (_btnShowReviewCandidates != null)
+                PlaceButton(_btnShowReviewCandidates, buttonCol1X, 88, buttonWidth, buttonHeight);
+
+            PlaceButton(btnExcludeSelectedFrames, buttonCol2X, 88, buttonWidth, buttonHeight);
+            PlaceButton(btnApplyFrameFilter, buttonCol1X, 120, buttonWidth, buttonHeight);
+            PlaceButton(btnClearFrameFilter, buttonCol2X, 120, buttonWidth, buttonHeight);
+            PlaceButton(btnExportCleanDataset, buttonCol1X, 152, buttonWidth, buttonHeight);
+            PlaceButton(btnRestoreFrames, buttonCol2X, 152, buttonWidth, buttonHeight);
+            PlaceButton(btnSaveCleanupState, buttonCol1X, 184, buttonWidth, buttonHeight);
+
+            if (panelWidth < 1180)
+            {
+                int singleColX = panelWidth - rightMargin - buttonWidth;
+                PlaceButton(_btnSetRangeStart!, singleColX, 24, buttonWidth, buttonHeight);
+                PlaceButton(_btnSetRangeEnd!, singleColX, 56, buttonWidth, buttonHeight);
+                if (_lblSelectedFrameRange != null)
+                {
+                    _lblSelectedFrameRange.Location = new Point(singleColX, 88);
+                    _lblSelectedFrameRange.Size = new Size(buttonWidth, 24);
+                }
+                PlaceButton(_btnShowReviewCandidates!, singleColX, 116, buttonWidth, buttonHeight);
+                PlaceButton(btnExcludeSelectedFrames, singleColX, 148, buttonWidth, buttonHeight);
+                PlaceButton(btnApplyFrameFilter, singleColX, 180, buttonWidth, buttonHeight);
+                PlaceButton(btnClearFrameFilter, singleColX, 212, buttonWidth, buttonHeight);
+                PlaceButton(btnExportCleanDataset, singleColX, 244, buttonWidth, buttonHeight);
+                PlaceButton(btnRestoreFrames, singleColX, 276, buttonWidth, buttonHeight);
+                PlaceButton(btnSaveCleanupState, singleColX, 308, buttonWidth, buttonHeight);
+            }
+
+            LayoutCleanupGuidanceControls();
+        }
+
+        private static void PlaceFilterRangeRow(
+            System.Windows.Forms.Label label,
+            TextBox minTextBox,
+            System.Windows.Forms.Label separator,
+            TextBox maxTextBox,
+            int labelX,
+            int minX,
+            int separatorX,
+            int maxX,
+            int y,
+            int labelWidth,
+            int inputWidth,
+            int rowHeight)
+        {
+            label.AutoSize = false;
+            label.Location = new Point(labelX, y + 3);
+            label.Size = new Size(labelWidth, rowHeight);
+            minTextBox.Location = new Point(minX, y);
+            minTextBox.Size = new Size(inputWidth, rowHeight);
+            separator.Location = new Point(separatorX, y + 4);
+            separator.Size = new Size(28, rowHeight);
+            maxTextBox.Location = new Point(maxX, y);
+            maxTextBox.Size = new Size(inputWidth, rowHeight);
+        }
+
+        private static void PlaceFilterComboRow(
+            System.Windows.Forms.Label label,
+            ComboBox comboBox,
+            int labelX,
+            int comboX,
+            int y,
+            int labelWidth,
+            int comboWidth,
+            int rowHeight)
+        {
+            label.AutoSize = false;
+            label.Location = new Point(labelX, y + 3);
+            label.Size = new Size(labelWidth, rowHeight);
+            comboBox.Location = new Point(comboX, y);
+            comboBox.Size = new Size(comboWidth, rowHeight);
+        }
+
+        private static void PlaceButton(Button button, int x, int y, int width, int height)
+        {
+            if (button == null) return;
+            button.Location = new Point(x, y);
+            button.Size = new Size(width, height);
+            button.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            button.Enabled = true;
+            button.BringToFront();
+        }
+
+        /// <summary>
+        /// 오른쪽 프레임 정보 영역을 촘촘하게 재배치합니다.
+        /// 검토 힌트와 재생속도 입력이 겹치지 않도록 런타임에서 위치를 정리합니다.
+        /// </summary>
+        private void ArrangeFrameInfoPanel()
+        {
+            int left = lblFrameValue.Left;
+            int width = lblFrameValue.Width;
+
+            lblFrameValue.Font = new Font("resource/PretendardVariable.ttf", 12F, System.Drawing.FontStyle.Bold);
+            lblAngleValue.Font = new Font("resource/PretendardVariable.ttf", 10.5F);
+            lblThrottleValue.Font = new Font("resource/PretendardVariable.ttf", 10.5F);
+            lblModeValue.Font = new Font("resource/PretendardVariable.ttf", 10.5F);
+            lblPlayInterval.Font = new Font("resource/PretendardVariable.ttf", 9.5F, System.Drawing.FontStyle.Bold);
+
+            lblFrameValue.Location = new Point(left, 58);
+            lblFrameValue.Size = new Size(width, 32);
+            lblAngleValue.Location = new Point(left, 212);
+            lblAngleValue.Size = new Size(width, 31);
+            lblThrottleValue.Location = new Point(left, 245);
+            lblThrottleValue.Size = new Size(width, 42);
+            lblModeValue.Location = new Point(left, 289);
+            lblModeValue.Size = new Size(width, 30);
+
+            lblPlayInterval.Location = new Point(left, 414);
+            lblPlayInterval.Size = new Size(92, 28);
+            if (_cmbPlaybackSpeed != null)
+            {
+                _cmbPlaybackSpeed.Location = new Point(left + 84, 410);
+                _cmbPlaybackSpeed.Size = new Size(Math.Max(90, width - 90), 28);
+            }
+        }
+
+        /// <summary>
+        /// 이상 후보 확인 UI는 Designer 파일을 수정하지 않고 코드에서 추가합니다.
+        /// 버튼은 검색 버튼 근처에 두고, 힌트 라벨은 현재 프레임 정보 영역에 표시합니다.
+        /// </summary>
+        private void ConfigureReviewCandidateControls()
+        {
+            if (_btnShowReviewCandidates == null)
+            {
+                _btnShowReviewCandidates = new Button
+                {
+                    Name = "btnShowReviewCandidates",
+                    Text = "이상 후보 보기",
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                    Location = new Point(btnApplyFrameFilter.Left, 29),
+                    Size = btnApplyFrameFilter.Size,
+                    UseVisualStyleBackColor = false,
+                    BackColor = System.Drawing.Color.FromArgb(255, 249, 219)
+                };
+                _btnShowReviewCandidates.Click += BtnShowReviewCandidates_Click;
+                grpDataCleaner.Controls.Add(_btnShowReviewCandidates);
+                _btnShowReviewCandidates.BringToFront();
+            }
+
+            if (_lblFrameReviewHint == null)
+            {
+                _lblFrameReviewHint = new System.Windows.Forms.Label
+                {
+                    Name = "lblFrameReviewHint",
+                    Text = "검토: -",
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                    Location = new Point(lblModeValue.Left, 326),
+                    Size = new Size(lblModeValue.Width, 54),
+                    Font = new Font("resource/PretendardVariable.ttf", 9F),
+                    ForeColor = System.Drawing.Color.DimGray
+                };
+                grpDataExplorer.Controls.Add(_lblFrameReviewHint);
+                _lblFrameReviewHint.BringToFront();
+            }
+        }
+
+        private void ConfigureCleanupGuidanceControls()
+        {
+            if (_lblCleanupSummary == null)
+            {
+                _lblCleanupSummary = new System.Windows.Forms.Label
+                {
+                    Name = "lblCleanupSummary",
+                    Text = "정리 상태: 데이터 없음",
+                    Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                    Font = new System.Drawing.Font("resource/PretendardVariable.ttf", 9.5F, System.Drawing.FontStyle.Bold),
+                    ForeColor = System.Drawing.Color.FromArgb(45, 65, 90)
+                };
+                grpDataCleaner.Controls.Add(_lblCleanupSummary);
+                _lblCleanupSummary.BringToFront();
+            }
+
+            if (_lblCleanupWorkflowHint == null)
+            {
+                _lblCleanupWorkflowHint = new System.Windows.Forms.Label
+                {
+                    Name = "lblCleanupWorkflowHint",
+                    Text = "대량 정리: 표 드래그 또는 시작/끝 지정 -> '선택 제외' -> Ctrl+S 저장",
+                    Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                    Font = new System.Drawing.Font("resource/PretendardVariable.ttf", 9F),
+                    ForeColor = System.Drawing.Color.DimGray
+                };
+                grpDataCleaner.Controls.Add(_lblCleanupWorkflowHint);
+                _lblCleanupWorkflowHint.BringToFront();
+            }
+
+            grpDataCleaner.Resize += (_, _) => LayoutCleanupGuidanceControls();
+            LayoutCleanupGuidanceControls();
+        }
+
+        private void ConfigureRangeSelectionControls()
+        {
+            if (_btnSetRangeStart == null)
+            {
+                _btnSetRangeStart = new Button
+                {
+                    Name = "btnSetRangeStart",
+                    Text = "시작 지정",
+                    UseVisualStyleBackColor = false,
+                    BackColor = System.Drawing.Color.FromArgb(245, 249, 255),
+                    Font = new Font("resource/PretendardVariable.ttf", 9F)
+                };
+                _btnSetRangeStart.Click += (_, _) => SetCurrentFrameAsRangePoint(isStart: true);
+                grpDataCleaner.Controls.Add(_btnSetRangeStart);
+                _btnSetRangeStart.BringToFront();
+            }
+
+            if (_btnSetRangeEnd == null)
+            {
+                _btnSetRangeEnd = new Button
+                {
+                    Name = "btnSetRangeEnd",
+                    Text = "끝 지정",
+                    UseVisualStyleBackColor = false,
+                    BackColor = System.Drawing.Color.FromArgb(245, 249, 255),
+                    Font = new Font("resource/PretendardVariable.ttf", 9F)
+                };
+                _btnSetRangeEnd.Click += (_, _) => SetCurrentFrameAsRangePoint(isStart: false);
+                grpDataCleaner.Controls.Add(_btnSetRangeEnd);
+                _btnSetRangeEnd.BringToFront();
+            }
+
+            if (_lblSelectedFrameRange == null)
+            {
+                _lblSelectedFrameRange = new System.Windows.Forms.Label
+                {
+                    Name = "lblSelectedFrameRange",
+                    Text = "선택 범위: -",
+                    AutoSize = false,
+                    Font = new Font("resource/PretendardVariable.ttf", 9F),
+                    ForeColor = System.Drawing.Color.FromArgb(70, 70, 70)
+                };
+                grpDataCleaner.Controls.Add(_lblSelectedFrameRange);
+                _lblSelectedFrameRange.BringToFront();
+            }
+        }
+
+        private void ConfigureCleanWorkflowSummary()
+        {
+            if (_lblCleanWorkflowSummary != null) return;
+
+            _lblCleanWorkflowSummary = new System.Windows.Forms.Label
+            {
+                Name = "lblCleanWorkflowSummary",
+                Text = "학습 데이터 흐름: 원본 보존 -> 제외 표시 저장 -> Clean 폴더 생성 -> Clean 폴더로 학습",
+                AutoSize = false,
+                Font = new Font("resource/PretendardVariable.ttf", 9.5F, System.Drawing.FontStyle.Bold),
+                ForeColor = System.Drawing.Color.FromArgb(35, 80, 120)
+            };
+            grpDataCleaner.Controls.Add(_lblCleanWorkflowSummary);
+            _lblCleanWorkflowSummary.BringToFront();
+        }
+
+        private void LayoutCleanupGuidanceControls()
+        {
+            int buttonLeft = btnApplyFrameFilter.Left > 0
+                ? btnApplyFrameFilter.Left
+                : grpDataCleaner.ClientSize.Width - 500;
+            int width = Math.Max(300, buttonLeft - 36);
+            int y = Math.Max(168, grpDataCleaner.ClientSize.Height - 44);
+
+            if (_lblCleanupSummary != null)
+            {
+                _lblCleanupSummary.Location = new Point(20, y);
+                _lblCleanupSummary.Size = new Size(width, 19);
+            }
+
+            if (_lblCleanupWorkflowHint != null)
+            {
+                _lblCleanupWorkflowHint.Location = new Point(20, y + 19);
+                _lblCleanupWorkflowHint.Size = new Size(width, 19);
+            }
         }
 
         /// <summary>
@@ -656,6 +1325,13 @@ namespace TeamApp
                     row.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(145, 52, 52);
                     row.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(255, 204, 204);
                     row.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.FromArgb(90, 20, 20);
+                }
+                else if (frame.NeedsReview)
+                {
+                    row.DefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(255, 249, 196);
+                    row.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(80, 60, 0);
+                    row.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(255, 214, 102);
+                    row.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.Black;
                 }
                 else
                 {
@@ -676,12 +1352,14 @@ namespace TeamApp
         /// </summary>
         private void SetLoadingState(bool loading)
         {
-            btnOpenDataFolder.Enabled           = !loading;
-            btnReloadData.Enabled               = !loading;
-            btnApplyFrameFilter.Enabled          = !loading;
-            btnClearFrameFilter.Enabled          = !loading;
+            btnOpenDataFolder.Enabled = !loading;
+            btnReloadData.Enabled = !loading;
+            btnApplyFrameFilter.Enabled = !loading;
+            btnClearFrameFilter.Enabled = !loading;
+            if (_btnShowReviewCandidates != null)
+                _btnShowReviewCandidates.Enabled = !loading;
             btnExcludeSelectedFrames.Enabled = !loading;
-            btnRestoreFrames.Enabled         = !loading;
+            btnRestoreFrames.Enabled = !loading;
             this.Cursor = loading ? Cursors.WaitCursor : Cursors.Default;
             if (loading) stsFrameSummary.Text = "로딩 중...";
         }
@@ -764,15 +1442,34 @@ namespace TeamApp
             if (trkFrameTimeline.Value != idx)
                 trkFrameTimeline.Value = idx;
 
+            DisplayFrameAtIndex(idx);
+        }
+
+        private void DisplayFrameAtIndex(int idx)
+        {
+            if (_visibleFrames == null || idx < 0 || idx >= _visibleFrames.Count) return;
+
+            _currentFrameIndex = idx;
+
+            if (trkFrameTimeline.Value != idx)
+                trkFrameTimeline.Value = idx;
+
             var frame = _visibleFrames[idx];
 
             string resolvedPath = ResolveImagePath(frame.Name);
-            UpdatePreviewImage(resolvedPath);
+            UpdatePreviewImage(resolvedPath, frame);
 
-            lblFrameValue.Text    = $"Frame: {idx + 1} / {_visibleFrames.Count}";
-            lblAngleValue.Text    = $"조향값: {frame.Angle:0.000}";
-            lblThrottleValue.Text = $"스로틀값: {frame.Throttle:0.000}";
-            lblModeValue.Text     = $"모드: {frame.Mode}";
+            lblFrameValue.Text = $"프레임: {idx + 1} / {_visibleFrames.Count}";
+            lblAngleValue.Text = $"방향값: {frame.Angle:0.000} ({frame.SteeringText})";
+            lblThrottleValue.Text = $"속도값: {frame.Throttle:0.000} ({frame.ThrottleText})";
+            lblModeValue.Text = $"주행 방식: {frame.ModeDescription}";
+            if (_lblFrameReviewHint != null)
+            {
+                _lblFrameReviewHint.Text = $"검토: {frame.ReviewHint}";
+                _lblFrameReviewHint.ForeColor = frame.NeedsReview
+                    ? System.Drawing.Color.FromArgb(150, 95, 0)
+                    : System.Drawing.Color.DimGray;
+            }
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
         }
@@ -794,7 +1491,7 @@ namespace TeamApp
             return string.Empty;
         }
 
-        private void UpdatePreviewImage(string path)
+        private void UpdatePreviewImage(string path, FrameData? frame = null)
         {
             try
             {
@@ -804,15 +1501,81 @@ namespace TeamApp
                     picFramePreview.Image = null;
                     return;
                 }
-                using var fs  = File.OpenRead(path);
+                using var fs = File.OpenRead(path);
                 using var img = System.Drawing.Image.FromStream(fs);
                 var bmp = new Bitmap(img);
+                if (frame != null && _showDriveOverlay)
+                    DrawDriveOverlay(bmp, frame);
 
                 var old = picFramePreview.Image;
                 picFramePreview.Image = bmp;
                 old?.Dispose();
             }
             catch { /* 이미지 로드 실패는 미리보기만 비우고 무시합니다. */ }
+        }
+
+        /// <summary>
+        /// 미리보기 이미지 위에 작은 주행 방향 화살표와 상태 텍스트를 그립니다.
+        /// 사용자가 사진과 조향값이 서로 맞는지 빠르게 비교할 수 있게 하는 보조 표시입니다.
+        /// </summary>
+        private void DrawDriveOverlay(Bitmap bitmap, FrameData frame)
+        {
+            using Graphics graphics = Graphics.FromImage(bitmap);
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+            graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+
+            float scale = Math.Max(0.4f, bitmap.Width / 640f);
+            float arrowLength = Math.Max(12f, bitmap.Height * 0.075f);
+            float arrowWidth = Math.Max(5f, bitmap.Width * 0.010f);
+            float centerX = bitmap.Width / 2f;
+            float centerY = bitmap.Height - Math.Max(32f, bitmap.Height * 0.16f);
+            float directionOffset = (float)Math.Max(-1.0, Math.Min(1.0, frame.Angle)) * arrowLength * 0.7f;
+
+            PointF tip = new PointF(centerX + directionOffset, centerY - arrowLength);
+            PointF baseLeft = new PointF(centerX - arrowWidth, centerY);
+            PointF baseRight = new PointF(centerX + arrowWidth, centerY);
+
+            using var arrowBrush = new SolidBrush(System.Drawing.Color.FromArgb(185, 255, 193, 7));
+            using var arrowPen = new Pen(System.Drawing.Color.FromArgb(210, 60, 45, 0), Math.Max(1f, 1.2f * scale));
+            PointF[] arrow = { tip, baseRight, new PointF(centerX + arrowWidth * 0.35f, centerY), new PointF(centerX + arrowWidth * 0.35f, centerY + arrowLength * 0.45f), new PointF(centerX - arrowWidth * 0.35f, centerY + arrowLength * 0.45f), new PointF(centerX - arrowWidth * 0.35f, centerY), baseLeft };
+            graphics.FillPolygon(arrowBrush, arrow);
+            graphics.DrawPolygon(arrowPen, arrow);
+
+            string overlayText = $"{frame.SteeringText} / {frame.ThrottleText}";
+            if (frame.NeedsReview)
+                overlayText += " / 검토";
+
+            using var font = new System.Drawing.Font("resource/PretendardVariable.ttf", Math.Max(5.2f, 5.6f * scale), System.Drawing.FontStyle.Bold);
+            SizeF textSize = graphics.MeasureString(overlayText, font);
+            float boxWidth = textSize.Width + 12;
+            float boxHeight = textSize.Height + 7;
+            var textBox = new RectangleF((bitmap.Width - boxWidth) / 2f, 6, boxWidth, boxHeight);
+            using var boxBrush = new SolidBrush(System.Drawing.Color.FromArgb(165, 0, 0, 0));
+            using var outlineBrush = new SolidBrush(System.Drawing.Color.FromArgb(180, 40, 30, 0));
+            using var textBrush = new SolidBrush(frame.NeedsReview ? System.Drawing.Color.Gold : System.Drawing.Color.White);
+            graphics.FillRectangle(boxBrush, textBox);
+            float textX = textBox.Left + 6;
+            float textY = textBox.Top + 3;
+            graphics.DrawString(overlayText, font, outlineBrush, textX + 0.8f, textY + 0.8f);
+            graphics.DrawString(overlayText, font, textBrush, textX, textY);
+        }
+
+        private int GetPlaybackIntervalFromSpeed()
+        {
+            int speed = 1;
+            if (_cmbPlaybackSpeed?.SelectedItem != null)
+            {
+                string text = _cmbPlaybackSpeed.SelectedItem.ToString() ?? "1배";
+                string numberText = text.Replace("배", "").Trim();
+                if (!int.TryParse(numberText, out speed))
+                    speed = 1;
+            }
+
+            speed = Math.Clamp(speed, 1, 10);
+            const int baseIntervalMs = 200;
+            return Math.Max(20, baseIntervalMs / speed);
         }
 
         private void TogglePlayPause()
@@ -825,7 +1588,7 @@ namespace TeamApp
             }
             else
             {
-                _playbackTimer.Interval = (int)numPlaybackIntervalMs.Value;
+                _playbackTimer.Interval = GetPlaybackIntervalFromSpeed();
                 _playbackTimer.Start();
                 _isPlaybackRunning = true;
                 btnAutoPlay.Text = "일시정지";
@@ -877,7 +1640,7 @@ namespace TeamApp
             // 제외되지 않은 프레임 중 범위 조건에 맞는 항목만 남깁니다.
             _visibleFrames = _allFrames
                 .Where(f => !f.IsDeleted &&
-                            f.Angle    >= angleMin && f.Angle    <= angleMax &&
+                            f.Angle >= angleMin && f.Angle <= angleMax &&
                             f.Throttle >= throttleMin && f.Throttle <= throttleMax &&
                             MatchesComboFilter(cmbModeFilter, f.Mode) &&
                             MatchesComboFilter(cmbScenarioFilter, f.Scenario))
@@ -896,10 +1659,10 @@ namespace TeamApp
             angleMin = angleMax = throttleMin = throttleMax = 0;
 
             bool ok =
-                double.TryParse(txtAngleMinFilter.Text.Trim(),   NumberStyles.Float, CultureInfo.InvariantCulture, out angleMin) &&
-                double.TryParse(txtAngleMaxFilter.Text.Trim(),   NumberStyles.Float, CultureInfo.InvariantCulture, out angleMax) &&
-                double.TryParse(txtThrottleMinFilter.Text.Trim(),NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMin) &&
-                double.TryParse(txtThrottleMaxFilter.Text.Trim(),NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMax);
+                double.TryParse(txtAngleMinFilter.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out angleMin) &&
+                double.TryParse(txtAngleMaxFilter.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out angleMax) &&
+                double.TryParse(txtThrottleMinFilter.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMin) &&
+                double.TryParse(txtThrottleMaxFilter.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMax);
 
             if (!ok)
             {
@@ -960,7 +1723,7 @@ namespace TeamApp
             if (_allFrames == null || _allFrames.Count == 0) return;
 
             int safeFrom = Math.Max(0, from);
-            int safeTo   = Math.Min(_allFrames.Count - 1, to);
+            int safeTo = Math.Min(_allFrames.Count - 1, to);
 
             if (safeFrom > safeTo)
             {
@@ -1052,6 +1815,7 @@ namespace TeamApp
             txtFrameRangeStart.Clear();
             txtFrameRangeEnd.Clear();
 
+            MarkCleanupStateChanged();
             _isChartDirty = true;
             RefreshFrameView();
             RenderFrameChart();
@@ -1068,15 +1832,22 @@ namespace TeamApp
             dgvFrameCatalog.ClearSelection();
             picFramePreview.Image?.Dispose();
             picFramePreview.Image = null;
-            lblFrameValue.Text = "Frame: 0 / 0";
+            lblFrameValue.Text = "프레임: 0 / 0";
             lblAngleValue.Text = "조향값: 0.000";
             lblThrottleValue.Text = "스로틀값: 0.000";
             lblModeValue.Text = "모드: -";
+            if (_lblFrameReviewHint != null)
+                _lblFrameReviewHint.Text = "검토: -";
         }
 
         private void BtnSaveCleanupState_Click(object? sender, EventArgs e)
         {
-            if (!TryEnsureLoadedFolder()) return;
+            SaveCleanupState(showSuccessMessage: true);
+        }
+
+        private bool SaveCleanupState(bool showSuccessMessage)
+        {
+            if (!TryEnsureLoadedFolder()) return false;
 
             try
             {
@@ -1090,13 +1861,20 @@ namespace TeamApp
                     .ToList();
 
                 File.WriteAllLines(metaPath, deletedNames, Encoding.UTF8);
-                MessageBox.Show("제외 상태가 저장되었습니다.",
-                    "상태 저장", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                _hasUnsavedCleanupChanges = false;
+                UpdateCleanupSaveUi();
+                if (showSuccessMessage)
+                {
+                    MessageBox.Show("제외 상태가 저장되었습니다.",
+                        "상태 저장", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                return true;
             }
             catch (Exception ex)
             {
                 MessageBox.Show("제외 상태 저장 중 오류가 발생했습니다.\n" + ex.Message,
                     "저장 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
             }
         }
 
@@ -1137,8 +1915,25 @@ namespace TeamApp
                 int cleanedCatalogCount = RewriteCleanCatalogFiles(cleanFolder, deletedNames);
 
                 MessageBox.Show(
-                    $"학습용 Clean 폴더가 생성되었습니다.\n\n경로: {cleanFolder}\n삭제된 이미지: {deletedImageCount}개\n정제된 카탈로그: {cleanedCatalogCount}개",
+                    "학습용 Clean 폴더가 생성되었습니다.\n\n" +
+                    "원본 폴더는 그대로 보존됩니다.\n" +
+                    "Clean 폴더에는 제외 표시된 프레임을 제거한 학습용 데이터만 들어갑니다.\n\n" +
+                    $"Clean 경로: {cleanFolder}\n삭제된 이미지: {deletedImageCount}개\n정제된 카탈로그: {cleanedCatalogCount}개",
                     "클린 폴더 추출 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                var useForTraining = MessageBox.Show(
+                    "방금 만든 Clean 폴더를 학습 데이터 폴더로 사용할까요?\n\n" +
+                    "예를 누르면 학습 실행 탭으로 이동하고 학습 데이터 경로가 자동으로 입력됩니다.",
+                    "학습 경로 연결",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (useForTraining == DialogResult.Yes)
+                {
+                    txtTrainingTubPath.Text = cleanFolder;
+                    tabControlMain.SelectedTab = tabTrainingMonitor;
+                    AppendTrainingLog("[안내] Clean 폴더가 Tub 경로로 설정되었습니다. 자동 감지를 눌러 WSL, conda, 프로젝트 경로를 확인한 뒤 학습을 시작하세요.");
+                }
             }
             catch (Exception ex)
             {
@@ -1225,6 +2020,7 @@ namespace TeamApp
 
             // 복원 후 전체 프레임을 다시 표시합니다.
             _visibleFrames = _allFrames;
+            MarkCleanupStateChanged();
             _isChartDirty = true;
             RefreshFrameView();
             RenderFrameChart();
@@ -1236,26 +2032,97 @@ namespace TeamApp
 
         private void UpdateStatusLabels()
         {
-            int total   = _allFrames?.Count ?? 0;
+            int total = _allFrames?.Count ?? 0;
             int deleted = _allFrames?.Count(f => f.IsDeleted) ?? 0;
-            int valid   = Math.Max(0, total - deleted);
-            int shown   = _visibleFrames?.Count ?? 0;
+            int review = _allFrames?.Count(f => !f.IsDeleted && f.NeedsReview) ?? 0;
+            int valid = Math.Max(0, total - deleted);
+            int shown = _visibleFrames?.Count ?? 0;
             string filterState = _isFrameFilterActive ? "필터 적용" : "전체 보기";
+            string saveState = _hasUnsavedCleanupChanges ? "저장 필요" : "저장됨";
 
             stsFrameSummary.Text =
-                $"{filterState}  |  전체: {total}  |  유효: {valid}  |  제외: {deleted}  |  표시: {shown}";
+                $"{filterState}  |  전체: {total}  |  유효: {valid}  |  제외: {deleted}  |  후보: {review}  |  표시: {shown}  |  {saveState}";
+
+            if (_lblCleanupSummary != null)
+            {
+                _lblCleanupSummary.Text =
+                    $"정리 상태: 전체 {total} / 학습 사용 {valid} / 제외 {deleted} / 이상 후보 {review} / 표시 {shown} / {saveState}";
+                _lblCleanupSummary.ForeColor = _hasUnsavedCleanupChanges
+                    ? System.Drawing.Color.FromArgb(150, 80, 0)
+                    : System.Drawing.Color.FromArgb(45, 65, 90);
+            }
+
+            UpdateCleanupSaveUi();
+        }
+
+        private void MarkCleanupStateChanged()
+        {
+            _hasUnsavedCleanupChanges = true;
+            UpdateStatusLabels();
+        }
+
+        private void UpdateCleanupSaveUi()
+        {
+            if (btnSaveCleanupState == null) return;
+
+            btnSaveCleanupState.BackColor = _hasUnsavedCleanupChanges
+                ? System.Drawing.Color.FromArgb(255, 235, 180)
+                : System.Drawing.Color.FromArgb(235, 239, 255);
+
+            btnSaveCleanupState.Font = new Font(
+                btnSaveCleanupState.Font,
+                _hasUnsavedCleanupChanges ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular);
+
+            Text = _hasUnsavedCleanupChanges
+                ? "Data Manager *"
+                : "Data Manager";
+        }
+
+        private bool ConfirmUnsavedCleanupBeforeDataChange(string actionName)
+        {
+            if (!_hasUnsavedCleanupChanges) return true;
+
+            var answer = MessageBox.Show(
+                $"저장하지 않은 제외/복원 변경사항이 있습니다.\n\n'{actionName}' 전에 현재 제외 상태를 저장할까요?",
+                "저장되지 않은 변경사항",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Warning);
+
+            if (answer == DialogResult.Cancel) return false;
+            if (answer == DialogResult.Yes) return SaveCleanupState(showSuccessMessage: false);
+            return true;
+        }
+
+        private void Form1_FormClosing(object? sender, FormClosingEventArgs e)
+        {
+            if (!_hasUnsavedCleanupChanges) return;
+
+            var answer = MessageBox.Show(
+                "저장하지 않은 제외/복원 변경사항이 있습니다.\n\n종료 전에 현재 제외 상태를 저장할까요?",
+                "저장되지 않은 변경사항",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Warning);
+
+            if (answer == DialogResult.Cancel)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            if (answer == DialogResult.Yes && !SaveCleanupState(showSuccessMessage: false))
+                e.Cancel = true;
         }
 
         // FrameData 데이터 모델
 
         private class FrameData
         {
-            public string ImagePath  { get; set; } = string.Empty;
-            public double Angle      { get; set; }
-            public double Throttle   { get; set; }
-            public string Mode       { get; set; } = "-";
-            public string Scenario   { get; set; } = "-";
-            public string Name       { get; set; } = string.Empty;
+            public string ImagePath { get; set; } = string.Empty;
+            public double Angle { get; set; }
+            public double Throttle { get; set; }
+            public string Mode { get; set; } = "-";
+            public string Scenario { get; set; } = "-";
+            public string Name { get; set; } = string.Empty;
             public int OriginalIndex { get; set; } = -1;
 
             /// <summary>
@@ -1285,6 +2152,87 @@ namespace TeamApp
             /// 표의 상태 컬럼에 표시할 삭제 여부입니다.
             /// </summary>
             public string StateText => IsDeleted ? "제외됨" : "사용";
+
+            /// <summary>
+            /// 조향값을 초보자도 이해할 수 있는 말로 바꿔 보여줍니다.
+            /// </summary>
+            public string SteeringText
+            {
+                get
+                {
+                    if (Angle <= -0.7) return "강한 좌회전";
+                    if (Angle < -0.1) return "좌회전";
+                    if (Angle >= 0.7) return "강한 우회전";
+                    if (Angle > 0.1) return "우회전";
+                    return "직진";
+                }
+            }
+
+            /// <summary>
+            /// 속도값을 초보자도 이해할 수 있는 말로 바꿔 보여줍니다.
+            /// </summary>
+            public string ThrottleText
+            {
+                get
+                {
+                    if (Throttle < -0.05) return "후진";
+                    if (Throttle <= 0.05) return "정지에 가까움";
+                    return "전진";
+                }
+            }
+
+            public string ModeDescription => NormalizeDisplayValue(Mode) switch
+            {
+                "user" => "사용자 조작",
+                "local" => "AI 주행",
+                "local_angle" => "AI 조향",
+                _ => string.IsNullOrWhiteSpace(Mode) || Mode == "-" ? "-" : Mode
+            };
+
+            public string ScenarioDescription => NormalizeDisplayValue(Scenario) switch
+            {
+                "normal" => "정상",
+                "night" => "야간",
+                "left_turn" => "좌회전 구간",
+                "right_turn" => "우회전 구간",
+                "out_of_bound" => "차선 이탈",
+                _ => string.IsNullOrWhiteSpace(Scenario) || Scenario == "-" ? "-" : Scenario
+            };
+
+            /// <summary>
+            /// 사람이 먼저 확인하면 좋은 프레임입니다.
+            /// 완전 자동 삭제가 아니라 "검토 후보"로만 표시해서 사용자가 최종 판단하게 합니다.
+            /// </summary>
+            public bool NeedsReview =>
+                IsCatalogMissing ||
+                HasNoData ||
+                Math.Abs(Angle) >= 0.85 ||
+                Math.Abs(Throttle) <= 0.03 ||
+                NormalizeDisplayValue(Scenario).Contains("out_of_bound");
+
+            public string ReviewHint
+            {
+                get
+                {
+                    var reasons = new List<string>();
+                    if (IsCatalogMissing) reasons.Add("카탈로그 없음");
+                    if (HasNoData) reasons.Add("데이터 없음");
+                    if (Math.Abs(Angle) >= 0.85) reasons.Add("급조향");
+                    if (Math.Abs(Throttle) <= 0.03) reasons.Add("정지에 가까운 속도");
+                    if (NormalizeDisplayValue(Scenario).Contains("out_of_bound")) reasons.Add("차선 이탈 상황");
+
+                    return reasons.Count == 0 ? "정상" : string.Join(", ", reasons);
+                }
+            }
+
+            private static string NormalizeDisplayValue(string text)
+            {
+                return (text ?? string.Empty)
+                    .Trim()
+                    .Replace("-", "_")
+                    .Replace(" ", "_")
+                    .ToLowerInvariant();
+            }
 
             /// <summary>
             /// 이전 ListBox 표시 방식과 튜토리얼 설명에서 사용하는 요약 이름입니다.
@@ -1498,10 +2446,11 @@ namespace TeamApp
                 }
 
                 _allFrames = frames;
+                _hasUnsavedCleanupChanges = false;
                 // 초기 로드: 전체 프레임을 표시합니다.
                 RefreshFrameBinding();  // _visibleFrames 설정과 RefreshFrameView 호출
 
-                stsDataPath.Text = "경로: " + folder;
+                UpdateDataFolderStatus(folder);
                 _isChartDirty = true;
                 SetIndex(0);
             }
@@ -1516,205 +2465,239 @@ namespace TeamApp
             }
         }
 
+        private void UpdateDataFolderStatus(string folder)
+        {
+            string displayPath = string.IsNullOrWhiteSpace(folder) ? "경로: -" : "데이터 폴더: " + folder;
+            stsDataPath.Text = displayPath;
+            stsDataFooterPath.Text = displayPath;
+        }
+
         // 학습 실행 기능
 
-        /// <summary>
-        /// 학습 실행 화면을 초기화합니다.
-        /// 사용자가 매번 환경 값을 만지지 않아도 되도록 로컬 기본 경로와 자동 감지 값을 먼저 넣습니다.
-        /// </summary>
         private void InitializeTrainingControls()
         {
-            _trainingModelType = "linear";
-            _trainingPythonEnvName = DetectLocalWslDonkeyEnvironment() ?? "e2e_env";
-            _trainingMycarPath = "~/mycar";
-            txtTrainingTubPath.Text = GetDefaultTrainingTubPath();
-            txtTrainingModelPath.Text = GetDefaultTrainingModelPath();
+            lblEpoch.Text = "학습 횟수";
+
+            cmbTrainingModelType.Items.Clear();
+            cmbTrainingModelType.Items.AddRange(new object[] { "linear", "inferred", "tensorrt_linear", "tflite_linear", "categorical", "rnn", "3d", "imu", "behavior" });
+            if (string.IsNullOrWhiteSpace(cmbTrainingModelType.Text))
+                cmbTrainingModelType.Text = "linear";
+
+            if (string.IsNullOrWhiteSpace(txtTrainingTubPath.Text))
+                txtTrainingTubPath.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "data");
+
+            if (string.IsNullOrWhiteSpace(txtTrainingModelPath.Text))
+                txtTrainingModelPath.Text = GetDefaultTrainingModelPath();
 
             numTrainingEpochs.Minimum = 1;
             numTrainingEpochs.Maximum = 10000;
             if (numTrainingEpochs.Value < 1)
-                numTrainingEpochs.Value = 1;
+                numTrainingEpochs.Value = 10;
 
-            SimplifyTrainingUi();
-            btnStartTrainingProcess.Enabled = false;
             btnStopTrainingProcess.Enabled = false;
             stsTrainingStatus.Text = "학습 상태: 대기";
-        }
 
-        private string GetDefaultTrainingTubPath()
-        {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "data");
+            ConfigureTrainingSummaryLabels();
+            ApplyTrainingControlStyle();
+            LayoutTrainingTab();
+            grpTrainingConfig.Resize += (_, _) => LayoutTrainingTab();
+            tabTrainingMonitor.Resize += (_, _) => LayoutTrainingTab();
         }
 
         private string GetDefaultTrainingModelPath()
         {
-            return Path.Combine(
+            string modelFolder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "donkeycar_models",
-                "pilot.keras");
+                "donkeycar_models");
+            Directory.CreateDirectory(modelFolder);
+            return Path.Combine(modelFolder, "pilot.keras");
         }
 
-        private string GetLegacyDesktopTrainingModelPath()
+        private void NormalizeTrainingPathsForDisplay()
         {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "study", "pilot.keras");
+            txtTrainingTubPath.Text = NormalizeWindowsTrainingPath(
+                txtTrainingTubPath.Text,
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
+
+            txtTrainingModelPath.Text = NormalizeWindowsTrainingPath(
+                txtTrainingModelPath.Text,
+                Path.GetDirectoryName(GetDefaultTrainingModelPath()) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
         }
 
-        private string GetLegacyDocumentsTrainingModelPath()
+        private string NormalizeWindowsTrainingPath(string path, string baseFolder)
         {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "pilot.keras");
+            if (string.IsNullOrWhiteSpace(path))
+                return path;
+
+            string trimmed = path.Trim();
+            if (trimmed.StartsWith("~/", StringComparison.Ordinal) || trimmed.StartsWith("/", StringComparison.Ordinal))
+                return trimmed;
+
+            if (Path.IsPathRooted(trimmed))
+                return Path.GetFullPath(trimmed);
+
+            Directory.CreateDirectory(baseFolder);
+            return Path.GetFullPath(Path.Combine(baseFolder, Path.GetFileName(trimmed)));
         }
 
-        private void ConfigureTrainingModelPathButton()
+        private void ConfigureTrainingSummaryLabels()
         {
-            if (_btnSelectTrainingModelPath != null) return;
+            _lblTrainingSummaryTitle ??= CreateTrainingSummaryLabel("lblTrainingSummaryTitle", "학습 요약", true);
+            _lblTrainingSummaryStatus ??= CreateTrainingSummaryLabel("lblTrainingSummaryStatus", "상태: 대기", false);
+            _lblTrainingSummaryEpoch ??= CreateTrainingSummaryLabel("lblTrainingSummaryEpoch", "학습 횟수: -", false);
+            _lblTrainingSummaryProgress ??= CreateTrainingSummaryLabel("lblTrainingSummaryProgress", "진행률: -", false);
+            _lblTrainingSummaryLoss ??= CreateTrainingSummaryLabel("lblTrainingSummaryLoss", "점수(높을수록 좋음): -", false);
+        }
 
-            _btnSelectTrainingModelPath = new Button
+        private System.Windows.Forms.Label CreateTrainingSummaryLabel(string name, string text, bool bold)
+        {
+            var label = new System.Windows.Forms.Label
             {
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Font = new Font("맑은 고딕", 12F),
-                Location = new Point(1335, 118),
-                Name = "btnSelectTrainingModelPath",
-                Size = new Size(123, 43),
-                Text = "저장 위치",
-                UseVisualStyleBackColor = true
+                Name = name,
+                AutoSize = false,
+                Text = text,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new System.Drawing.Font("resource/PretendardVariable.ttf", 10.5F, bold ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular),
+                ForeColor = System.Drawing.Color.FromArgb(40, 40, 40)
             };
-            _btnSelectTrainingModelPath.Click += BtnSelectTrainingModelPath_Click;
-            grpTrainingConfig.Controls.Add(_btnSelectTrainingModelPath);
-            _btnSelectTrainingModelPath.BringToFront();
-        }
 
-        private void ConfigureTrainingResultButtons()
-        {
-            if (_btnOpenTrainingModelFolder == null)
-            {
-                _btnOpenTrainingModelFolder = new Button
-                {
-                    Font = new Font("맑은 고딕", 12F),
-                    Location = new Point(699, 260),
-                    Name = "btnOpenTrainingModelFolder",
-                    Size = new Size(194, 43),
-                    Text = "모델 폴더 열기",
-                    UseVisualStyleBackColor = true
-                };
-                _btnOpenTrainingModelFolder.Click += BtnOpenTrainingModelFolder_Click;
-                grpTrainingConfig.Controls.Add(_btnOpenTrainingModelFolder);
-            }
-
-            if (_btnCopyModelUseCommand == null)
-            {
-                _btnCopyModelUseCommand = new Button
-                {
-                    Font = new Font("맑은 고딕", 12F),
-                    Location = new Point(939, 260),
-                    Name = "btnCopyModelUseCommand",
-                    Size = new Size(220, 43),
-                    Text = "사용 명령 복사",
-                    UseVisualStyleBackColor = true
-                };
-                _btnCopyModelUseCommand.Click += BtnCopyModelUseCommand_Click;
-                grpTrainingConfig.Controls.Add(_btnCopyModelUseCommand);
-            }
-
-            _btnOpenTrainingModelFolder.BringToFront();
-            _btnCopyModelUseCommand.BringToFront();
-        }
-
-        private void ConfigureTrainingEnvironmentControls()
-        {
-            if (_lblTrainingEnvironmentStatus == null)
-            {
-                _lblTrainingEnvironmentStatus = new System.Windows.Forms.Label
-                {
-                    AutoSize = false,
-                    Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(45, 314),
-                    Name = "lblTrainingEnvironmentStatus",
-                    Size = new Size(880, 30),
-                    Text = "학습 환경: 검사 전"
-                };
-                grpTrainingConfig.Controls.Add(_lblTrainingEnvironmentStatus);
-            }
-
-            if (_btnCheckTrainingEnvironment == null)
-            {
-                _btnCheckTrainingEnvironment = new Button
-                {
-                    Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(939, 310),
-                    Name = "btnCheckTrainingEnvironment",
-                    Size = new Size(150, 36),
-                    Text = "환경 검사",
-                    UseVisualStyleBackColor = true
-                };
-                _btnCheckTrainingEnvironment.Click += async (_, _) => await RefreshTrainingEnvironmentAsync(showSuccessMessage: true);
-                grpTrainingConfig.Controls.Add(_btnCheckTrainingEnvironment);
-            }
-
-            if (_btnAutoSetupTrainingEnvironment == null)
-            {
-                _btnAutoSetupTrainingEnvironment = new Button
-                {
-                    Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(1101, 310),
-                    Name = "btnAutoSetupTrainingEnvironment",
-                    Size = new Size(170, 36),
-                    Text = "자동 설정 시도",
-                    UseVisualStyleBackColor = true
-                };
-                _btnAutoSetupTrainingEnvironment.Click += async (_, _) => await TryAutoSetupTrainingEnvironmentAsync();
-                grpTrainingConfig.Controls.Add(_btnAutoSetupTrainingEnvironment);
-            }
-
-            if (_btnCopyTrainingSetupCommands == null)
-            {
-                _btnCopyTrainingSetupCommands = new Button
-                {
-                    Font = new Font("맑은 고딕", 10F),
-                    Location = new Point(1283, 310),
-                    Name = "btnCopyTrainingSetupCommands",
-                    Size = new Size(180, 36),
-                    Text = "설치 명령 복사",
-                    UseVisualStyleBackColor = true
-                };
-                _btnCopyTrainingSetupCommands.Click += (_, _) => CopyTrainingSetupCommands();
-                grpTrainingConfig.Controls.Add(_btnCopyTrainingSetupCommands);
-            }
-
-            _lblTrainingEnvironmentStatus.BringToFront();
-            _btnCheckTrainingEnvironment.BringToFront();
-            _btnAutoSetupTrainingEnvironment.BringToFront();
-            _btnCopyTrainingSetupCommands.BringToFront();
+            grpTrainingConfig.Controls.Add(label);
+            label.BringToFront();
+            return label;
         }
 
         /// <summary>
-        /// 발표/일반 사용자 기준으로 꼭 필요한 학습 입력만 남깁니다.
-        /// mycar 경로, 모델 종류, Python 환경명은 자동 기본값을 사용합니다.
+        /// 학습 탭의 글자 크기와 버튼 크기를 통일합니다.
+        /// Designer에서 가져온 컨트롤마다 폰트 크기가 다를 수 있어 실행 시점에 한 번 정리합니다.
         /// </summary>
-        private void SimplifyTrainingUi()
+        private void ApplyTrainingControlStyle()
         {
-            btnSaveTrainingConfig.Visible = false;
+            System.Drawing.Font commonFont = new System.Drawing.Font("resource/PretendardVariable.ttf", 10.5F, System.Drawing.FontStyle.Regular);
+            System.Drawing.Font labelFont = new System.Drawing.Font("resource/PretendardVariable.ttf", 10.5F, System.Drawing.FontStyle.Regular);
+            System.Drawing.Font buttonFont = new System.Drawing.Font("resource/PretendardVariable.ttf", 10.5F, System.Drawing.FontStyle.Regular);
 
-            lblTrainingTubPath.Location = new Point(45, 78);
-            txtTrainingTubPath.Location = new Point(219, 74);
-            btnSelectTrainingTubPath.Location = new Point(1335, 66);
+            foreach (Control control in grpTrainingConfig.Controls)
+            {
+                control.Font = control is Button ? buttonFont : commonFont;
 
-            lblTrainingModelPath.Location = new Point(45, 130);
-            txtTrainingModelPath.Location = new Point(219, 126);
-            txtTrainingModelPath.Width = Math.Max(300, btnSelectTrainingTubPath.Left - txtTrainingModelPath.Left - 24);
-            ConfigureTrainingModelPathButton();
+                if (control is System.Windows.Forms.Label label)
+                {
+                    label.Font = labelFont;
+                    label.AutoEllipsis = true;
+                }
+            }
 
-            lblEpoch.Text = "학습 횟수";
-            lblEpoch.Location = new Point(45, 182);
-            numTrainingEpochs.Location = new Point(219, 178);
-            numTrainingEpochs.Size = new Size(180, 34);
+            grpTrainingConfig.Font = labelFont;
+            grpTrainingOutput.Font = labelFont;
+        }
 
-            btnStartTrainingProcess.Location = new Point(219, 260);
-            btnStopTrainingProcess.Location = new Point(459, 260);
-            ConfigureTrainingResultButtons();
-            ConfigureTrainingEnvironmentControls();
-            grpTrainingConfig.Height = 380;
-            grpTrainingOutput.Location = new Point(15, 410);
-            grpTrainingOutput.Height = Math.Max(260, tabTrainingMonitor.Height - 450);
+        /// <summary>
+        /// View_fix에서 가져온 학습 탭은 작은 해상도 기준 좌표를 가지고 있습니다.
+        /// 현재 폼 크기에 맞춰 모든 입력칸과 버튼을 다시 배치해서 글자 잘림과 컨트롤 겹침을 방지합니다.
+        /// </summary>
+        private void LayoutTrainingTab()
+        {
+            if (grpTrainingConfig == null || grpTrainingOutput == null) return;
+
+            int margin = 16;
+            int labelX = 40;
+            int inputX = 220;
+            int buttonWidth = 140;
+            int buttonHeight = 32;
+            int rowHeight = 39;
+            int top = 42;
+            int groupWidth = Math.Max(900, tabTrainingMonitor.ClientSize.Width - margin * 2);
+            int buttonX = groupWidth - buttonWidth - 40;
+            int inputWidth = Math.Max(280, buttonX - inputX - 16);
+            int halfWidth = Math.Max(220, (inputWidth - 24) / 2);
+            int rightLabelX = inputX + halfWidth + 54;
+            int rightInputX = rightLabelX + 130;
+            int rightInputWidth = Math.Max(180, buttonX - rightInputX - 16);
+
+            grpTrainingConfig.Location = new Point(margin, 18);
+            grpTrainingConfig.Size = new Size(groupWidth, 382);
+            grpTrainingConfig.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+
+            PlaceTrainingRow(lblMycarProjectPath, cmbMycarProjectPath, btnSelectMycarPath, labelX, inputX, buttonX, top, inputWidth, buttonWidth, buttonHeight);
+            PlaceTrainingRow(lblTrainingTubPath, txtTrainingTubPath, btnSelectTrainingTubPath, labelX, inputX, buttonX, top + rowHeight, inputWidth, buttonWidth, buttonHeight);
+            PlaceTrainingRow(lblTrainingModelPath, txtTrainingModelPath, btnSelectTrainingModelPath, labelX, inputX, buttonX, top + rowHeight * 2, inputWidth, buttonWidth, buttonHeight);
+
+            PlaceTrainingRow(lblTrainingModelType, cmbTrainingModelType, null, labelX, inputX, buttonX, top + rowHeight * 3, halfWidth, buttonWidth, buttonHeight);
+            PlaceTrainingRow(lblTrainingPythonEnvName, txtTrainingPythonEnvName, null, labelX, inputX, buttonX, top + rowHeight * 4, halfWidth, buttonWidth, buttonHeight);
+            PlaceTrainingRow(lblEpoch, numTrainingEpochs, null, labelX, inputX, buttonX, top + rowHeight * 5, 180, buttonWidth, buttonHeight);
+
+            PlaceTrainingRow(lblTrainingWslDistro, cmbTrainingWslDistro, btnSelectTrainingWslDistro, rightLabelX, rightInputX, buttonX, top + rowHeight * 3, rightInputWidth, buttonWidth, buttonHeight);
+            PlaceTrainingRow(lblCondaPath, cmbCondaPath, btnSelectCondaPath, rightLabelX, rightInputX, buttonX, top + rowHeight * 4, rightInputWidth, buttonWidth, buttonHeight);
+
+            int actionY = top + rowHeight * 6 + 16;
+            int actionWidth = 150;
+            btnStartTrainingProcess.Location = new Point(inputX, actionY);
+            btnStopTrainingProcess.Location = new Point(inputX + actionWidth + 24, actionY);
+            btnSaveTrainingConfig.Location = new Point(inputX + (actionWidth + 24) * 2, actionY);
+            btnDetectTrainingEnvironment.Location = new Point(inputX + (actionWidth + 24) * 3, actionY);
+
+            foreach (var button in new[] { btnStartTrainingProcess, btnStopTrainingProcess, btnSaveTrainingConfig, btnDetectTrainingEnvironment })
+            {
+                button.Size = new Size(actionWidth, buttonHeight);
+                button.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            }
+            btnDetectTrainingEnvironment.Text = "자동 감지";
+
+            int summaryY = actionY + buttonHeight + 18;
+            int summaryX = inputX;
+            int summaryGap = 18;
+            int summaryTitleWidth = 110;
+            int summaryItemWidth = Math.Max(150, (buttonX - summaryX - summaryTitleWidth - summaryGap * 4) / 4);
+            PlaceTrainingSummaryLabel(_lblTrainingSummaryTitle, summaryX, summaryY, summaryTitleWidth, buttonHeight);
+            PlaceTrainingSummaryLabel(_lblTrainingSummaryStatus, summaryX + summaryTitleWidth + summaryGap, summaryY, summaryItemWidth, buttonHeight);
+            PlaceTrainingSummaryLabel(_lblTrainingSummaryEpoch, summaryX + summaryTitleWidth + summaryGap + (summaryItemWidth + summaryGap), summaryY, summaryItemWidth, buttonHeight);
+            PlaceTrainingSummaryLabel(_lblTrainingSummaryProgress, summaryX + summaryTitleWidth + summaryGap + (summaryItemWidth + summaryGap) * 2, summaryY, summaryItemWidth, buttonHeight);
+            PlaceTrainingSummaryLabel(_lblTrainingSummaryLoss, summaryX + summaryTitleWidth + summaryGap + (summaryItemWidth + summaryGap) * 3, summaryY, summaryItemWidth, buttonHeight);
+
+            grpTrainingOutput.Location = new Point(margin, grpTrainingConfig.Bottom + 16);
+            grpTrainingOutput.Size = new Size(groupWidth, Math.Max(50, tabTrainingMonitor.ClientSize.Height - grpTrainingOutput.Top - 42));
+            grpTrainingOutput.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+
+            rtbTrainingOutput.Dock = DockStyle.Fill;
+            statusStripTraining.Dock = DockStyle.Bottom;
+        }
+
+        private void PlaceTrainingRow(
+            System.Windows.Forms.Label label,
+            Control input,
+            Button? button,
+            int labelX,
+            int inputX,
+            int buttonX,
+            int y,
+            int inputWidth,
+            int buttonWidth,
+            int buttonHeight)
+        {
+            label.AutoSize = false;
+            label.TextAlign = ContentAlignment.MiddleLeft;
+            label.Location = new Point(labelX, y + 2);
+            label.Size = new Size(inputX - labelX - 12, buttonHeight);
+
+            input.Location = new Point(inputX, y);
+            input.Size = new Size(inputWidth, buttonHeight);
+            input.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+
+            if (button == null) return;
+
+            button.Location = new Point(buttonX, y);
+            button.Size = new Size(buttonWidth, buttonHeight);
+            button.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            button.Text = button == btnSelectTrainingWslDistro || button == btnSelectCondaPath ? "감지" : "경로 선택";
+        }
+
+        private void PlaceTrainingSummaryLabel(System.Windows.Forms.Label? label, int x, int y, int width, int height)
+        {
+            if (label == null) return;
+
+            label.Location = new Point(x, y);
+            label.Size = new Size(width, height);
+            label.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         }
 
         private async void BtnStartTrainingProcess_Click(object? sender, EventArgs e)
@@ -1726,23 +2709,26 @@ namespace TeamApp
                 return;
             }
 
-            TrainingEnvironmentCheck environmentCheck = await RefreshTrainingEnvironmentAsync(showSuccessMessage: false);
-            if (!environmentCheck.IsReady)
+            if (!HasTrainingEnvironmentInputs())
             {
-                MessageBox.Show(
-                    "학습을 시작할 수 없습니다.\n\n" +
-                    environmentCheck.StatusMessage + "\n\n" +
-                    "'자동 설정 시도' 또는 '설치 명령 복사'를 먼저 사용해 주세요.",
-                    "학습 환경 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                bool detected = await DetectTrainingEnvironmentAsync(showSuccessMessage: false, clearLog: false);
+                if (!detected)
+                {
+                    MessageBox.Show(
+                        "학습 환경 자동 감지에 실패했습니다.\n\n" +
+                        "자동 감지 버튼을 눌러 로그를 확인하거나, WSL Ubuntu / Conda 경로 / Donkey 프로젝트 경로를 직접 선택해 주세요.",
+                        "학습 환경 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
             }
 
-            if (!TryBuildTrainingCommand(out TrainingCommand command)) return;
-            SaveTrainingSettingsSilently();
+            NormalizeTrainingPathsForDisplay();
+            if (!TryBuildTrainingCommand(out var arguments, out string displayArguments)) return;
 
             btnStartTrainingProcess.Enabled = false;
             btnStopTrainingProcess.Enabled = true;
             stsTrainingStatus.Text = "학습 상태: 실행 중";
+            UpdateTrainingSummary(status: "실행 중", epoch: "-", progress: "-", loss: "-");
             rtbTrainingOutput.Clear();
 
             try
@@ -1751,9 +2737,7 @@ namespace TeamApp
                 {
                     StartInfo = new ProcessStartInfo
                     {
-                        FileName = command.FileName,
-                        Arguments = command.Arguments,
-                        WorkingDirectory = command.WorkingDirectory,
+                        FileName = "wsl",
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
                         UseShellExecute = false,
@@ -1764,59 +2748,38 @@ namespace TeamApp
                     EnableRaisingEvents = true
                 };
 
-                _trainingProcess.OutputDataReceived += (_, ev) =>
-                {
-                    if (!string.IsNullOrWhiteSpace(ev.Data))
-                        AppendTrainingLog(ev.Data);
-                };
-                _trainingProcess.ErrorDataReceived += (_, ev) =>
-                {
-                    if (!string.IsNullOrWhiteSpace(ev.Data))
-                        AppendTrainingLog(ev.Data, fromErrorStream: true);
-                };
+                foreach (string argument in arguments)
+                    _trainingProcess.StartInfo.ArgumentList.Add(argument);
 
-                _lastTrainingProgressPercent = -1;
                 AppendTrainingLog("학습 프로세스를 시작합니다.");
-                AppendTrainingLog("WSL/콘솔 출력은 이 학습 로그 창에 실시간으로 표시됩니다.");
-                AppendTrainingLog("실행 방식: " + command.RunnerName);
-                AppendTrainingLog("실행 명령: " + command.DisplayCommand);
-                AppendTrainingLog("최종 모델 저장 위치: " + command.FinalModelPath);
-                AppendTrainingLog("학습 중에는 임시 모델 파일을 사용합니다. 중지해도 기존 최종 모델은 유지됩니다.");
+                AppendTrainingLog("첫 학습 횟수는 데이터 캐싱과 모델 준비 때문에 오래 걸릴 수 있습니다.");
+                AppendTrainingLog("실행 명령: wsl " + displayArguments);
 
                 _trainingProcess.Start();
-                _trainingProcess.BeginOutputReadLine();
-                _trainingProcess.BeginErrorReadLine();
+                Task outputReader = ReadStreamAsync(_trainingProcess.StandardOutput);
+                Task errorReader = ReadStreamAsync(_trainingProcess.StandardError);
 
                 await _trainingProcess.WaitForExitAsync();
+                await Task.WhenAll(outputReader, errorReader);
 
                 AppendTrainingLog("");
                 AppendTrainingLog($"학습 프로세스가 종료되었습니다. 종료 코드: {_trainingProcess.ExitCode}");
-                if (_trainingProcess.ExitCode == 0)
-                {
-                    PublishCompletedTrainingModel(command);
-                    AppendTrainingLog("학습 완료: 모델 파일을 저장했습니다. '모델 폴더 열기' 또는 '사용 명령 복사'를 사용할 수 있습니다.");
-                }
-                else
-                {
-                    AppendTrainingLog("학습이 정상 완료되지 않아 최종 모델은 바꾸지 않았습니다. 기존 모델은 그대로 유지됩니다.");
-                }
+                UpdateTrainingSummary(status: _trainingProcess.ExitCode == 0 ? "완료" : "오류");
                 stsTrainingStatus.Text = $"학습 상태: 종료 코드 {_trainingProcess.ExitCode}";
             }
             catch (Exception ex)
             {
                 stsTrainingStatus.Text = "학습 상태: 오류";
+                UpdateTrainingSummary(status: "오류");
                 MessageBox.Show(
                     "학습 실행 중 오류가 발생했습니다.\n\n" +
-                    "확인할 점:\n" +
-                    "- WSL과 DonkeyCar가 설치되어 있는지\n" +
-                    "- Tub 경로와 모델 저장 경로가 올바른지\n" +
-                    "- conda 환경 안에서 donkey 명령이 실행되는지\n\n" +
+                    "WSL, conda 환경명, mycar 경로가 올바른지 확인해 주세요.\n\n" +
                     "오류 내용: " + ex.Message,
                     "학습 실행 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
-                UpdateTrainingStartButtonState();
+                btnStartTrainingProcess.Enabled = true;
                 btnStopTrainingProcess.Enabled = false;
             }
         }
@@ -1832,9 +2795,10 @@ namespace TeamApp
                     return;
                 }
 
-                _trainingProcess.Kill(entireProcessTree: true);
-                AppendTrainingLog("사용자 요청으로 학습 프로세스를 중지했습니다. 기존 최종 모델은 유지됩니다.");
+                _trainingProcess.Kill(true);
+                AppendTrainingLog("[시스템] 학습이 사용자에 의해 강제 중단되었습니다.");
                 stsTrainingStatus.Text = "학습 상태: 중지됨";
+                UpdateTrainingSummary(status: "중지됨");
             }
             catch (Exception ex)
             {
@@ -1843,324 +2807,116 @@ namespace TeamApp
             }
         }
 
-        private bool TryBuildTrainingCommand(out TrainingCommand command)
+        private bool TryBuildTrainingCommand(out List<string> arguments, out string displayArguments)
         {
-            command = TrainingCommand.Empty;
+            arguments = new List<string>();
+            displayArguments = string.Empty;
 
-            string envName = ResolveTrainingPythonEnvName();
-            string modelType = _trainingModelType.Trim().ToLowerInvariant();
-            string mycarPath = _trainingMycarPath.Trim();
+            string envName = txtTrainingPythonEnvName.Text.Trim();
+            string modelType = cmbTrainingModelType.Text.Trim().ToLowerInvariant();
+            string mycarPath = cmbMycarProjectPath.Text.Trim();
             string tubPath = txtTrainingTubPath.Text.Trim();
             string modelPath = txtTrainingModelPath.Text.Trim();
-            string runner = DetectRecommendedTrainingRunner();
-            int epochs = (int)numTrainingEpochs.Value;
+            string wslDistro = NormalizeWslDistroName(cmbTrainingWslDistro.Text);
+            string condaPath = cmbCondaPath.Text.Trim();
+            int epochCount = Math.Max(1, (int)numTrainingEpochs.Value);
+
+            if (string.IsNullOrWhiteSpace(wslDistro))
+            {
+                MessageBox.Show("WSL Ubuntu를 자동 감지하거나 선택해 주세요.",
+                    "입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(condaPath))
+            {
+                MessageBox.Show("Conda 경로를 자동 감지하거나 선택해 주세요.",
+                    "입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(envName))
+            {
+                MessageBox.Show("Conda 환경명을 입력해 주세요. 예: e2e_env",
+                    "입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
 
             if (string.IsNullOrWhiteSpace(modelType))
-                modelType = "linear";
+            {
+                MessageBox.Show("모델 종류를 입력하거나 선택해 주세요.",
+                    "입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
             if (string.IsNullOrWhiteSpace(mycarPath))
-                mycarPath = "~/mycar";
+            {
+                MessageBox.Show("Donkey 프로젝트 경로를 입력하거나 자동 감지 결과를 확인해 주세요.",
+                    "입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
             if (string.IsNullOrWhiteSpace(tubPath))
-                tubPath = GetDefaultTrainingTubPath();
+                tubPath = "data";
             if (string.IsNullOrWhiteSpace(modelPath))
-                modelPath = GetDefaultTrainingModelPath();
+                modelPath = "models/pilot.keras";
 
-            txtTrainingTubPath.Text = tubPath;
-            txtTrainingModelPath.Text = modelPath;
+            string wslMycarPath = ConvertToWslPath(mycarPath);
+            string wslCondaPath = ConvertToWslPath(condaPath);
+            string wslTubPath = ConvertToWslPath(tubPath);
+            string wslModelPath = ConvertToWslPath(modelPath);
+            string wslTrainingConfigPath = "/tmp/teamapp_train_config.py";
 
-            if (!Directory.Exists(tubPath))
-            {
-                MessageBox.Show(
-                    "학습 데이터 폴더를 찾을 수 없습니다.\n\n" +
-                    "기본 경로: " + GetDefaultTrainingTubPath() + "\n" +
-                    "Desktop의 data 폴더가 DonkeyCar Tub 데이터인지 확인해 주세요.",
-                    "Tub 경로 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
-            }
+            string command =
+                "export PYTHONUNBUFFERED=1 && " +
+                "if [ ! -d " + QuotePathForBash(wslMycarPath) + " ]; then echo " +
+                QuoteForBash("[error] Donkey 프로젝트 경로를 찾을 수 없습니다: " + wslMycarPath) + "; exit 2; fi && " +
+                "if [ ! -x " + QuotePathForBash(wslCondaPath) + " ]; then echo " +
+                QuoteForBash("[error] Conda 실행 파일을 찾을 수 없습니다: " + wslCondaPath) + "; exit 127; fi && " +
+                "cd " + QuotePathForBash(wslMycarPath) + " && " +
+                "if [ ! -f config.py ] && [ ! -f manage.py ]; then echo " +
+                QuoteForBash("[error] Donkey 프로젝트 파일(config.py 또는 manage.py)을 찾을 수 없습니다: " + wslMycarPath) + "; exit 2; fi && " +
+                "if [ -f config.py ]; then cp config.py " + QuotePathForBash(wslTrainingConfigPath) + "; else : > " + QuotePathForBash(wslTrainingConfigPath) + "; fi && " +
+                "printf " + QuoteForBash("\n# TeamApp runtime training settings\nMAX_EPOCHS = " + epochCount.ToString(CultureInfo.InvariantCulture) + "\n") +
+                " >> " + QuotePathForBash(wslTrainingConfigPath) + " && " +
+                QuotePathForBash(wslCondaPath) + " run --no-capture-output -n " + QuoteForBash(envName) + " " +
+                "donkey train " +
+                "--tub " + QuotePathForBash(wslTubPath) + " " +
+                "--model " + QuotePathForBash(wslModelPath) + " " +
+                "--type " + QuoteForBash(modelType) + " " +
+                "--config " + QuotePathForBash(wslTrainingConfigPath);
 
-            try
-            {
-                string? modelDirectory = Path.GetDirectoryName(modelPath);
-                if (!string.IsNullOrWhiteSpace(modelDirectory))
-                    Directory.CreateDirectory(modelDirectory);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    "모델 저장 폴더를 만들 수 없습니다.\n\n" +
-                    "저장 경로: " + modelPath + "\n\n" +
-                    "오류 내용: " + ex.Message,
-                    "모델 저장 경로 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
-            }
-
-            string runModelPath = GetTemporaryTrainingModelPath(modelPath);
-
-            if (runner == RunnerWindowsDonkey)
-            {
-                string configPath = FindTrainingConfigPath(mycarPath, useWslPaths: false);
-                string trainArgs = BuildDonkeyTrainArguments(tubPath, runModelPath, modelType, configPath, useWslPaths: false);
-                command = new TrainingCommand(
-                    runner,
-                    "donkey",
-                    trainArgs,
-                    ResolveWindowsWorkingDirectory(mycarPath),
-                    "donkey " + trainArgs,
-                    modelPath,
-                    runModelPath);
-                return true;
-            }
-
-            if (runner == RunnerWindowsConda)
-            {
-                if (string.IsNullOrWhiteSpace(envName))
-                {
-                    MessageBox.Show("Python 환경명을 확인하지 못했습니다.",
-                        "입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return false;
-                }
-
-                string configPath = FindTrainingConfigPath(mycarPath, useWslPaths: false);
-                string trainArgs = BuildDonkeyTrainArguments(tubPath, runModelPath, modelType, configPath, useWslPaths: false);
-                string arguments = "run --no-capture-output -n " + QuoteForCommandLine(envName) + " donkey " + trainArgs;
-                command = new TrainingCommand(runner, "conda", arguments, string.Empty, "conda " + arguments, modelPath, runModelPath);
-                return true;
-            }
-
-            string wslConfigPath = "/tmp/teamapp_train_config.py";
-            string wslMycarPath = ToWslPath(mycarPath);
-            string sourceConfigPath = FindTrainingConfigPath(mycarPath, useWslPaths: true);
-            string bashCommand = "cd " + QuotePathForBash(wslMycarPath) + " && " +
-                BuildWslEpochConfigPrelude(sourceConfigPath, epochs, wslConfigPath) +
-                BuildWslDonkeyTrainCommand(runner, envName, tubPath, runModelPath, modelType, wslConfigPath);
-
-            string wslArguments = "bash -lc " + QuoteForCommandLine(bashCommand);
-            command = new TrainingCommand(runner, "wsl", wslArguments, string.Empty, "wsl " + wslArguments, modelPath, runModelPath);
+            arguments.AddRange(new[] { "-d", wslDistro, "bash", "-lc", command });
+            displayArguments = "-d " + QuoteProcessArgument(wslDistro) + " bash -lc " + QuoteForBash(command);
             return true;
         }
 
-        private string GetTemporaryTrainingModelPath(string finalModelPath)
+        private bool HasTrainingEnvironmentInputs()
         {
-            string modelDirectory = Path.GetDirectoryName(finalModelPath) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(finalModelPath);
-            string extension = Path.GetExtension(finalModelPath);
-
-            if (string.IsNullOrWhiteSpace(fileNameWithoutExtension))
-                fileNameWithoutExtension = "pilot";
-            if (string.IsNullOrWhiteSpace(extension))
-                extension = ".keras";
-
-            string runDirectory = Path.Combine(modelDirectory, ".teamapp_training");
-            Directory.CreateDirectory(runDirectory);
-
-            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
-            return Path.Combine(runDirectory, fileNameWithoutExtension + "_" + timestamp + extension);
+            return !string.IsNullOrWhiteSpace(NormalizeWslDistroName(cmbTrainingWslDistro.Text)) &&
+                   !string.IsNullOrWhiteSpace(cmbCondaPath.Text.Trim()) &&
+                   !string.IsNullOrWhiteSpace(txtTrainingPythonEnvName.Text.Trim()) &&
+                   !string.IsNullOrWhiteSpace(cmbMycarProjectPath.Text.Trim());
         }
 
-        private void PublishCompletedTrainingModel(TrainingCommand command)
+        private string ConvertToWslPath(string winPath)
         {
-            if (string.IsNullOrWhiteSpace(command.FinalModelPath) ||
-                string.IsNullOrWhiteSpace(command.RunModelPath) ||
-                PathsEqual(command.FinalModelPath, command.RunModelPath))
-            {
-                return;
-            }
-
-            string? finalDirectory = Path.GetDirectoryName(command.FinalModelPath);
-            if (!string.IsNullOrWhiteSpace(finalDirectory))
-                Directory.CreateDirectory(finalDirectory);
-
-            int copiedFileCount = 0;
-            foreach (string extension in GetTrainingModelArtifactExtensions(command.FinalModelPath))
-            {
-                string sourcePath = Path.ChangeExtension(command.RunModelPath, extension);
-                string targetPath = Path.ChangeExtension(command.FinalModelPath, extension);
-
-                if (!File.Exists(sourcePath)) continue;
-
-                File.Copy(sourcePath, targetPath, overwrite: true);
-                copiedFileCount++;
-                AppendTrainingLog("모델 파일 저장: " + targetPath);
-            }
-
-            if (copiedFileCount == 0)
-                AppendTrainingLog("주의: 학습은 종료 코드 0으로 끝났지만 복사할 모델 파일을 찾지 못했습니다.");
-        }
-
-        private IEnumerable<string> GetTrainingModelArtifactExtensions(string modelPath)
-        {
-            string mainExtension = Path.GetExtension(modelPath);
-            if (string.IsNullOrWhiteSpace(mainExtension))
-                mainExtension = ".keras";
-
-            yield return mainExtension;
-            yield return ".tflite";
-            yield return ".png";
-        }
-
-        private string BuildWslDonkeyTrainCommand(
-            string runner,
-            string envName,
-            string tubPath,
-            string modelPath,
-            string modelType,
-            string configPath)
-        {
-            string trainArgs = BuildDonkeyTrainArguments(
-                tubPath,
-                modelPath,
-                modelType,
-                configPath,
-                useWslPaths: true,
-                useBashQuotes: true);
-
-            if (runner == RunnerWslConda)
-            {
-                return "stdbuf -oL -eL ~/miniconda3/bin/conda run --no-capture-output -n " +
-                    QuoteForBash(envName) + " donkey " + trainArgs;
-            }
-
-            return "stdbuf -oL -eL donkey " + trainArgs;
-        }
-
-        private string DetectRecommendedTrainingRunner()
-        {
-            if (CanRunProcess("wsl", "--status", timeoutMs: 2500))
-            {
-                string envName = ResolveTrainingPythonEnvName();
-
-                // WSL이 있는 PC에서는 conda 환경을 우선 사용합니다.
-                // 환경 확인이 WSL cold start 때문에 늦어져도, 로컬 기본 환경(e2e_env)을 그대로 시도합니다.
-                if (!string.IsNullOrWhiteSpace(envName))
-                    return RunnerWslConda;
-
-                return RunnerWslDonkey;
-            }
-
-            if (CanRunProcess("donkey", "--help", timeoutMs: 2500))
-                return RunnerWindowsDonkey;
-
-            if (CanRunProcess("conda", "--version", timeoutMs: 2500))
-                return RunnerWindowsConda;
-
-            return RunnerWslConda;
-        }
-
-        private string ResolveTrainingPythonEnvName()
-        {
-            string configuredEnvName = _trainingPythonEnvName.Trim();
-            if (!string.IsNullOrWhiteSpace(configuredEnvName) && CanRunWslCondaEnvironment(configuredEnvName))
-                return configuredEnvName;
-
-            string? detectedEnvName = DetectLocalWslDonkeyEnvironment();
-            if (!string.IsNullOrWhiteSpace(detectedEnvName))
-            {
-                _trainingPythonEnvName = detectedEnvName;
-                return detectedEnvName;
-            }
-
-            _trainingPythonEnvName = "e2e_env";
-            return "e2e_env";
-        }
-
-        private string? DetectLocalWslDonkeyEnvironment()
-        {
-            foreach (string envName in new[] { "e2e_env", "donkey", "base" })
-            {
-                string bashCommand =
-                    "test -x ~/miniconda3/bin/conda && " +
-                    "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
-                    " donkey --help >/dev/null 2>&1";
-
-                if (CanRunProcess("wsl", "bash -lc " + QuoteForCommandLine(bashCommand), timeoutMs: 8000))
-                    return envName;
-            }
-
-            return null;
-        }
-
-        private string BuildWslEpochConfigPrelude(string configPath, int epochs, string temporaryConfigPath)
-        {
-            string sourceConfigPath = string.IsNullOrWhiteSpace(configPath)
-                ? "~/mycar/config.py"
-                : configPath;
-            string safeEpochs = Math.Max(1, epochs).ToString(CultureInfo.InvariantCulture);
-
-            return
-                "cp " + QuotePathForBash(sourceConfigPath) + " " + QuotePathForBash(temporaryConfigPath) + " && " +
-                "printf '\\n# TeamApp runtime override\\nMAX_EPOCHS = " + safeEpochs + "\\nBATCH_SIZE = 8\\n' >> " +
-                QuotePathForBash(temporaryConfigPath) + " && ";
-        }
-
-        private string FindTrainingConfigPath(string mycarPath, bool useWslPaths)
-        {
-            if (string.IsNullOrWhiteSpace(mycarPath)) return string.Empty;
-
-            if (useWslPaths || mycarPath.StartsWith("~/") || mycarPath.StartsWith("/"))
-            {
-                string normalized = mycarPath.TrimEnd('/', '\\').Replace("\\", "/");
-                return normalized + "/config.py";
-            }
-
-            string configPath = Path.Combine(mycarPath, "config.py");
-            if (File.Exists(configPath)) return configPath;
-
-            string myConfigPath = Path.Combine(mycarPath, "myconfig.py");
-            if (File.Exists(myConfigPath)) return myConfigPath;
-
-            return string.Empty;
-        }
-
-        private string ResolveWindowsWorkingDirectory(string mycarPath)
-        {
-            if (string.IsNullOrWhiteSpace(mycarPath)) return string.Empty;
-            if (mycarPath.StartsWith("~/") || mycarPath.StartsWith("/")) return string.Empty;
-            return Directory.Exists(mycarPath) ? mycarPath : string.Empty;
-        }
-
-        private string BuildDonkeyTrainArguments(
-            string tubPath,
-            string modelPath,
-            string modelType,
-            string configPath,
-            bool useWslPaths,
-            bool useBashQuotes = false)
-        {
-            string QuoteValue(string value)
-            {
-                string resolvedValue = useWslPaths ? ToWslPath(value) : value;
-                return useBashQuotes ? QuotePathForBash(resolvedValue) : QuoteForCommandLine(resolvedValue);
-            }
-
-            var parts = new List<string>
-            {
-                "train",
-                "--tub=" + QuoteValue(tubPath),
-                "--model=" + QuoteValue(modelPath),
-                "--type=" + QuoteValue(modelType)
-            };
-
-            if (!string.IsNullOrWhiteSpace(configPath))
-                parts.Add("--config=" + QuoteValue(configPath));
-
-            return string.Join(" ", parts);
-        }
-
-        private string ToWslPath(string path)
-        {
-            if (string.IsNullOrWhiteSpace(path)) return path;
-            path = path.Trim();
+            if (string.IsNullOrWhiteSpace(winPath)) return winPath;
+            string path = winPath.Trim().Replace("\\", "/");
 
             if (path.StartsWith("~/") || path.StartsWith("/"))
-                return path.Replace("\\", "/");
+                return path;
 
-            if (path.Length >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
+            if (path.Length >= 2 && path[1] == ':')
             {
                 char drive = char.ToLowerInvariant(path[0]);
-                string rest = path.Substring(3).Replace("\\", "/");
-                return $"/mnt/{drive}/{rest}";
+                string rest = path.Length > 2 ? path.Substring(2).TrimStart('/') : string.Empty;
+                return string.IsNullOrEmpty(rest)
+                    ? $"/mnt/{drive}"
+                    : $"/mnt/{drive}/{rest}";
             }
 
-            return path.Replace("\\", "/");
+            return path;
         }
 
         private string QuoteForBash(string value)
@@ -2168,566 +2924,57 @@ namespace TeamApp
             return "'" + value.Replace("'", "'\"'\"'") + "'";
         }
 
-        private string QuotePathForBash(string value)
+        private string QuotePathForBash(string path)
         {
-            string path = ToWslPath(value);
-            if (path == "~")
-                return "$HOME";
+            if (path == "~") return path;
+
             if (path.StartsWith("~/"))
-                return "$HOME/" + QuoteForBash(path.Substring(2));
+            {
+                string rest = path.Substring(2);
+                return string.IsNullOrEmpty(rest)
+                    ? "~"
+                    : "~/" + QuoteForBash(rest);
+            }
 
             return QuoteForBash(path);
         }
 
-        private string QuoteForCommandLine(string value)
+        private async Task ReadStreamAsync(StreamReader reader)
         {
-            if (string.IsNullOrEmpty(value)) return "\"\"";
-            return "\"" + value.Replace("\"", "\\\"") + "\"";
-        }
-
-        private string QuoteForPowerShellCommandLine(string value)
-        {
-            if (string.IsNullOrEmpty(value)) return "\"\"";
-
-            // 사용자가 PowerShell에 붙여넣는 명령에서는 $HOME 같은 Bash 변수가
-            // PowerShell 변수로 먼저 확장될 수 있으므로 $를 이스케이프합니다.
-            return "\"" + value.Replace("`", "``").Replace("$", "`$").Replace("\"", "\\\"") + "\"";
-        }
-
-        private bool CanRunProcess(string fileName, string arguments, int timeoutMs)
-        {
-            try
-            {
-                using var process = new Process
-                {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = fileName,
-                        Arguments = arguments,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    }
-                };
-
-                process.Start();
-                if (!process.WaitForExit(timeoutMs))
-                {
-                    process.Kill(entireProcessTree: true);
-                    return false;
-                }
-
-                return process.ExitCode == 0;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private bool CanRunWslCondaEnvironment(string envName)
-        {
-            if (string.IsNullOrWhiteSpace(envName)) return false;
-
-            // 환경 목록을 awk/grep으로 파싱하면 Windows -> WSL 따옴표 전달에서 깨질 수 있습니다.
-            // conda run으로 Python을 직접 실행해 보는 방식이 더 단순하고 확실합니다.
-            string command =
-                "test -x ~/miniconda3/bin/conda && " +
-                "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
-                " python --version >/dev/null 2>&1";
-
-            return CanRunProcess("wsl", "bash -lc " + QuoteForCommandLine(command), timeoutMs: 10000);
-        }
-
-        private async Task<TrainingEnvironmentCheck> RefreshTrainingEnvironmentAsync(bool showSuccessMessage)
-        {
-            if (_isCheckingTrainingEnvironment)
-                return new TrainingEnvironmentCheck(false, "학습 환경: 이미 검사 중입니다.", Array.Empty<string>(), Array.Empty<string>());
+            char[] buffer = new char[512];
 
             try
             {
-                _isCheckingTrainingEnvironment = true;
-                ApplyTrainingEnvironmentStatus("학습 환경: 검사 중...", false);
-                SetTrainingEnvironmentButtonsEnabled(false);
-
-                var details = new List<string>();
-                EnsureDefaultTrainingPaths(details);
-                string tubPath = txtTrainingTubPath.Text.Trim();
-                string modelPath = txtTrainingModelPath.Text.Trim();
-                string envName = string.IsNullOrWhiteSpace(_trainingPythonEnvName) ? "e2e_env" : _trainingPythonEnvName.Trim();
-
-                TrainingEnvironmentCheck check = await Task.Run(() =>
-                    CheckTrainingEnvironment(tubPath, modelPath, envName, details));
-                ApplyTrainingEnvironmentCheck(check);
-
-                if (showSuccessMessage)
+                while (true)
                 {
-                    string detail = string.Join(Environment.NewLine, check.Details);
-                    MessageBox.Show(
-                        check.StatusMessage + Environment.NewLine + Environment.NewLine + detail,
-                        "학습 환경 검사", MessageBoxButtons.OK,
-                        check.IsReady ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
-                }
+                    int read = await reader.ReadAsync(buffer, 0, buffer.Length);
+                    if (read <= 0) break;
 
-                return check;
-            }
-            catch (Exception ex)
-            {
-                var failed = new TrainingEnvironmentCheck(
-                    false,
-                    "학습 환경: 검사 중 오류가 발생했습니다.",
-                    new[] { "오류 내용: " + ex.Message },
-                    BuildTrainingSetupCommands().Split(new[] { Environment.NewLine }, StringSplitOptions.None));
-                ApplyTrainingEnvironmentCheck(failed);
-                return failed;
-            }
-            finally
-            {
-                _isCheckingTrainingEnvironment = false;
-                SetTrainingEnvironmentButtonsEnabled(true);
-                UpdateTrainingStartButtonState();
-            }
-        }
-
-        private TrainingEnvironmentCheck CheckTrainingEnvironment(
-            string tubPath,
-            string modelPath,
-            string envName,
-            List<string> details)
-        {
-            var commands = new List<string>();
-
-            bool wslReady = CanRunProcess("wsl", "--status", timeoutMs: 5000);
-            details.Add(wslReady ? "OK: WSL 설치 확인" : "FAIL: WSL이 설치되어 있지 않거나 실행할 수 없습니다.");
-            if (!wslReady)
-            {
-                commands.Add("wsl --install -d Ubuntu-22.04");
-                return BuildEnvironmentCheckResult(false, "학습 환경: WSL이 설치되어 있지 않습니다.", details, commands);
-            }
-
-            bool condaReady = CanRunWslBashCommand("test -x ~/miniconda3/bin/conda", timeoutMs: 5000);
-            details.Add(condaReady ? "OK: WSL miniconda 확인" : "FAIL: ~/miniconda3/bin/conda를 찾을 수 없습니다.");
-            if (!condaReady)
-            {
-                commands.Add("Miniconda 설치가 필요합니다. 설치 후 WSL에서 ~/miniconda3/bin/conda가 실행되는지 확인해 주세요.");
-                return BuildEnvironmentCheckResult(false, "학습 환경: WSL conda가 없습니다.", details, commands);
-            }
-
-            bool envReady = CanRunWslCondaEnvironment(envName);
-            details.Add(envReady ? $"OK: {envName} conda 환경 확인" : $"FAIL: {envName} conda 환경이 없습니다.");
-            if (!envReady)
-            {
-                commands.Add("wsl bash -lc '~/miniconda3/bin/conda create -y -n " + envName + " python=3.11'");
-                return BuildEnvironmentCheckResult(false, $"학습 환경: {envName} conda 환경이 없습니다.", details, commands);
-            }
-
-            bool donkeyReady = CanRunWslBashCommand(
-                "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
-                " donkey --help >/dev/null 2>&1",
-                timeoutMs: 15000);
-            details.Add(donkeyReady ? "OK: DonkeyCar CLI 확인" : "FAIL: DonkeyCar donkey 명령을 실행할 수 없습니다.");
-            if (!donkeyReady)
-            {
-                commands.Add("wsl bash -lc '~/miniconda3/bin/conda run --no-capture-output -n " + envName + " python -m pip install \"donkeycar[pc]\"'");
-                return BuildEnvironmentCheckResult(false, "학습 환경: DonkeyCar가 설치되어 있지 않습니다.", details, commands);
-            }
-
-            bool configReady = CanRunWslBashCommand("test -f ~/mycar/config.py", timeoutMs: 5000);
-            details.Add(configReady ? "OK: ~/mycar/config.py 확인" : "FAIL: ~/mycar/config.py가 없습니다.");
-            if (!configReady)
-            {
-                commands.Add("wsl bash -lc '~/miniconda3/bin/conda run --no-capture-output -n " + envName + " donkey createcar --path=$HOME/mycar'");
-                return BuildEnvironmentCheckResult(false, "학습 환경: ~/mycar/config.py가 없습니다.", details, commands);
-            }
-
-            bool tubReady = IsUsableTubFolder(tubPath);
-            details.Add(tubReady ? "OK: Tub 데이터 폴더 확인" : "FAIL: Tub 경로에 catalog_*.catalog 또는 manifest.json이 없습니다.");
-            if (!tubReady)
-                return BuildEnvironmentCheckResult(false, "학습 환경: Tub 데이터 폴더를 확인해 주세요.", details, commands);
-
-            bool modelPathReady = CanPrepareModelSaveFolder(modelPath, out string modelError);
-            details.Add(modelPathReady ? "OK: 모델 저장 폴더 쓰기 가능" : "FAIL: 모델 저장 폴더 오류 - " + modelError);
-            if (!modelPathReady)
-                return BuildEnvironmentCheckResult(false, "학습 환경: 모델 저장 폴더를 만들 수 없습니다.", details, commands);
-
-            return BuildEnvironmentCheckResult(true, "학습 환경: 정상", details, commands);
-        }
-
-        private TrainingEnvironmentCheck BuildEnvironmentCheckResult(
-            bool isReady,
-            string statusMessage,
-            List<string> details,
-            List<string> fallbackCommands)
-        {
-            if (fallbackCommands.Count == 0)
-                fallbackCommands.AddRange(BuildTrainingSetupCommands().Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries));
-
-            return new TrainingEnvironmentCheck(isReady, statusMessage, details, fallbackCommands);
-        }
-
-        private void EnsureDefaultTrainingPaths(List<string> details)
-        {
-            if (string.IsNullOrWhiteSpace(txtTrainingTubPath.Text))
-                txtTrainingTubPath.Text = GetDefaultTrainingTubPath();
-
-            if (string.IsNullOrWhiteSpace(txtTrainingModelPath.Text))
-                txtTrainingModelPath.Text = GetDefaultTrainingModelPath();
-
-            string defaultTubPath = GetDefaultTrainingTubPath();
-            string currentTubPath = txtTrainingTubPath.Text.Trim();
-            if (PathsEqual(currentTubPath, defaultTubPath) && !Directory.Exists(defaultTubPath))
-            {
-                Directory.CreateDirectory(defaultTubPath);
-                details.Add("AUTO: Desktop\\data 폴더를 생성했습니다.");
-            }
-
-            string? modelDirectory = Path.GetDirectoryName(txtTrainingModelPath.Text.Trim());
-            if (!string.IsNullOrWhiteSpace(modelDirectory) && !Directory.Exists(modelDirectory))
-            {
-                Directory.CreateDirectory(modelDirectory);
-                details.Add("AUTO: 모델 저장 폴더를 생성했습니다.");
-            }
-
-            SaveTrainingSettingsSilently();
-        }
-
-        private bool IsUsableTubFolder(string tubPath)
-        {
-            if (string.IsNullOrWhiteSpace(tubPath) || !Directory.Exists(tubPath))
-                return false;
-
-            try
-            {
-                return File.Exists(Path.Combine(tubPath, "manifest.json")) ||
-                    Directory.EnumerateFiles(tubPath, "catalog_*.catalog", SearchOption.TopDirectoryOnly).Any();
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private bool CanPrepareModelSaveFolder(string modelPath, out string errorMessage)
-        {
-            errorMessage = "";
-
-            try
-            {
-                if (string.IsNullOrWhiteSpace(modelPath))
-                    modelPath = GetDefaultTrainingModelPath();
-
-                string? modelDirectory = Path.GetDirectoryName(modelPath);
-                if (string.IsNullOrWhiteSpace(modelDirectory))
-                {
-                    errorMessage = "모델 저장 폴더가 비어 있습니다.";
-                    return false;
-                }
-
-                Directory.CreateDirectory(modelDirectory);
-                string testPath = Path.Combine(modelDirectory, ".teamapp_write_test");
-                File.WriteAllText(testPath, "ok", Encoding.UTF8);
-                File.Delete(testPath);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                errorMessage = ex.Message;
-                return false;
-            }
-        }
-
-        private bool PathsEqual(string left, string right)
-        {
-            try
-            {
-                return Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                    .Equals(Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                        StringComparison.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                return left.Equals(right, StringComparison.OrdinalIgnoreCase);
-            }
-        }
-
-        private bool CanRunWslBashCommand(string bashCommand, int timeoutMs)
-        {
-            return CanRunProcess("wsl", "bash -lc " + QuoteForCommandLine(bashCommand), timeoutMs);
-        }
-
-        private async Task TryAutoSetupTrainingEnvironmentAsync()
-        {
-            try
-            {
-                ApplyTrainingEnvironmentStatus("학습 환경: 자동 설정 중...", false);
-                SetTrainingEnvironmentButtonsEnabled(false);
-                AppendTrainingLog("학습 환경 자동 설정을 시작합니다.");
-
-                EnsureDefaultTrainingPaths(new List<string>());
-
-                var details = new List<string>();
-                EnsureDefaultTrainingPaths(details);
-                string tubPath = txtTrainingTubPath.Text.Trim();
-                string modelPath = txtTrainingModelPath.Text.Trim();
-                string envName = string.IsNullOrWhiteSpace(_trainingPythonEnvName) ? "e2e_env" : _trainingPythonEnvName.Trim();
-                TrainingEnvironmentCheck beforeCheck = await Task.Run(() =>
-                    CheckTrainingEnvironment(tubPath, modelPath, envName, details));
-                if (beforeCheck.IsReady)
-                {
-                    ApplyTrainingEnvironmentCheck(beforeCheck);
-                    MessageBox.Show("학습 환경이 이미 정상입니다.",
-                        "자동 설정", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return;
-                }
-                if (!CanRunProcess("wsl", "--status", timeoutMs: 5000))
-                {
-                    CopyTrainingSetupCommands();
-                    ApplyTrainingEnvironmentCheck(beforeCheck);
-                    return;
-                }
-
-                if (!CanRunWslBashCommand("test -x ~/miniconda3/bin/conda", timeoutMs: 5000))
-                {
-                    await RunAutoSetupCommandAsync(
-                        "Miniconda 설치",
-                        BuildMinicondaInstallBashCommand(),
-                        timeoutMs: 900000);
-
-                    if (!CanRunWslBashCommand("test -x ~/miniconda3/bin/conda", timeoutMs: 5000))
-                        throw new InvalidOperationException("Miniconda 설치 후에도 ~/miniconda3/bin/conda를 찾지 못했습니다.");
-                }
-
-                if (!CanRunWslCondaEnvironment(envName))
-                    await RunAutoSetupCommandAsync(
-                        "conda 환경 생성",
-                        "~/miniconda3/bin/conda create -y -n " + QuoteForBash(envName) + " python=3.11",
-                        timeoutMs: 900000);
-
-                if (!CanRunWslBashCommand("~/miniconda3/bin/conda run --no-capture-output -n " +
-                    QuoteForBash(envName) + " donkey --help >/dev/null 2>&1", timeoutMs: 15000))
-                {
-                    await RunAutoSetupCommandAsync(
-                        "DonkeyCar 설치",
-                        "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
-                        " python -m pip install \"donkeycar[pc]\"",
-                        timeoutMs: 900000);
-                }
-
-                if (!CanRunWslBashCommand("~/miniconda3/bin/conda run --no-capture-output -n " +
-                    QuoteForBash(envName) + " python -c \"import gym, gym_donkeycar, pygame\" >/dev/null 2>&1", timeoutMs: 15000))
-                {
-                    await RunAutoSetupCommandAsync(
-                        "DonkeyCar 실행 의존성 설치",
-                        "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
-                        " python -m pip install gym==0.26.2 gym-donkeycar pygame",
-                        timeoutMs: 300000);
-                }
-
-                if (!CanRunWslBashCommand("test -f ~/mycar/config.py", timeoutMs: 5000))
-                {
-                    await RunAutoSetupCommandAsync(
-                        "mycar 설정 생성",
-                        "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) +
-                        " donkey createcar --path=$HOME/mycar",
-                        timeoutMs: 300000);
-                }
-
-                TrainingEnvironmentCheck afterCheck = await RefreshTrainingEnvironmentAsync(showSuccessMessage: false);
-                if (!afterCheck.IsReady)
-                {
-                    CopyTrainingSetupCommands();
-                    MessageBox.Show(
-                        "자동 설정을 시도했지만 아직 부족한 항목이 있습니다.\n\n" +
-                        afterCheck.StatusMessage + "\n\n" +
-                        "설치 명령을 클립보드에 복사했습니다.",
-                        "자동 설정", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    AppendTrainingOutputChunk(new string(buffer, 0, read));
                 }
             }
-            catch (Exception ex)
+            catch (ObjectDisposedException)
             {
-                CopyTrainingSetupCommands();
-                MessageBox.Show(
-                    "자동 설정 중 오류가 발생했습니다.\n\n" +
-                    "설치 명령을 클립보드에 복사했으니 직접 실행해 주세요.\n\n" +
-                    "오류 내용: " + ex.Message,
-                    "자동 설정 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                // 프로세스 강제 종료 시 스트림이 먼저 닫힐 수 있습니다.
             }
-            finally
+            catch (IOException)
             {
-                SetTrainingEnvironmentButtonsEnabled(true);
-                UpdateTrainingStartButtonState();
+                // 프로세스 종료와 동시에 pipe가 닫히는 경우는 정상 종료 흐름으로 취급합니다.
+            }
+            catch (InvalidOperationException)
+            {
+                // 리더가 닫힌 뒤 비동기 읽기가 이어지는 경우를 방어합니다.
             }
         }
 
-        private async Task RunAutoSetupCommandAsync(string title, string bashCommand, int timeoutMs)
-        {
-            AppendTrainingLog(title + " 명령을 실행합니다.");
-            ProcessRunResult result = await Task.Run(() =>
-                RunProcessAndCapture("wsl", "bash -lc " + QuoteForCommandLine(bashCommand), timeoutMs));
-
-            if (!string.IsNullOrWhiteSpace(result.Output))
-                AppendTrainingLog(result.Output);
-
-            if (!string.IsNullOrWhiteSpace(result.Error))
-                AppendTrainingLog(result.Error, fromErrorStream: true);
-
-            if (result.ExitCode != 0)
-                throw new InvalidOperationException(title + " 실패: 종료 코드 " + result.ExitCode);
-        }
-
-        private string BuildMinicondaInstallBashCommand()
-        {
-            return
-                "set -e; " +
-                "cd \"$HOME\"; " +
-                "if [ ! -x \"$HOME/miniconda3/bin/conda\" ]; then " +
-                "installer=\"$HOME/Miniconda3-latest-Linux-x86_64.sh\"; " +
-                "if command -v wget >/dev/null 2>&1; then " +
-                "wget -O \"$installer\" https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh; " +
-                "else " +
-                "curl -L -o \"$installer\" https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh; " +
-                "fi; " +
-                "bash \"$installer\" -b -p \"$HOME/miniconda3\"; " +
-                "fi; " +
-                "\"$HOME/miniconda3/bin/conda\" --version";
-        }
-
-        private ProcessRunResult RunProcessAndCapture(string fileName, string arguments, int timeoutMs)
-        {
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = fileName,
-                    Arguments = arguments,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    StandardOutputEncoding = Encoding.UTF8,
-                    StandardErrorEncoding = Encoding.UTF8
-                }
-            };
-
-            process.Start();
-            Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
-            Task<string> errorTask = process.StandardError.ReadToEndAsync();
-
-            if (!process.WaitForExit(timeoutMs))
-            {
-                process.Kill(entireProcessTree: true);
-                return new ProcessRunResult(-1, outputTask.Result, "명령 실행 시간이 초과되었습니다.");
-            }
-
-            return new ProcessRunResult(process.ExitCode, outputTask.Result, errorTask.Result);
-        }
-
-        private void CopyTrainingSetupCommands()
-        {
-            try
-            {
-                string commands = BuildTrainingSetupCommands();
-                Clipboard.SetText(commands);
-                MessageBox.Show(
-                    "학습 환경 설치/확인 명령을 클립보드에 복사했습니다.\n\n" +
-                    "Windows PowerShell에 그대로 붙여넣어 실행하면 됩니다.\n" +
-                    "WSL 설치처럼 재부팅이나 권한이 필요한 단계는 안내 메시지를 보고 따로 진행해 주세요.",
-                    "설치 명령 복사", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("설치 명령을 복사하지 못했습니다.\n\n오류 내용: " + ex.Message,
-                    "설치 명령 복사 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private string BuildTrainingSetupCommands()
-        {
-            string envName = string.IsNullOrWhiteSpace(_trainingPythonEnvName) ? "e2e_env" : _trainingPythonEnvName.Trim();
-            string safeEnvName = GetSafeCondaEnvironmentName(envName);
-
-            return string.Join(Environment.NewLine, new[]
-            {
-                "# TeamApp DonkeyCar 학습 환경 준비용 PowerShell 명령",
-                "# 1) WSL이 없으면 아래 명령 실행 후 PC를 재부팅하고, 이 복사 명령을 다시 실행하세요.",
-                "wsl.exe --status",
-                "if ($LASTEXITCODE -ne 0) {",
-                "    Write-Host 'WSL이 없습니다. 다음 명령을 관리자 PowerShell에서 실행한 뒤 재부팅하세요:'",
-                "    Write-Host 'wsl --install -d Ubuntu-22.04'",
-                "    return",
-                "}",
-                "",
-                "# 2) Miniconda가 없으면 WSL 안에 자동 설치합니다.",
-                "wsl.exe bash -lc '" + BuildMinicondaInstallBashCommand() + "'",
-                "",
-                "# 3) conda 환경과 DonkeyCar를 준비합니다.",
-                "wsl.exe bash -lc '$HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " python --version >/dev/null 2>&1 || $HOME/miniconda3/bin/conda create -y -n " + safeEnvName + " python=3.11'",
-                "wsl.exe bash -lc '$HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " python -m pip install \"donkeycar[pc]\"'",
-                "wsl.exe bash -lc '$HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " python -m pip install gym==0.26.2 gym-donkeycar pygame'",
-                "",
-                "# 4) mycar 설정 파일이 없으면 생성합니다.",
-                "wsl.exe bash -lc 'test -f \"$HOME/mycar/config.py\" || $HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " donkey createcar --path=\"$HOME/mycar\"'",
-                "",
-                "# 5) 준비 확인",
-                "wsl.exe bash -lc '$HOME/miniconda3/bin/conda run --no-capture-output -n " + safeEnvName + " donkey --help'",
-                "Write-Host 'TeamApp 학습 환경 준비가 끝났습니다.'"
-            });
-        }
-
-        private string GetSafeCondaEnvironmentName(string value)
-        {
-            string trimmed = value.Trim();
-            bool isSafe = trimmed.Length > 0 &&
-                trimmed.All(ch => char.IsLetterOrDigit(ch) || ch == '_' || ch == '-' || ch == '.');
-
-            return isSafe ? trimmed : "e2e_env";
-        }
-
-        private void ApplyTrainingEnvironmentCheck(TrainingEnvironmentCheck check)
-        {
-            _isTrainingEnvironmentReady = check.IsReady;
-            ApplyTrainingEnvironmentStatus(check.StatusMessage, check.IsReady);
-            UpdateTrainingStartButtonState();
-        }
-
-        private void ApplyTrainingEnvironmentStatus(string message, bool isReady)
-        {
-            if (_lblTrainingEnvironmentStatus != null)
-            {
-                _lblTrainingEnvironmentStatus.Text = message;
-                _lblTrainingEnvironmentStatus.ForeColor = isReady ? System.Drawing.Color.ForestGreen : System.Drawing.Color.Firebrick;
-            }
-
-            stsTrainingStatus.Text = message.Replace("학습 환경:", "학습 상태:");
-        }
-
-        private void UpdateTrainingStartButtonState()
-        {
-            bool isRunning = _trainingProcess is { HasExited: false };
-            btnStartTrainingProcess.Enabled = _isTrainingEnvironmentReady && !isRunning && !_isCheckingTrainingEnvironment;
-        }
-
-        private void SetTrainingEnvironmentButtonsEnabled(bool enabled)
-        {
-            if (_btnCheckTrainingEnvironment != null)
-                _btnCheckTrainingEnvironment.Enabled = enabled;
-            if (_btnAutoSetupTrainingEnvironment != null)
-                _btnAutoSetupTrainingEnvironment.Enabled = enabled;
-            if (_btnCopyTrainingSetupCommands != null)
-                _btnCopyTrainingSetupCommands.Enabled = enabled;
-        }
-
-        private void AppendTrainingLog(string text, bool fromErrorStream = false)
+        private void AppendTrainingLog(string text)
         {
             if (rtbTrainingOutput.IsDisposed) return;
-
-            string? displayText = FormatTrainingLogLine(text, fromErrorStream);
-            if (string.IsNullOrWhiteSpace(displayText)) return;
+            UpdateTrainingSummaryFromText(text);
 
             void Append()
             {
-                rtbTrainingOutput.AppendText(displayText + Environment.NewLine);
+                rtbTrainingOutput.AppendText(text + Environment.NewLine);
                 rtbTrainingOutput.SelectionStart = rtbTrainingOutput.TextLength;
                 rtbTrainingOutput.ScrollToCaret();
             }
@@ -2738,142 +2985,704 @@ namespace TeamApp
                 Append();
         }
 
-        private string? FormatTrainingLogLine(string rawText, bool fromErrorStream)
+        private void AppendTrainingOutputChunk(string chunk)
         {
-            string text = CleanConsoleControlCharacters(rawText);
-            if (string.IsNullOrWhiteSpace(text)) return null;
+            if (rtbTrainingOutput.IsDisposed || string.IsNullOrEmpty(chunk)) return;
 
-            string? progressLine = TryFormatTrainingProgress(text);
-            if (progressLine != null) return progressLine;
+            string sanitized = NormalizeTrainingLogChunk(chunk);
+            if (sanitized.Length == 0) return;
 
-            if (!fromErrorStream && Regex.IsMatch(text, @"^\d{1,2}$"))
-                return null;
-
-            if (text.Contains("Failed writing database file", StringComparison.OrdinalIgnoreCase))
-                return "참고: DonkeyCar 모델 DB 저장은 건너뛰었습니다. 모델 파일 저장에는 영향 없습니다.";
-
-            if (text.Contains("Starting training", StringComparison.OrdinalIgnoreCase))
-                return "학습 시작: 데이터로 모델을 학습하는 중입니다.";
-
-            if (text.Contains("Finished training", StringComparison.OrdinalIgnoreCase))
-                return "학습 종료: 모델 학습 단계가 완료되었습니다.";
-
-            if (text.Contains("TFLite conversion done", StringComparison.OrdinalIgnoreCase))
-                return "변환 완료: TFLite 모델 파일도 생성했습니다.";
-
-            if (text.Contains("saving model to", StringComparison.OrdinalIgnoreCase))
-                return "모델 저장 중: " + ExtractTextAfter(text, "saving model to");
-
-            if (text.Contains("Found datastore at", StringComparison.OrdinalIgnoreCase))
-                return "Tub 데이터 확인: " + ExtractTextAfter(text, "Found datastore at");
-
-            if (text.Contains("Records # Training", StringComparison.OrdinalIgnoreCase))
-                return "학습 데이터 수: " + ExtractTextAfter(text, "Records # Training");
-
-            if (text.Contains("Records # Validation", StringComparison.OrdinalIgnoreCase))
-                return "검증 데이터 수: " + ExtractTextAfter(text, "Records # Validation");
-
-            if (ShouldHideVerboseTrainingLine(text)) return null;
-
-            bool looksLikeRealError =
-                text.Contains("Traceback", StringComparison.OrdinalIgnoreCase) ||
-                text.Contains("Exception", StringComparison.OrdinalIgnoreCase) ||
-                text.Contains("EnvironmentLocationNotFound", StringComparison.OrdinalIgnoreCase) ||
-                text.StartsWith("ERROR:", StringComparison.OrdinalIgnoreCase);
-
-            if (fromErrorStream && looksLikeRealError)
-                return "오류: " + text;
-
-            return text;
-        }
-
-        private string CleanConsoleControlCharacters(string rawText)
-        {
-            string text = Regex.Replace(rawText, @"\x1B\[[0-9;?]*[ -/]*[@-~]", "");
-            text = text.Replace("\r", "");
-
-            while (text.Contains('\b'))
+            void AppendChunk()
             {
-                int index = text.IndexOf('\b');
-                if (index > 0)
-                    text = text.Remove(index - 1, 2);
-                else
-                    text = text.Remove(index, 1);
+                ApplyTrainingOutputChunk(sanitized);
+                rtbTrainingOutput.SelectionStart = rtbTrainingOutput.TextLength;
+                rtbTrainingOutput.ScrollToCaret();
             }
 
-            return new string(text.Where(ch => !char.IsControl(ch) || ch == '\t').ToArray()).Trim();
+            if (rtbTrainingOutput.InvokeRequired)
+                rtbTrainingOutput.BeginInvoke(new Action(AppendChunk));
+            else
+                AppendChunk();
         }
 
-        private string? TryFormatTrainingProgress(string text)
+        private string NormalizeTrainingLogChunk(string chunk)
         {
-            Match match = Regex.Match(text, @"^\s*(\d+)\s*/\s*(\d+)\s+\[");
-            if (!match.Success) return null;
+            string sanitized = AnsiEscapeRegex.Replace(chunk, string.Empty).Replace("\0", string.Empty);
 
-            int current = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
-            int total = int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
-            if (total <= 0) return null;
-
-            int percent = Math.Min(100, Math.Max(0, current * 100 / total));
-            if (percent < 100 && percent == _lastTrainingProgressPercent) return null;
-            _lastTrainingProgressPercent = percent;
-
-            int filled = percent * 20 / 100;
-            string bar = new string('=', filled).PadRight(20, '-');
-            string lossText = ExtractLossSummary(text);
-            return $"학습 진행률 [{bar}] {percent,3}% ({current}/{total}){lossText}";
+            // DonkeyCar may log this as ERROR even when the training process exits with code 0.
+            // It means the optional model database file was not written, not that the model training failed.
+            return sanitized.Replace(
+                "ERROR:donkeycar.pipeline.database:Failed writing database file:",
+                "[참고] 모델 기록 DB 저장 실패(학습 모델 저장과는 별개):",
+                StringComparison.OrdinalIgnoreCase);
         }
 
-        private string ExtractLossSummary(string text)
+        private void ApplyTrainingOutputChunk(string text)
         {
-            Match match = Regex.Match(text, @"loss:\s*([0-9.]+)");
-            return match.Success ? $"  loss: {match.Groups[1].Value}" : "";
-        }
-
-        private bool ShouldHideVerboseTrainingLine(string text)
-        {
-            string[] noisyPatterns =
+            foreach (char ch in text)
             {
-                "tensorflow/core",
-                "external/local_",
-                "could not find cuda",
-                "cuda drivers",
-                "cuDNN",
-                "cuFFT",
-                "cuBLAS",
-                "NUMA",
-                "TF-TRT",
-                "oneDNN",
-                "This TensorFlow binary is optimized",
-                "To enable the following instructions",
-                "Skipping registering GPU devices",
-                "Assets written to:",
-                "Summary on the non-converted ops",
-                "Accepted dialects",
-                "Non-Converted Ops",
-                "arith.constant",
-                "(f32:",
-                "Ignored output_format",
-                "Ignored drop_control_dependency",
-                "Reading SavedModel",
-                "Restoring SavedModel",
-                "SavedModel load",
-                "MLIR",
-                "disabling MLIR",
-                "Closing tub",
-                "Closing manifest",
-                "Creating ImageTransformations",
-                "Using last catalog",
-                "Train with image caching"
+                if (ch == '\b')
+                {
+                    if (_trainingOutputLineBuffer.Length > 0)
+                        _trainingOutputLineBuffer.Length--;
+
+                    if (rtbTrainingOutput.TextLength > 0)
+                    {
+                        rtbTrainingOutput.Select(rtbTrainingOutput.TextLength - 1, 1);
+                        rtbTrainingOutput.SelectedText = string.Empty;
+                    }
+                    continue;
+                }
+
+                if (char.IsControl(ch) && ch != '\r' && ch != '\n' && ch != '\t')
+                    continue;
+
+                if (ch == '\r')
+                {
+                    UpdateTrainingSummaryFromText(_trainingOutputLineBuffer.ToString());
+                    _trainingOutputLineBuffer.Clear();
+                    RemoveLastTrainingOutputLine();
+                    continue;
+                }
+
+                if (ch == '\n')
+                {
+                    UpdateTrainingSummaryFromText(_trainingOutputLineBuffer.ToString());
+                    _trainingOutputLineBuffer.Clear();
+                    rtbTrainingOutput.AppendText(Environment.NewLine);
+                    continue;
+                }
+
+                _trainingOutputLineBuffer.Append(ch);
+                rtbTrainingOutput.AppendText(ch.ToString());
+            }
+
+            // Keras progress output is often updated in-place without a newline.
+            // Parse the current unfinished line too, so the summary labels update while training is running.
+            if (_trainingOutputLineBuffer.Length > 0)
+                UpdateTrainingSummaryFromText(_trainingOutputLineBuffer.ToString());
+        }
+
+        private void UpdateTrainingSummaryFromText(string rawText)
+        {
+            if (string.IsNullOrWhiteSpace(rawText)) return;
+
+            string text = rawText.Trim();
+            if (text.Contains("Starting training", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("Train with", StringComparison.OrdinalIgnoreCase))
+            {
+                UpdateTrainingSummary(status: "학습 중");
+            }
+
+            if (text.Contains("학습 프로세스가 종료", StringComparison.OrdinalIgnoreCase))
+            {
+                UpdateTrainingSummary(status: text.Contains("종료 코드: 0", StringComparison.OrdinalIgnoreCase) ? "완료" : "오류");
+            }
+
+            if (text.Contains("[error]", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("train: error", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("Traceback", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("Exception", StringComparison.OrdinalIgnoreCase))
+            {
+                UpdateTrainingSummary(status: "오류");
+            }
+
+            Match epochMatch = Regex.Match(text, @"Epoch\s+(\d+)\s*/\s*(\d+)", RegexOptions.IgnoreCase);
+            if (epochMatch.Success)
+            {
+                UpdateTrainingSummary(
+                    status: "학습 중",
+                    epoch: epochMatch.Groups[1].Value + "/" + epochMatch.Groups[2].Value,
+                    progress: "0%");
+            }
+
+            Match progressMatch = Regex.Match(text, @"(?<current>\d+)\s*/\s*(?<total>\d+)", RegexOptions.IgnoreCase);
+            if (progressMatch.Success &&
+                int.TryParse(progressMatch.Groups["current"].Value, out int currentStep) &&
+                int.TryParse(progressMatch.Groups["total"].Value, out int totalStep) &&
+                totalStep > 0)
+            {
+                int percent = Math.Max(0, Math.Min(100, currentStep * 100 / totalStep));
+                UpdateTrainingSummary(progress: percent + "%");
+            }
+
+            Match valLossMatch = Regex.Match(text, @"(?:^|\s)val_loss:\s*(?<loss>[0-9.]+)", RegexOptions.IgnoreCase);
+            if (valLossMatch.Success)
+                UpdateTrainingSummary(loss: FormatTrainingScore(valLossMatch.Groups["loss"].Value));
+
+            Match lossMatch = Regex.Match(text, @"(?:^|\s)loss:\s*(?<loss>[0-9.]+)", RegexOptions.IgnoreCase);
+            if (lossMatch.Success)
+                UpdateTrainingSummary(loss: FormatTrainingScore(lossMatch.Groups["loss"].Value));
+        }
+
+        private string FormatTrainingScore(string lossText)
+        {
+            if (!double.TryParse(lossText, NumberStyles.Float, CultureInfo.InvariantCulture, out double loss))
+                return "-";
+
+            double score = Math.Clamp((1.0 - loss) * 100.0, 0.0, 100.0);
+            return $"{score:0}점";
+        }
+
+        private void UpdateTrainingSummary(
+            string? status = null,
+            string? epoch = null,
+            string? progress = null,
+            string? loss = null)
+        {
+            void Apply()
+            {
+                if (_lblTrainingSummaryStatus != null && status != null)
+                {
+                    _lblTrainingSummaryStatus.Text = "상태: " + status;
+                    _lblTrainingSummaryStatus.ForeColor = status.Contains("오류") || status.Contains("중지")
+                        ? System.Drawing.Color.Firebrick
+                        : System.Drawing.Color.ForestGreen;
+                }
+
+                if (_lblTrainingSummaryEpoch != null && epoch != null)
+                    _lblTrainingSummaryEpoch.Text = "학습 횟수: " + epoch;
+
+                if (_lblTrainingSummaryProgress != null && progress != null)
+                    _lblTrainingSummaryProgress.Text = "진행률: " + progress;
+
+                if (_lblTrainingSummaryLoss != null && loss != null)
+                    _lblTrainingSummaryLoss.Text = "점수(높을수록 좋음): " + loss;
+            }
+
+            if (grpTrainingConfig.InvokeRequired)
+                grpTrainingConfig.BeginInvoke(new Action(Apply));
+            else
+                Apply();
+        }
+
+        private void RemoveLastTrainingOutputLine()
+        {
+            string text = rtbTrainingOutput.Text;
+            int lastLineStart = text.LastIndexOf('\n');
+            lastLineStart = lastLineStart < 0 ? 0 : lastLineStart + 1;
+
+            if (lastLineStart < text.Length)
+            {
+                rtbTrainingOutput.Select(lastLineStart, text.Length - lastLineStart);
+                rtbTrainingOutput.SelectedText = string.Empty;
+            }
+        }
+
+        private async void BtnDetectTrainingEnvironment_Click(object? sender, EventArgs e)
+        {
+            await DetectTrainingEnvironmentAsync(showSuccessMessage: true, clearLog: true);
+        }
+
+        private async Task<bool> DetectTrainingEnvironmentAsync(bool showSuccessMessage, bool clearLog)
+        {
+            btnDetectTrainingEnvironment.Enabled = false;
+            if (clearLog)
+                rtbTrainingOutput.Clear();
+            AppendTrainingLog("[감지] 학습 환경 자동 감지를 시작합니다.");
+
+            try
+            {
+                var distros = await DetectWslDistrosAsync();
+                if (!ApplyDetectedWslDistros(distros, requireExistingSelectionWhenMultiple: false, showMessage: showSuccessMessage))
+                    return false;
+
+                string distro = NormalizeWslDistroName(cmbTrainingWslDistro.Text);
+                bool condaDetected = await DetectCondaPathsAsync(distro, showMessage: showSuccessMessage);
+                if (!condaDetected)
+                    return false;
+
+                await DetectCondaEnvironmentsAsync(distro);
+                bool projectDetected = await DetectDonkeyProjectsAsync(distro);
+                if (!projectDetected)
+                    return false;
+
+                if (string.IsNullOrWhiteSpace(txtTrainingPythonEnvName.Text) ||
+                    string.IsNullOrWhiteSpace(cmbMycarProjectPath.Text))
+                {
+                    AppendTrainingLog("[감지] Python 환경명 또는 Donkey 프로젝트 경로를 자동으로 확정하지 못했습니다.");
+                    return false;
+                }
+
+                if (showSuccessMessage)
+                {
+                    MessageBox.Show("자동 감지가 완료되었습니다.\n감지된 값이 맞는지 확인한 뒤 학습을 시작해 주세요.",
+                        "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (showSuccessMessage)
+                {
+                    MessageBox.Show("자동 감지 중 오류가 발생했습니다.\n\n오류 내용: " + ex.Message,
+                        "자동 감지 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                else
+                {
+                    AppendTrainingLog("[감지 오류] " + ex.Message);
+                }
+
+                return false;
+            }
+            finally
+            {
+                btnDetectTrainingEnvironment.Enabled = true;
+            }
+        }
+
+        private async void BtnSelectTrainingWslDistro_Click(object? sender, EventArgs e)
+        {
+            btnSelectTrainingWslDistro.Enabled = false;
+            AppendTrainingLog("[감지] WSL Ubuntu 목록을 확인합니다.");
+
+            try
+            {
+                var distros = await DetectWslDistrosAsync();
+                ApplyDetectedWslDistros(distros, requireExistingSelectionWhenMultiple: false, showMessage: true);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("WSL Ubuntu 목록 확인 중 오류가 발생했습니다.\n\n오류 내용: " + ex.Message,
+                    "WSL Ubuntu 감지 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnSelectTrainingWslDistro.Enabled = true;
+            }
+        }
+
+        private async void BtnSelectCondaPath_Click(object? sender, EventArgs e)
+        {
+            string distro = NormalizeWslDistroName(cmbTrainingWslDistro.Text);
+            if (string.IsNullOrWhiteSpace(distro))
+            {
+                MessageBox.Show("먼저 WSL Ubuntu를 선택해 주세요.",
+                    "Conda 경로 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            btnSelectCondaPath.Enabled = false;
+            AppendTrainingLog("[감지] Conda 경로를 확인합니다. WSL Ubuntu: " + distro);
+
+            try
+            {
+                string condaPath = await DetectCondaPathAsync(distro);
+                if (string.IsNullOrWhiteSpace(condaPath))
+                {
+                    MessageBox.Show("Conda 경로를 찾을 수 없습니다.",
+                        "Conda 경로 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    AppendTrainingLog("[감지] Conda 경로를 찾지 못했습니다.");
+                    return;
+                }
+
+                SetComboText(cmbCondaPath, condaPath);
+                AppendTrainingLog("[감지] Conda 경로: " + condaPath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Conda 경로 확인 중 오류가 발생했습니다.\n\n오류 내용: " + ex.Message,
+                    "Conda 경로 감지 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnSelectCondaPath.Enabled = true;
+            }
+        }
+
+        private async Task<List<string>> DetectWslDistrosAsync()
+        {
+            var distroResult = await RunProcessCaptureAsync("wsl", new[] { "-l", "-q" }, 10000);
+            if (distroResult.ExitCode != 0)
+            {
+                AppendTrainingLog("[감지 오류] WSL 목록을 가져오지 못했습니다.");
+                AppendTrainingLog(distroResult.Error);
+                MessageBox.Show("WSL Ubuntu 목록을 가져오지 못했습니다.\nWSL 설치 상태를 확인해 주세요.",
+                    "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return new List<string>();
+            }
+
+            return ParseLines(distroResult.Output)
+                .Select(NormalizeWslDistroName)
+                .Where(line => !line.Contains("Windows Subsystem", StringComparison.OrdinalIgnoreCase))
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private bool ApplyDetectedWslDistros(List<string> distros, bool requireExistingSelectionWhenMultiple, bool showMessage)
+        {
+            cmbTrainingWslDistro.Items.Clear();
+            cmbTrainingWslDistro.Items.AddRange(distros.Cast<object>().ToArray());
+
+            if (distros.Count == 0)
+            {
+                if (showMessage)
+                {
+                    MessageBox.Show("감지된 WSL Ubuntu가 없습니다.\nUbuntu 설치 후 다시 자동 감지를 실행해 주세요.",
+                        "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                return false;
+            }
+
+            if (distros.Count == 1)
+            {
+                cmbTrainingWslDistro.Text = distros[0];
+                AppendTrainingLog("[감지] WSL Ubuntu: " + distros[0]);
+                return true;
+            }
+
+            string selected = NormalizeWslDistroName(cmbTrainingWslDistro.Text);
+            bool hasValidSelection = distros.Contains(selected, StringComparer.OrdinalIgnoreCase);
+            if (!hasValidSelection && !requireExistingSelectionWhenMultiple)
+                cmbTrainingWslDistro.Text = distros[0];
+
+            AppendTrainingLog("[감지] 여러 WSL Ubuntu가 감지되었습니다: " + string.Join(", ", distros));
+            if (showMessage)
+            {
+                MessageBox.Show(
+                    "WSL Ubuntu가 여러 개 감지되었습니다.\n목록에서 학습 환경이 설치된 Ubuntu를 선택해 주세요.",
+                    "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+
+            return hasValidSelection || !requireExistingSelectionWhenMultiple;
+        }
+
+        private async Task<bool> DetectCondaPathsAsync(string distro, bool showMessage)
+        {
+            distro = NormalizeWslDistroName(distro);
+            string condaPath = await DetectCondaPathAsync(distro);
+            cmbCondaPath.Items.Clear();
+
+            if (string.IsNullOrWhiteSpace(condaPath))
+            {
+                AppendTrainingLog("[감지] Conda 경로를 찾지 못했습니다.");
+                if (showMessage)
+                {
+                    MessageBox.Show("Conda 경로를 찾을 수 없습니다.",
+                        "자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                return false;
+            }
+
+            SetComboText(cmbCondaPath, condaPath);
+            AppendTrainingLog("[감지] Conda 경로: " + condaPath);
+            return true;
+        }
+
+        private Task<string> DetectCondaPathAsync(string distro)
+        {
+            distro = NormalizeWslDistroName(distro);
+
+            return Task.Run(async () =>
+            {
+                var whichResult = await RunWslBashCaptureAsync(distro, "which conda", 10000);
+                string detected = FirstNonEmptyLine(whichResult.Output);
+                if (!string.IsNullOrWhiteSpace(detected))
+                    return detected.Trim();
+
+                string defaultPathScript =
+                    "ls ~/miniconda3/bin/conda 2>/dev/null || ls ~/anaconda3/bin/conda 2>/dev/null || ls ~/miniforge3/bin/conda 2>/dev/null";
+                var defaultPathResult = await RunWslBashCaptureAsync(distro, defaultPathScript, 10000, useLoginShell: false);
+                detected = FirstNonEmptyLine(defaultPathResult.Output);
+                if (!string.IsNullOrWhiteSpace(detected))
+                    return detected.Trim();
+
+                string searchScript = "find ~ -type f -name 'conda' -path '*/bin/conda' 2>/dev/null | head -n 1";
+                var searchResult = await RunWslBashCaptureAsync(distro, searchScript, 30000, useLoginShell: false);
+                detected = FirstNonEmptyLine(searchResult.Output);
+                return detected.Trim();
+            });
+        }
+
+        private string FirstNonEmptyLine(string text)
+        {
+            return ParseLines(text).FirstOrDefault() ?? string.Empty;
+        }
+
+        private async Task DetectCondaEnvironmentsAsync(string distro)
+        {
+            distro = NormalizeWslDistroName(distro);
+            string condaPath = cmbCondaPath.Text.Trim();
+            if (string.IsNullOrWhiteSpace(condaPath)) return;
+
+            string script = QuotePathForBash(ConvertToWslPath(condaPath)) + " env list";
+            var result = await RunWslBashCaptureAsync(distro, script, 20000);
+            if (result.ExitCode != 0)
+            {
+                AppendTrainingLog("[감지 오류] Conda 환경 목록 조회가 실패했습니다.");
+                AppendTrainingLog(result.Error);
+                AppendTrainingLog(result.Output);
+                return;
+            }
+
+            var envs = ParseCondaEnvNames(result.Output).ToList();
+            if (envs.Count == 0)
+            {
+                AppendTrainingLog("[감지] Conda 환경 목록을 가져오지 못했습니다.");
+                return;
+            }
+
+            string? selected = null;
+            foreach (string env in envs.Take(12))
+            {
+                string checkScript = QuotePathForBash(ConvertToWslPath(condaPath)) +
+                    " run -n " + QuoteForBash(env) +
+                    " python -c \"import donkeycar, tensorflow; print(donkeycar.__version__)\"";
+                var check = await RunWslBashCaptureAsync(distro, checkScript, 30000);
+                if (check.ExitCode == 0)
+                {
+                    selected = env;
+                    AppendTrainingLog("[감지] Donkey/TensorFlow 사용 가능 환경: " + env);
+                    break;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(selected))
+                txtTrainingPythonEnvName.Text = selected;
+            else
+                AppendTrainingLog("[감지] Donkey와 TensorFlow를 모두 import할 수 있는 Conda 환경을 찾지 못했습니다.");
+        }
+
+        private async Task<bool> DetectDonkeyProjectsAsync(string distro)
+        {
+            distro = NormalizeWslDistroName(distro);
+            string script = "find \"$HOME\" -maxdepth 6 -type f \\( -name config.py -o -name manage.py \\) 2>/dev/null";
+            var result = await RunWslBashCaptureAsync(distro, script, 20000);
+            if (result.ExitCode != 0)
+            {
+                AppendTrainingLog("[감지 오류] Donkey 프로젝트 경로 감지 명령이 실패했습니다.");
+                AppendTrainingLog("[감지 오류] 사용한 WSL Ubuntu: " + distro);
+                AppendTrainingLog(result.Error);
+                AppendTrainingLog(result.Output);
+                return false;
+            }
+
+            var projectPaths = ParseLines(result.Output)
+                .Select(GetLinuxDirectoryName)
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Where(path => !path.Contains("/miniconda3/", StringComparison.Ordinal))
+                .Where(path => !path.Contains("/anaconda3/", StringComparison.Ordinal))
+                .Where(path => !path.Contains("/.conda/", StringComparison.Ordinal))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            if (projectPaths.Count == 0)
+            {
+                AppendTrainingLog("[감지] Donkey 프로젝트 후보를 찾지 못했습니다.");
+                return false;
+            }
+
+            if (projectPaths.Count == 1)
+            {
+                SetComboText(cmbMycarProjectPath, projectPaths[0]);
+                AppendTrainingLog("[감지] Donkey 프로젝트 경로: " + projectPaths[0]);
+                return true;
+            }
+
+            cmbMycarProjectPath.Items.Clear();
+            cmbMycarProjectPath.Items.AddRange(projectPaths.Cast<object>().ToArray());
+
+            AppendTrainingLog("[감지] Donkey 프로젝트 후보:");
+            foreach (string path in projectPaths)
+                AppendTrainingLog("  - " + path);
+
+            string? selectedProject = ShowDonkeyProjectSelectionDialog(projectPaths);
+            if (string.IsNullOrWhiteSpace(selectedProject))
+            {
+                AppendTrainingLog("[감지] Donkey 프로젝트 선택이 취소되었습니다.");
+                return false;
+            }
+
+            SetComboText(cmbMycarProjectPath, selectedProject);
+            AppendTrainingLog("[감지] 선택된 Donkey 프로젝트 경로: " + selectedProject);
+            return true;
+        }
+
+        /// <summary>
+        /// Donkey 프로젝트 후보가 여러 개일 때 사용자가 직접 고르게 하는 작은 선택 창입니다.
+        /// Designer 파일을 수정하지 않기 위해 코드에서 일회성 대화창을 만듭니다.
+        /// </summary>
+        private string? ShowDonkeyProjectSelectionDialog(IReadOnlyList<string> projectPaths)
+        {
+            using var dialog = new Form
+            {
+                Text = "Donkey 프로젝트 선택",
+                StartPosition = FormStartPosition.CenterParent,
+                MinimizeBox = false,
+                MaximizeBox = false,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                ClientSize = new Size(640, 320),
+                Font = new Font("resource/PretendardVariable.ttf", 10F)
             };
 
-            return noisyPatterns.Any(pattern => text.Contains(pattern, StringComparison.OrdinalIgnoreCase));
+            var description = new System.Windows.Forms.Label
+            {
+                Text = "자동 감지된 Donkey 프로젝트 후보입니다.\n학습에 사용할 프로젝트 폴더를 선택한 뒤 확인을 누르세요.",
+                Location = new Point(18, 16),
+                Size = new Size(600, 48)
+            };
+
+            var list = new ListBox
+            {
+                Location = new Point(18, 72),
+                Size = new Size(600, 170),
+                HorizontalScrollbar = true
+            };
+            list.Items.AddRange(projectPaths.Cast<object>().ToArray());
+            list.SelectedIndex = 0;
+
+            var okButton = new Button
+            {
+                Text = "확인",
+                DialogResult = DialogResult.OK,
+                Location = new Point(386, 262),
+                Size = new Size(110, 34)
+            };
+
+            var cancelButton = new Button
+            {
+                Text = "취소",
+                DialogResult = DialogResult.Cancel,
+                Location = new Point(508, 262),
+                Size = new Size(110, 34)
+            };
+
+            dialog.Controls.Add(description);
+            dialog.Controls.Add(list);
+            dialog.Controls.Add(okButton);
+            dialog.Controls.Add(cancelButton);
+            dialog.AcceptButton = okButton;
+            dialog.CancelButton = cancelButton;
+
+            return dialog.ShowDialog(this) == DialogResult.OK
+                ? list.SelectedItem?.ToString()
+                : null;
         }
 
-        private string ExtractTextAfter(string text, string marker)
+        private string GetLinuxDirectoryName(string path)
         {
-            int index = text.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-            if (index < 0) return text;
-            return text.Substring(index + marker.Length).Trim(' ', ':');
+            string normalized = path.Trim().Replace("\\", "/");
+            int index = normalized.LastIndexOf('/');
+            return index > 0 ? normalized.Substring(0, index) : string.Empty;
+        }
+
+        private async Task<(int ExitCode, string Output, string Error)> RunWslBashCaptureAsync(string distro, string script, int timeoutMs)
+        {
+            return await RunWslBashCaptureAsync(distro, script, timeoutMs, useLoginShell: true);
+        }
+
+        private async Task<(int ExitCode, string Output, string Error)> RunWslBashCaptureAsync(string distro, string script, int timeoutMs, bool useLoginShell)
+        {
+            distro = NormalizeWslDistroName(distro);
+            string shellOption = useLoginShell ? "-lc" : "-c";
+            return await RunProcessCaptureAsync("wsl", new[] { "-d", distro, "bash", shellOption, script }, timeoutMs);
+        }
+
+        private async Task<(int ExitCode, string Output, string Error)> RunProcessCaptureAsync(string fileName, string arguments, int timeoutMs)
+        {
+            return await RunProcessCaptureAsync(fileName, SplitProcessArguments(arguments), timeoutMs);
+        }
+
+        private async Task<(int ExitCode, string Output, string Error)> RunProcessCaptureAsync(string fileName, IEnumerable<string> arguments, int timeoutMs)
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                }
+            };
+
+            foreach (string argument in arguments)
+                process.StartInfo.ArgumentList.Add(argument);
+
+            var output = new StringBuilder();
+            var error = new StringBuilder();
+            process.Start();
+            Task outputTask = process.StandardOutput.ReadToEndAsync().ContinueWith(task => output.Append(task.Result));
+            Task errorTask = process.StandardError.ReadToEndAsync().ContinueWith(task => error.Append(task.Result));
+            Task exitTask = process.WaitForExitAsync();
+
+            Task completed = await Task.WhenAny(exitTask, Task.Delay(timeoutMs));
+            if (completed != exitTask)
+            {
+                try { process.Kill(true); } catch { }
+                return (-1, output.ToString(), "명령 실행 시간이 초과되었습니다.");
+            }
+
+            await Task.WhenAll(outputTask, errorTask);
+            return (process.ExitCode, output.ToString(), error.ToString());
+        }
+
+        private IEnumerable<string> SplitProcessArguments(string arguments)
+        {
+            return arguments
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(argument => argument.Trim());
+        }
+
+        private IEnumerable<string> ParseLines(string text)
+        {
+            return text
+                .Replace("\0", string.Empty)
+                .Replace("\u001c", string.Empty)
+                .Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => NormalizeWslText(line))
+                .Where(line => !line.Contains("Wsl/Service/", StringComparison.OrdinalIgnoreCase))
+                .Where(line => !string.IsNullOrWhiteSpace(line));
+        }
+
+        private string NormalizeWslText(string text)
+        {
+            return text
+                .Replace("\0", string.Empty)
+                .Replace("\u001c", string.Empty)
+                .Trim();
+        }
+
+        private string NormalizeWslDistroName(string distro)
+        {
+            string normalized = NormalizeWslText(distro);
+            normalized = normalized.Replace("*", string.Empty).Trim();
+
+            int runningIndex = normalized.IndexOf(" Running", StringComparison.OrdinalIgnoreCase);
+            if (runningIndex >= 0)
+                normalized = normalized.Substring(0, runningIndex).Trim();
+
+            int stoppedIndex = normalized.IndexOf(" Stopped", StringComparison.OrdinalIgnoreCase);
+            if (stoppedIndex >= 0)
+                normalized = normalized.Substring(0, stoppedIndex).Trim();
+
+            return normalized;
+        }
+
+        private IEnumerable<string> ParseCondaEnvNames(string text)
+        {
+            foreach (string line in ParseLines(text))
+            {
+                if (line.StartsWith("#")) continue;
+                string normalized = Regex.Replace(line, @"\s+", " ").Trim();
+                string[] parts = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 0) continue;
+
+                string envName = parts[0] == "*" && parts.Length > 1 ? parts[1] : parts[0];
+                if (envName.Contains('/') || envName.Contains('\\')) continue;
+                yield return envName;
+            }
+        }
+
+        private string QuoteProcessArgument(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "\"\"";
+            return "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
         }
 
         private void SelectFolderInto(TextBox targetTextBox, string title)
@@ -2888,124 +3697,60 @@ namespace TeamApp
                 targetTextBox.Text = dialog.SelectedPath;
         }
 
+        private void SelectFolderInto(ComboBox targetComboBox, string title)
+        {
+            using var dialog = new FolderBrowserDialog
+            {
+                Description = title,
+                SelectedPath = Directory.Exists(targetComboBox.Text) ? targetComboBox.Text : string.Empty
+            };
+
+            if (dialog.ShowDialog(this) == DialogResult.OK)
+                SetComboText(targetComboBox, dialog.SelectedPath);
+        }
+
         private void BtnSelectTrainingModelPath_Click(object? sender, EventArgs e)
         {
             using var dialog = new SaveFileDialog
             {
                 Title = "모델 저장 경로 선택",
-                Filter = "Keras 모델 (*.keras)|*.keras|H5 모델 (*.h5)|*.h5|모든 파일 (*.*)|*.*",
+                Filter = "Keras Model (*.keras)|*.keras|H5 Model (*.h5)|*.h5|All files (*.*)|*.*",
                 FileName = string.IsNullOrWhiteSpace(txtTrainingModelPath.Text)
                     ? "pilot.keras"
                     : Path.GetFileName(txtTrainingModelPath.Text)
             };
 
-            string currentPath = txtTrainingModelPath.Text.Trim();
-            string? currentDirectory = Path.GetDirectoryName(currentPath);
-            if (!string.IsNullOrWhiteSpace(currentDirectory) && Directory.Exists(currentDirectory))
-                dialog.InitialDirectory = currentDirectory;
-
             if (dialog.ShowDialog(this) == DialogResult.OK)
                 txtTrainingModelPath.Text = dialog.FileName;
-        }
-
-        private void BtnOpenTrainingModelFolder_Click(object? sender, EventArgs e)
-        {
-            try
-            {
-                string modelPath = txtTrainingModelPath.Text.Trim();
-                string? modelDirectory = Path.GetDirectoryName(modelPath);
-
-                if (string.IsNullOrWhiteSpace(modelDirectory))
-                {
-                    MessageBox.Show("모델 저장 경로를 먼저 확인해 주세요.",
-                        "모델 폴더 열기", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                Directory.CreateDirectory(modelDirectory);
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = modelDirectory,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("모델 폴더를 열 수 없습니다.\n\n오류 내용: " + ex.Message,
-                    "모델 폴더 열기 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void BtnCopyModelUseCommand_Click(object? sender, EventArgs e)
-        {
-            try
-            {
-                string command = BuildModelUseCommand();
-                Clipboard.SetText(command);
-                MessageBox.Show(
-                    "학습된 모델을 DonkeyCar에서 실행하는 명령을 클립보드에 복사했습니다.\n\n" + command,
-                    "사용 명령 복사", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("모델 사용 명령을 만들 수 없습니다.\n\n오류 내용: " + ex.Message,
-                    "사용 명령 복사 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private string BuildModelUseCommand()
-        {
-            string envName = string.IsNullOrWhiteSpace(_trainingPythonEnvName)
-                ? "e2e_env"
-                : _trainingPythonEnvName.Trim();
-            string mycarPath = string.IsNullOrWhiteSpace(_trainingMycarPath)
-                ? "~/mycar"
-                : _trainingMycarPath.Trim();
-            string modelPath = string.IsNullOrWhiteSpace(txtTrainingModelPath.Text)
-                ? GetDefaultTrainingModelPath()
-                : txtTrainingModelPath.Text.Trim();
-            string modelType = string.IsNullOrWhiteSpace(_trainingModelType)
-                ? "linear"
-                : _trainingModelType.Trim().ToLowerInvariant();
-
-            string bashCommand =
-                "cd " + QuotePathForBash(mycarPath) + " && " +
-                "~/miniconda3/bin/conda run --no-capture-output -n " + QuoteForBash(envName) + " " +
-                "python manage.py drive --model=" + QuotePathForBash(modelPath) + " --type=" + QuoteForBash(modelType);
-
-            return "wsl.exe bash -lc " + QuoteForPowerShellCommandLine(bashCommand);
         }
 
         private void BtnSaveTrainingConfig_Click(object? sender, EventArgs e)
         {
             try
             {
-                SaveTrainingSettingsSilently();
+                Directory.CreateDirectory(Application.UserAppDataPath);
+                var settings = new TrainingSettings
+                {
+                    WslDistroName = cmbTrainingWslDistro.Text.Trim(),
+                    CondaPath = cmbCondaPath.Text.Trim(),
+                    MycarPath = cmbMycarProjectPath.Text.Trim(),
+                    TubPath = txtTrainingTubPath.Text.Trim(),
+                    ModelPath = txtTrainingModelPath.Text.Trim(),
+                    ModelType = cmbTrainingModelType.Text.Trim(),
+                    PythonEnvName = txtTrainingPythonEnvName.Text.Trim(),
+                    Epochs = (int)numTrainingEpochs.Value
+                };
+
+                string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(GetTrainingSettingsPath(), json, Encoding.UTF8);
                 MessageBox.Show("학습 설정이 저장되었습니다.",
                     "설정 저장", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 MessageBox.Show("학습 설정 저장 중 오류가 발생했습니다.\n\n오류 내용: " + ex.Message,
-                "설정 저장 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    "설정 저장 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-        }
-
-        private void SaveTrainingSettingsSilently()
-        {
-            Directory.CreateDirectory(Application.UserAppDataPath);
-            var settings = new TrainingSettings
-            {
-                MycarPath = _trainingMycarPath.Trim(),
-                TubPath = txtTrainingTubPath.Text.Trim(),
-                ModelPath = txtTrainingModelPath.Text.Trim(),
-                ModelType = _trainingModelType.Trim(),
-                PythonEnvName = _trainingPythonEnvName.Trim(),
-                Epochs = (int)numTrainingEpochs.Value
-            };
-
-            string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(GetTrainingSettingsPath(), json, Encoding.UTF8);
         }
 
         private void LoadTrainingSettings()
@@ -3019,14 +3764,18 @@ namespace TeamApp
                 var settings = JsonSerializer.Deserialize<TrainingSettings>(json);
                 if (settings == null) return;
 
-                _trainingMycarPath = string.IsNullOrWhiteSpace(settings.MycarPath) ? "~/mycar" : settings.MycarPath;
-                txtTrainingTubPath.Text = ShouldUseDefaultTubPath(settings.TubPath) ? GetDefaultTrainingTubPath() : settings.TubPath;
-                txtTrainingModelPath.Text = ShouldUseDefaultModelPath(settings.ModelPath) ? GetDefaultTrainingModelPath() : settings.ModelPath;
-                _trainingModelType = string.IsNullOrWhiteSpace(settings.ModelType) ? "linear" : settings.ModelType;
-                _trainingPythonEnvName = string.IsNullOrWhiteSpace(settings.PythonEnvName) ||
-                    settings.PythonEnvName.Equals("donkey", StringComparison.OrdinalIgnoreCase)
-                    ? ResolveTrainingPythonEnvName()
-                    : settings.PythonEnvName;
+                if (!string.IsNullOrWhiteSpace(settings.MycarPath))
+                    SetComboText(cmbMycarProjectPath, settings.MycarPath);
+                if (!string.IsNullOrWhiteSpace(settings.TubPath))
+                    txtTrainingTubPath.Text = settings.TubPath;
+                if (!string.IsNullOrWhiteSpace(settings.ModelPath))
+                    txtTrainingModelPath.Text = settings.ModelPath;
+                if (!string.IsNullOrWhiteSpace(settings.ModelType))
+                    cmbTrainingModelType.Text = settings.ModelType;
+                if (!string.IsNullOrWhiteSpace(settings.PythonEnvName))
+                    txtTrainingPythonEnvName.Text = settings.PythonEnvName;
+                SetComboText(cmbTrainingWslDistro, settings.WslDistroName);
+                SetComboText(cmbCondaPath, settings.CondaPath);
                 if (settings.Epochs >= numTrainingEpochs.Minimum && settings.Epochs <= numTrainingEpochs.Maximum)
                     numTrainingEpochs.Value = settings.Epochs;
             }
@@ -3041,94 +3790,26 @@ namespace TeamApp
             return Path.Combine(Application.UserAppDataPath, TrainingSettingsFileName);
         }
 
-        private bool ShouldUseDefaultTubPath(string savedPath)
+        private void SetComboText(ComboBox comboBox, string value)
         {
-            return string.IsNullOrWhiteSpace(savedPath) ||
-                savedPath.Equals("data", StringComparison.OrdinalIgnoreCase) ||
-                !Directory.Exists(savedPath);
-        }
-
-        private bool ShouldUseDefaultModelPath(string savedPath)
-        {
-            if (string.IsNullOrWhiteSpace(savedPath)) return true;
-            if (savedPath.Replace("\\", "/").Equals("models/pilot.keras", StringComparison.OrdinalIgnoreCase)) return true;
-            if (PathsEqual(savedPath, GetLegacyDesktopTrainingModelPath())) return true;
-            if (PathsEqual(savedPath, GetLegacyDocumentsTrainingModelPath())) return true;
-
-            string? directory = Path.GetDirectoryName(savedPath);
-            return string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory);
+            if (string.IsNullOrWhiteSpace(value)) return;
+            if (!comboBox.Items.Cast<object>().Any(item => string.Equals(item.ToString(), value, StringComparison.Ordinal)))
+                comboBox.Items.Add(value);
+            comboBox.Text = value;
         }
 
         private sealed class TrainingSettings
         {
-            public string MycarPath { get; set; } = "~/mycar";
-            public string TubPath { get; set; } = "";
-            public string ModelPath { get; set; } = "";
+            public string WslDistroName { get; set; } = "";
+            public string CondaPath { get; set; } = "";
+            public string MycarPath { get; set; } = "";
+            public string TubPath { get; set; } = "data";
+            public string ModelPath { get; set; } = "models/pilot.keras";
             public string ModelType { get; set; } = "linear";
-            public string PythonEnvName { get; set; } = "e2e_env";
-            public int Epochs { get; set; } = 1;
+            public string PythonEnvName { get; set; } = "";
+            public int Epochs { get; set; } = 10;
         }
 
-        private sealed class TrainingEnvironmentCheck
-        {
-            public TrainingEnvironmentCheck(bool isReady, string statusMessage, IReadOnlyList<string> details, IReadOnlyList<string> fallbackCommands)
-            {
-                IsReady = isReady;
-                StatusMessage = statusMessage;
-                Details = details;
-                FallbackCommands = fallbackCommands;
-            }
-
-            public bool IsReady { get; }
-            public string StatusMessage { get; }
-            public IReadOnlyList<string> Details { get; }
-            public IReadOnlyList<string> FallbackCommands { get; }
-        }
-
-        private sealed class ProcessRunResult
-        {
-            public ProcessRunResult(int exitCode, string output, string error)
-            {
-                ExitCode = exitCode;
-                Output = output;
-                Error = error;
-            }
-
-            public int ExitCode { get; }
-            public string Output { get; }
-            public string Error { get; }
-        }
-
-        private sealed class TrainingCommand
-        {
-            public static readonly TrainingCommand Empty = new TrainingCommand(string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
-
-            public TrainingCommand(
-                string runnerName,
-                string fileName,
-                string arguments,
-                string workingDirectory,
-                string displayCommand,
-                string finalModelPath,
-                string runModelPath)
-            {
-                RunnerName = runnerName;
-                FileName = fileName;
-                Arguments = arguments;
-                WorkingDirectory = workingDirectory;
-                DisplayCommand = displayCommand;
-                FinalModelPath = finalModelPath;
-                RunModelPath = runModelPath;
-            }
-
-            public string RunnerName { get; }
-            public string FileName { get; }
-            public string Arguments { get; }
-            public string WorkingDirectory { get; }
-            public string DisplayCommand { get; }
-            public string FinalModelPath { get; }
-            public string RunModelPath { get; }
-        }
 
         // Designer 연결 스텁
 
@@ -3144,6 +3825,7 @@ namespace TeamApp
         private void LblPlayInterval_Click(object sender, EventArgs e) { }
         private void LblThrottleValue_Click(object sender, EventArgs e) { }
         private void StsTrainingStatus_Click(object sender, EventArgs e) { }
+        private void BtnSelectMycarPath_Click(object sender, EventArgs e) => SelectFolderInto(cmbMycarProjectPath, "Donkey 프로젝트 폴더 선택");
         private void GrpDataCleaner_Enter(object sender, EventArgs e) { }
 
         // ScottPlot 차트를 필요할 때 생성합니다.
@@ -3153,28 +3835,67 @@ namespace TeamApp
             if (tabControlMain.SelectedTab == tabGraphStats && _isChartDirty)
                 RenderFrameChart();
 
-            if (tabControlMain.SelectedTab == tabTrainingMonitor)
-                _ = RefreshTrainingEnvironmentAsync(showSuccessMessage: false);
+            if (tabControlMain.SelectedTab == tabTrainingMonitor &&
+                !_hasAutoDetectedTrainingTab &&
+                !_isTrainingAutoDetectRunning)
+            {
+                _ = AutoDetectTrainingTabOnFirstOpenAsync();
+            }
+        }
+
+        private async Task AutoDetectTrainingTabOnFirstOpenAsync()
+        {
+            if (_trainingProcess is { HasExited: false })
+                return;
+
+            _isTrainingAutoDetectRunning = true;
+            stsTrainingStatus.Text = "학습 상태: 자동 감지 중";
+
+            try
+            {
+                bool detected = await DetectTrainingEnvironmentAsync(showSuccessMessage: false, clearLog: true);
+                _hasAutoDetectedTrainingTab = detected;
+                stsTrainingStatus.Text = detected
+                    ? "학습 상태: 자동 감지 완료"
+                    : "학습 상태: 자동 감지 필요";
+            }
+            finally
+            {
+                _isTrainingAutoDetectRunning = false;
+            }
         }
 
         private void InitFrameChart()
         {
+            if (lblChartDescription != null)
+            {
+                lblChartDescription.AutoSize = false;
+                lblChartDescription.Font = new Font("resource/PretendardVariable.ttf", 10F);
+                lblChartDescription.Location = new Point(20, 14);
+                lblChartDescription.Size = new Size(Math.Max(300, tabGraphStats.ClientSize.Width - 40), 48);
+                lblChartDescription.TextAlign = ContentAlignment.MiddleLeft;
+                lblChartDescription.Text =
+                    "방향값과 속도값의 흐름을 보여줍니다. 0 기준선에서 멀수록 조작이 강하고, 검색 적용 시에는 원본 프레임 위치 기준의 점으로 표시됩니다.";
+            }
+
+            pnlChartHost.Location = new Point(20, 76);
+            pnlChartHost.Size = new Size(
+                Math.Max(300, tabGraphStats.ClientSize.Width - 40),
+                Math.Max(300, tabGraphStats.ClientSize.Height - 96));
+            pnlChartHost.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            pnlChartHost.BackColor = System.Drawing.Color.FromArgb(30, 30, 30);
+
             _frameChart = new FormsPlot
             {
-                Location = new System.Drawing.Point(0, 42),
-                Size     = new System.Drawing.Size(
-                    tabGraphStats.ClientSize.Width,
-                    tabGraphStats.ClientSize.Height - 42),
-                Anchor = AnchorStyles.Top | AnchorStyles.Bottom |
-                         AnchorStyles.Left | AnchorStyles.Right,
+                Dock = DockStyle.Fill,
                 Name = "formsPlotMain"
             };
 
             _frameChart.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1e1e1e");
-            _frameChart.Plot.DataBackground.Color   = ScottPlot.Color.FromHex("#2d2d30");
+            _frameChart.Plot.DataBackground.Color = ScottPlot.Color.FromHex("#2d2d30");
 
-            tabGraphStats.Controls.Add(_frameChart);
-            _frameChart.BringToFront();
+            pnlChartHost.Controls.Clear();
+            pnlChartHost.Controls.Add(_frameChart);
         }
 
         // 기본 모드는 선 그래프, 필터 모드는 원본 인덱스 기준 점 그래프로 표시합니다.
@@ -3195,11 +3916,16 @@ namespace TeamApp
             var plot = _frameChart!.Plot;
 
             // 한글 폰트를 지정해 차트 라벨이 깨지지 않도록 합니다.
-            _frameChart.Plot.Axes.Title.Label.FontName           = "Malgun Gothic";
-            _frameChart.Plot.Axes.Bottom.Label.FontName          = "Malgun Gothic";
-            _frameChart.Plot.Axes.Left.Label.FontName            = "Malgun Gothic";
+            _frameChart.Plot.Axes.Title.Label.FontName = "Malgun Gothic";
+            _frameChart.Plot.Axes.Bottom.Label.FontName = "Malgun Gothic";
+            _frameChart.Plot.Axes.Left.Label.FontName = "Malgun Gothic";
             _frameChart.Plot.Axes.Bottom.TickLabelStyle.FontName = "Malgun Gothic";
-            _frameChart.Plot.Axes.Left.TickLabelStyle.FontName   = "Malgun Gothic";
+            _frameChart.Plot.Axes.Left.TickLabelStyle.FontName = "Malgun Gothic";
+            plot.Legend.FontName = "Malgun Gothic";
+            plot.Legend.FontSize = 13;
+            plot.Legend.FontColor = ScottPlot.Color.FromHex("#222222");
+            plot.Legend.BackgroundColor = ScottPlot.Color.FromHex("#F7F7F7");
+            plot.Legend.OutlineColor = ScottPlot.Color.FromHex("#777777");
 
             plot.Clear();
 
@@ -3209,7 +3935,7 @@ namespace TeamApp
 
             if (chartFrames.Count == 0)
             {
-                plot.Title("유효한 데이터가 없습니다 (모두 제외됨)");
+                plot.Title("No valid frames");
                 _frameChart.Refresh();
                 _isChartDirty = false;
                 return;
@@ -3222,48 +3948,62 @@ namespace TeamApp
             double[] angleYs = chartFrames.Select(f => f.Angle).ToArray();
             double[] throttleYs = chartFrames.Select(f => f.Throttle).ToArray();
 
+            double[] zeroXs = { xs.Min(), xs.Max() };
+            double[] zeroYs = { 0, 0 };
+            var zeroLine = plot.Add.Scatter(zeroXs, zeroYs);
+            zeroLine.Color = ScottPlot.Color.FromHex("#9E9E9E");
+            zeroLine.LineWidth = 1.2f;
+            zeroLine.MarkerSize = 0;
+            zeroLine.LegendText = "Zero";
+
             if (_isFrameFilterActive)
             {
                 var angleScatter = plot.Add.Scatter(xs, angleYs);
                 angleScatter.Color = ScottPlot.Color.FromHex("#4FC3F7");
                 angleScatter.LineWidth = 0;
                 angleScatter.MarkerSize = 6;
-                angleScatter.LegendText = "조향(Angle)";
+                angleScatter.LegendText = "Steering";
 
                 var throttleScatter = plot.Add.Scatter(xs, throttleYs);
                 throttleScatter.Color = ScottPlot.Color.FromHex("#81C784");
                 throttleScatter.LineWidth = 0;
                 throttleScatter.MarkerSize = 6;
-                throttleScatter.LegendText = "스로틀(Throttle)";
+                throttleScatter.LegendText = "Speed";
             }
             else
             {
                 var sigAngle = plot.Add.SignalXY(xs, angleYs);
                 sigAngle.Color = ScottPlot.Color.FromHex("#4FC3F7");
                 sigAngle.LineWidth = 1.5f;
-                sigAngle.LegendText = "조향(Angle)";
+                sigAngle.LegendText = "Steering";
 
                 var sigThrottle = plot.Add.SignalXY(xs, throttleYs);
                 sigThrottle.Color = ScottPlot.Color.FromHex("#81C784");
                 sigThrottle.LineWidth = 1.5f;
-                sigThrottle.LegendText = "스로틀(Throttle)";
+                sigThrottle.LegendText = "Speed";
             }
 
             // 축 라벨과 제목
             plot.XLabel(_isFrameFilterActive
-                ? "원본 프레임 인덱스(필터 결과)"
-                : "유효 프레임 인덱스(제외된 프레임은 건너뜀)");
-            plot.YLabel("값(Angle / Throttle)");
+                ? "Original frame index"
+                : "Training frame order");
+            plot.YLabel("Value (-1 ~ 1)");
             plot.Title(_isFrameFilterActive
-                ? $"필터 결과 Scatter 그래프 [표시: {n} / 전체: {_allFrames.Count}]"
-                : $"조향값/스로틀 Line 그래프 [유효: {n} / 전체: {_allFrames.Count}]");
+                ? $"Filtered distribution [shown: {n} / total: {_allFrames.Count}]"
+                : $"Steering/Speed flow [train: {n} / total: {_allFrames.Count} / excluded: {_allFrames.Count(f => f.IsDeleted)}]");
             plot.Axes.SetLimitsY(-1.2, 1.2);
             plot.ShowLegend(Alignment.UpperRight);
+            plot.Axes.Color(ScottPlot.Color.FromHex("#DDE3EA"));
 
             plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#444444");
 
             _frameChart.Refresh();
             _isChartDirty = false;
+        }
+
+        private void cmbTrainingModelType_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }
