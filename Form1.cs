@@ -34,6 +34,12 @@ namespace TeamApp
         private string _currentDataFolderPath = "";
 
         private FormsPlot? _frameChart;
+        private FormsPlot? _dataViewerFrameChart;
+        private ScottPlot.Plottables.VerticalLine? _dataViewerPlayheadLine;
+        private HScrollBar? _timelineScrollBar;
+        private const int TimelineVisibleFrameWindow = 100;
+        private int _timelineViewStart = 0;
+        private bool _isSyncingTimelineScrollBar = false;
         private bool _isChartDirty = true;
         private bool _tutorialRunning = false;
         private bool _isFrameFilterActive = false;
@@ -46,6 +52,8 @@ namespace TeamApp
         private bool _showDriveOverlay = true;
         private bool _hasAutoDetectedTrainingTab = false;
         private Process? _trainingProcess;
+        private readonly Dictionary<int, Bitmap> _thumbnailCache = new();
+        private int _previousThumbnailHighlightIndex = -1;
         private Button? _btnShowReviewCandidates;
         private readonly StringBuilder _trainingOutputLineBuffer = new StringBuilder();
         private System.Windows.Forms.Label? _lblTrainingSummaryTitle;
@@ -56,10 +64,6 @@ namespace TeamApp
         private System.Windows.Forms.Label? _lblCleanupSummary;
         private System.Windows.Forms.Label? _lblCleanupWorkflowHint;
         private System.Windows.Forms.Label? _lblFrameReviewHint;
-        private System.Windows.Forms.Label? _lblCleanWorkflowSummary;
-        private System.Windows.Forms.Label? _lblSelectedFrameRange;
-        private Button? _btnSetRangeStart;
-        private Button? _btnSetRangeEnd;
         private ComboBox? _cmbPlaybackSpeed;
         private bool _isTrainingAutoDetectRunning = false;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
@@ -105,6 +109,7 @@ namespace TeamApp
             InitializeComponent();
             this.KeyPreview = true;
             this.KeyDown += Form1_KeyDown;
+            this.Size = new Size(1600, 1000);
 
             _playbackTimer = new System.Windows.Forms.Timer();
             _playbackTimer.Tick += PlayTimer_Tick;
@@ -144,10 +149,10 @@ namespace TeamApp
 
             ConfigureFrameCatalogGrid();
             ApplyDataManagerUiStyle();
+            ConfigurePlaybackSpeedComboBox();
             ConfigureReviewCandidateControls();
             ConfigureCleanupGuidanceControls();
-            ConfigureRangeSelectionControls();
-            ConfigureCleanWorkflowSummary();
+            ConfigureResponsiveDataViewerLayout();
             ArrangeDataCleanerPanel();
 
             btnExcludeSelectedFrames.Text = "선택 프레임 제외";
@@ -160,7 +165,6 @@ namespace TeamApp
 
             InitializeTrainingControls();
             LoadTrainingSettings();
-            NormalizeTrainingPathsForDisplay();
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
 
@@ -194,11 +198,8 @@ namespace TeamApp
             if (string.IsNullOrEmpty(path))
             {
                 if (string.IsNullOrEmpty(stsDataPath.Text) ||
-                    stsDataPath.Text.EndsWith("-", StringComparison.Ordinal)) return;
-                path = stsDataPath.Text
-                    .Replace("데이터 폴더: ", "")
-                    .Replace("경로: ", "")
-                    .Trim();
+                    stsDataPath.Text == "경로: -") return;
+                path = stsDataPath.Text.Replace("경로: ", "").Trim();
             }
             if (Directory.Exists(path)) _ = LoadCatalogAsync(path);
         }
@@ -396,7 +397,7 @@ namespace TeamApp
                 new TutorialStep("데이터 보기", "마지막으로", "현재 필터 결과의 마지막 프레임으로 이동합니다.", btnLast, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "자동 재생", "프레임을 지정한 간격으로 자동 재생합니다. 재생 중에는 버튼이 일시정지로 바뀝니다.", btnAutoPlay, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "재생 속도", "자동 재생 속도를 배속으로 조절합니다. 1.00x는 기본 속도이고, 숫자가 클수록 더 빠르게 넘어갑니다.", numPlaybackIntervalMs, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "왼쪽 클릭으로 원하는 프레임으로 이동합니다. 여러 프레임은 '시작 지정'과 '끝 지정' 버튼으로 선택합니다.", trkFrameTimeline, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "현재 프레임 위치를 빠르게 이동하거나, 드래그해서 시작~끝 프레임 범위를 선택할 수 있습니다.", trkFrameTimeline, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "조향값", "선택한 프레임의 Angle 값을 표시합니다. 왼쪽/오른쪽 조향 상태를 확인할 때 봅니다.", lblAngleValue, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "스로틀값", "선택한 프레임의 Throttle 값을 표시합니다. 전진/정지/후진 정도를 확인할 때 봅니다.", lblThrottleValue, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "모드", "선택한 프레임의 주행 모드 정보를 표시합니다. user/local 같은 상태를 확인합니다.", lblModeValue, tabPageDataViewer),
@@ -406,7 +407,7 @@ namespace TeamApp
                 new TutorialStep("정리", "시나리오 필터", "normal, night, turn 같은 시나리오별로 프레임을 좁혀 봅니다.", cmbScenarioFilter, tabPageDataViewer),
                 new TutorialStep("정리", "필터 적용", "입력한 범위와 선택한 모드/시나리오 조건으로 목록을 필터링합니다.", btnApplyFrameFilter, tabPageDataViewer),
                 new TutorialStep("정리", "필터 해제", "필터 조건을 풀고 원본 프레임 목록을 다시 표시합니다.", btnClearFrameFilter, tabPageDataViewer),
-                new TutorialStep("정리", "여러 프레임 선택", "표에서 행을 드래그하거나, 현재 프레임을 '시작 지정'과 '끝 지정'으로 지정해 여러 프레임을 선택합니다.", dgvFrameCatalog, tabPageDataViewer),
+                new TutorialStep("정리", "여러 프레임 선택", "표에서 마우스로 행을 드래그하거나, 아래 슬라이더를 드래그하면 여러 프레임을 한 번에 선택할 수 있습니다.", dgvFrameCatalog, tabPageDataViewer),
                 new TutorialStep("정리", "선택 프레임 제외", "선택한 여러 프레임을 학습 제외 상태로 바꿉니다. 실제 파일은 삭제하지 않고 제외 표시만 합니다.", btnExcludeSelectedFrames, tabPageDataViewer),
                 new TutorialStep("정리", "복원", "Soft Delete 처리된 프레임을 모두 다시 사용 가능 상태로 되돌립니다.", btnRestoreFrames, tabPageDataViewer),
                 new TutorialStep("정리", "클린 폴더 추출", "제외 표시된 프레임을 빼고 학습에 사용할 수 있는 Clean 폴더를 새로 만듭니다. 원본 폴더는 변경하지 않습니다.", btnExportCleanDataset, tabPageDataViewer),
@@ -768,24 +769,19 @@ namespace TeamApp
 
         private void TrkFrameTimeline_MouseDown(object? sender, MouseEventArgs e)
         {
-            if (_visibleFrames.Count == 0) return;
+            if (e.Button != MouseButtons.Left || _visibleFrames.Count == 0) return;
 
             int clickedIndex = GetTimelineIndexAt(e.X);
+
+            _isDraggingTimelineRange = true;
+            _timelineRangeStartIndex = clickedIndex;
             trkFrameTimeline.Value = clickedIndex;
-
-            if (e.Button == MouseButtons.Left)
-            {
-                _isDraggingTimelineRange = false;
-                SetIndex(clickedIndex);
-                return;
-            }
-
-            _isDraggingTimelineRange = false;
+            SelectFrameGridRange(clickedIndex, clickedIndex);
         }
 
         private void TrkFrameTimeline_MouseMove(object? sender, MouseEventArgs e)
         {
-            if (!_isDraggingTimelineRange || _visibleFrames.Count == 0) return;
+            if (!_isDraggingTimelineRange || e.Button != MouseButtons.Left || _visibleFrames.Count == 0) return;
 
             int currentIndex = GetTimelineIndexAt(e.X);
             if (trkFrameTimeline.Value != currentIndex)
@@ -796,8 +792,6 @@ namespace TeamApp
 
         private void TrkFrameTimeline_MouseUp(object? sender, MouseEventArgs e)
         {
-            if (e.Button != MouseButtons.Right) return;
-
             _isDraggingTimelineRange = false;
             _timelineRangeStartIndex = -1;
         }
@@ -822,36 +816,6 @@ namespace TeamApp
             return Math.Max(min, Math.Min(max, value));
         }
 
-        private void SetCurrentFrameAsRangePoint(bool isStart)
-        {
-            if (_visibleFrames == null || _visibleFrames.Count == 0)
-            {
-                MessageBox.Show("먼저 데이터 폴더를 열어 주세요.",
-                    "범위 선택", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            int currentIndex = Math.Clamp(_currentFrameIndex, 0, _visibleFrames.Count - 1);
-            if (isStart)
-                _timelineRangeStartIndex = currentIndex;
-            else if (_timelineRangeStartIndex < 0)
-                _timelineRangeStartIndex = currentIndex;
-
-            int from = isStart ? currentIndex : Math.Min(_timelineRangeStartIndex, currentIndex);
-            int to = isStart ? currentIndex : Math.Max(_timelineRangeStartIndex, currentIndex);
-            SelectFrameGridRange(from, to);
-            UpdateSelectedRangeLabel(from, to);
-        }
-
-        private void UpdateSelectedRangeLabel(int from, int to)
-        {
-            if (_lblSelectedFrameRange == null) return;
-
-            _lblSelectedFrameRange.Text = from == to
-                ? $"선택 범위: [{from:0000}]"
-                : $"선택 범위: [{from:0000}] ~ [{to:0000}] ({to - from + 1}개)";
-        }
-
         /// <summary>
         /// 마우스 드래그 선택에서 사용하는 범위 선택입니다.
         /// 선택 자체를 유지해야 하므로 SetIndex를 호출하지 않고 현재 행 표시만 갱신합니다.
@@ -873,8 +837,6 @@ namespace TeamApp
 
             if (endRowIndex >= 0 && endRowIndex < _visibleFrames.Count)
                 DisplayFrameAtIndex(endRowIndex);
-
-            UpdateSelectedRangeLabel(from, to);
         }
 
         /// <summary>
@@ -899,13 +861,20 @@ namespace TeamApp
             btnRestoreFrames.Text = "복원";
             btnSaveCleanupState.Text = "상태 저장";
             btnExportCleanDataset.Text = "학습용 폴더 만들기";
-            btnFirst.Text = "처음";
-            btnPrev.Text = "이전";
-            btnNext.Text = "다음";
-            btnLast.Text = "마지막";
             lblPlayInterval.Text = "재생속도";
 
-            ConfigurePlaybackSpeedComboBox();
+            // 기존 컨트롤 이름은 numPlaybackIntervalMs이지만, 화면에서는 배속 입력으로 사용합니다.
+            // 1.00x를 기준으로 내부 재생 간격을 계산해 사용자가 ms 값을 몰라도 조절할 수 있게 합니다.
+            numPlaybackIntervalMs.DecimalPlaces = 2;
+            numPlaybackIntervalMs.Increment = 0.25M;
+            numPlaybackIntervalMs.Minimum = 0.25M;
+            numPlaybackIntervalMs.Maximum = 10.00M;
+            numPlaybackIntervalMs.Value = 1.00M;
+            numPlaybackIntervalMs.ValueChanged += (_, _) =>
+            {
+                if (_isPlaybackRunning)
+                    _playbackTimer.Interval = GetPlaybackIntervalFromSpeed();
+            };
 
             foreach (var button in new[]
             {
@@ -978,91 +947,419 @@ namespace TeamApp
             btnExcludeSelectedFrames.Size = btnExcludeFrameRange.Size;
         }
 
+        private void ConfigureResponsiveDataViewerLayout()
+        {
+            tabPageDataViewer.Padding = new Padding(8);
+            statusStripDataFooter.Dock = DockStyle.Bottom;
+
+            grpDataExplorer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            grpDataCleaner.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right;
+
+            splitContainerFramePreview.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            splitContainerFramePreview.IsSplitterFixed = false;
+            splitContainerFramePreview.Panel1MinSize = 220;
+            splitContainerFramePreview.Panel2MinSize = 360;
+
+            EnsureFrameLabelDockedToGrid();
+            ConfigureFrameThumbnailStrip();
+            InitDataViewerFrameChart();
+            ApplyDataExplorerAnchors();
+
+            tabPageDataViewer.Resize += (_, _) => LayoutDataViewerResponsive();
+            grpDataExplorer.Resize += (_, _) => LayoutDataViewerResponsive();
+            splitContainerFramePreview.Resize += (_, _) => KeepFramePreviewSplitterRatio();
+
+            BeginInvoke(new Action(LayoutDataViewerResponsive));
+        }
+
+        private void ApplyDataExplorerAnchors()
+        {
+            foreach (var button in new[] { btnOpenDataFolder, btnReloadData, btnToggleTheme, btnGuide })
+                button.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+
+            foreach (var button in new[] { btnFirst, btnPrev, btnAutoPlay, btnNext, btnLast })
+                button.Anchor = AnchorStyles.Bottom;
+
+            trkFrameTimeline.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            pnlFrameThumbnailStrip.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+
+            lblPlayInterval.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            if (_cmbPlaybackSpeed != null)
+                _cmbPlaybackSpeed.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+
+            lblAngleValue.Visible = false;
+            lblThrottleValue.Visible = false;
+            lblModeValue.Visible = false;
+            if (_lblFrameReviewHint != null)
+                _lblFrameReviewHint.Visible = false;
+            numPlaybackIntervalMs.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+        }
+
+        private void EnsureFrameLabelDockedToGrid()
+        {
+            if (lblFrameValue.Parent != splitContainerFramePreview.Panel1)
+            {
+                lblFrameValue.Parent?.Controls.Remove(lblFrameValue);
+                dgvFrameCatalog.Parent?.Controls.Remove(dgvFrameCatalog);
+                splitContainerFramePreview.Panel1.Controls.Add(dgvFrameCatalog);
+                splitContainerFramePreview.Panel1.Controls.Add(lblFrameValue);
+            }
+
+            if (picFramePreview.Parent != splitContainerFramePreview.Panel2)
+            {
+                picFramePreview.Parent?.Controls.Remove(picFramePreview);
+                splitContainerFramePreview.Panel2.Controls.Add(picFramePreview);
+            }
+
+            lblFrameValue.AutoSize = false;
+            lblFrameValue.Dock = DockStyle.Top;
+            lblFrameValue.Height = 34;
+            lblFrameValue.TextAlign = ContentAlignment.MiddleCenter;
+            lblFrameValue.Font = new Font("resource/PretendardVariable.ttf", 12F, System.Drawing.FontStyle.Bold);
+            lblFrameValue.BringToFront();
+
+            dgvFrameCatalog.Dock = DockStyle.Fill;
+            picFramePreview.Dock = DockStyle.Fill;
+        }
+
+        private void LayoutDataViewerResponsive()
+        {
+            if (tabPageDataViewer.ClientSize.Width <= 0 || tabPageDataViewer.ClientSize.Height <= 0)
+                return;
+
+            int margin = 8;
+            int footerHeight = statusStripDataFooter.Visible ? statusStripDataFooter.Height : 0;
+            int availableWidth = Math.Max(760, tabPageDataViewer.ClientSize.Width - margin * 2);
+            int availableHeight = Math.Max(520, tabPageDataViewer.ClientSize.Height - footerHeight - margin * 2);
+            int chartGap = 8;
+            int chartHeight = availableHeight >= 700
+                ? Math.Clamp((int)(availableHeight * 0.28), 210, 280)
+                : Math.Clamp((int)(availableHeight * 0.24), 110, 190);
+            int explorerHeight = Math.Max(360, availableHeight - chartHeight - chartGap);
+
+            grpDataExplorer.Location = new Point(margin, margin);
+            grpDataExplorer.Size = new Size(availableWidth, explorerHeight);
+
+            int chartY = grpDataExplorer.Bottom + chartGap;
+            pnlDataViewerChartHost.Location = new Point(margin, chartY);
+            pnlDataViewerChartHost.Size = new Size(availableWidth, Math.Max(0, chartHeight));
+            pnlDataViewerChartHost.Visible = chartHeight >= 60;
+
+            LayoutDataExplorerContent();
+            ArrangeDataCleanerPanel();
+            LayoutCleanupGuidanceControls();
+
+            statusStripDataFooter.BringToFront();
+        }
+
+        private void LayoutDataExplorerContent()
+        {
+            int width = Math.Max(760, grpDataExplorer.ClientSize.Width);
+            int height = Math.Max(360, grpDataExplorer.ClientSize.Height);
+            int margin = 14;
+            int toolbarY = 22;
+            int toolbarGap = 8;
+            int toolbarButtonWidth = 112;
+            int toolbarButtonHeight = 28;
+
+            var toolbarButtons = new[] { btnOpenDataFolder, btnReloadData, btnToggleTheme, btnGuide };
+            for (int i = 0; i < toolbarButtons.Length; i++)
+            {
+                toolbarButtons[i].Location = new Point(margin + i * (toolbarButtonWidth + toolbarGap), toolbarY);
+                toolbarButtons[i].Size = new Size(toolbarButtonWidth, toolbarButtonHeight);
+            }
+
+            int contentTop = toolbarY + toolbarButtonHeight + 12;
+            int playbackButtonHeight = 32;
+            int playbackY = Math.Max(contentTop + 250, height - 53);
+            int timelineHeight = 42;
+            int timelineY = Math.Max(contentTop + 190, playbackY - timelineHeight - 8);
+            int thumbnailHeight = 58;
+            int thumbnailY = Math.Max(contentTop + 120, timelineY - thumbnailHeight - 8);
+            int splitHeight = Math.Max(120, thumbnailY - contentTop - 10);
+            int cleanerWidth = Math.Clamp(width / 4, 300, 380);
+            int cleanerLeft = width - margin - cleanerWidth;
+            int editorLeft = margin;
+            int editorRight = cleanerLeft - 12;
+            int editorWidth = Math.Max(560, editorRight - editorLeft);
+
+            grpDataCleaner.Location = new Point(cleanerLeft, contentTop);
+            grpDataCleaner.Size = new Size(cleanerWidth, splitHeight);
+
+            splitContainerFramePreview.Location = new Point(editorLeft, contentTop);
+            splitContainerFramePreview.Size = new Size(editorWidth, splitHeight);
+            KeepFramePreviewSplitterRatio();
+
+            pnlFrameThumbnailStrip.Location = new Point(margin, thumbnailY);
+            pnlFrameThumbnailStrip.Size = new Size(width - margin * 2, thumbnailHeight);
+            UpdateThumbnailStripScrollArea();
+
+            trkFrameTimeline.Location = new Point(margin, timelineY);
+            trkFrameTimeline.Size = new Size(width - margin * 2, timelineHeight);
+
+            LayoutPlaybackControls(playbackY, playbackButtonHeight);
+        }
+
+        private void LayoutPlaybackControls(int y, int height)
+        {
+            int smallWidth = 42;
+            int playWidth = 92;
+            int speedLabelWidth = 64;
+            int speedInputWidth = 86;
+            int gap = 8;
+            int margin = 14;
+            int buttonGroupWidth = smallWidth * 4 + playWidth + gap * 4;
+            int x = Math.Max(margin, (grpDataExplorer.ClientSize.Width - buttonGroupWidth) / 2);
+
+            btnFirst.SetBounds(x, y, smallWidth, height);
+            btnPrev.SetBounds(btnFirst.Right + gap, y, smallWidth, height);
+            btnAutoPlay.SetBounds(btnPrev.Right + gap, y, playWidth, height);
+            btnNext.SetBounds(btnAutoPlay.Right + gap, y, smallWidth, height);
+            btnLast.SetBounds(btnNext.Right + gap, y, smallWidth, height);
+
+            int speedX = Math.Max(btnLast.Right + gap * 3, grpDataExplorer.ClientSize.Width - margin - speedInputWidth - gap - speedLabelWidth);
+            lblPlayInterval.SetBounds(speedX, y + 4, speedLabelWidth, height - 4);
+            if (_cmbPlaybackSpeed != null)
+            {
+                _cmbPlaybackSpeed.SetBounds(lblPlayInterval.Right + gap, y + 2, speedInputWidth, height - 4);
+                _cmbPlaybackSpeed.BringToFront();
+            }
+            else
+            {
+                numPlaybackIntervalMs.SetBounds(lblPlayInterval.Right + gap, y + 3, speedInputWidth, height - 6);
+            }
+        }
+
+        private void KeepFramePreviewSplitterRatio()
+        {
+            int width = splitContainerFramePreview.ClientSize.Width;
+            if (width <= splitContainerFramePreview.Panel1MinSize + splitContainerFramePreview.Panel2MinSize)
+                return;
+
+            int target = Math.Clamp(300, splitContainerFramePreview.Panel1MinSize, width - splitContainerFramePreview.Panel2MinSize);
+            if (Math.Abs(splitContainerFramePreview.SplitterDistance - target) > 8)
+                splitContainerFramePreview.SplitterDistance = target;
+        }
+
+        private void ConfigureFrameThumbnailStrip()
+        {
+            pnlFrameThumbnailStrip.AutoScroll = false;
+            pnlFrameThumbnailStrip.BackColor = System.Drawing.Color.FromArgb(28, 31, 36);
+            pnlFrameThumbnailStrip.Paint += PnlFrameThumbnailStrip_Paint;
+            pnlFrameThumbnailStrip.MouseClick += PnlFrameThumbnailStrip_MouseClick;
+            pnlFrameThumbnailStrip.Resize += (_, _) => pnlFrameThumbnailStrip.Invalidate();
+        }
+
+        private void UpdateThumbnailStripScrollArea()
+        {
+            pnlFrameThumbnailStrip.AutoScrollMinSize = Size.Empty;
+        }
+
+        private void PnlFrameThumbnailStrip_MouseClick(object? sender, MouseEventArgs e)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0) return;
+
+            const int itemWidth = 80;
+            const int pitch = 88;
+            int currentIndex = Math.Clamp(_currentFrameIndex, 0, _visibleFrames.Count - 1);
+            int centerLeft = (pnlFrameThumbnailStrip.ClientSize.Width - itemWidth) / 2;
+            int slidingOffsetX = centerLeft - currentIndex * pitch;
+            int index = (int)Math.Round((e.X - slidingOffsetX) / (double)pitch);
+
+            if (index >= 0 && index < _visibleFrames.Count)
+                SetIndex(index);
+        }
+
+        private void PnlFrameThumbnailStrip_Paint(object? sender, PaintEventArgs e)
+        {
+            e.Graphics.Clear(System.Drawing.Color.FromArgb(28, 31, 36));
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+            {
+                TextRenderer.DrawText(e.Graphics, "프레임 썸네일", new Font("resource/PretendardVariable.ttf", 9F),
+                    pnlFrameThumbnailStrip.ClientRectangle, System.Drawing.Color.Gainsboro,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                return;
+            }
+
+            const int itemWidth = 80;
+            const int itemHeight = 44;
+            const int pitch = 88;
+            int top = Math.Max(4, (pnlFrameThumbnailStrip.ClientSize.Height - itemHeight) / 2 - 2);
+            int currentIndex = Math.Clamp(_currentFrameIndex, 0, _visibleFrames.Count - 1);
+            int centerLeft = (pnlFrameThumbnailStrip.ClientSize.Width - itemWidth) / 2;
+            int slidingOffsetX = centerLeft - currentIndex * pitch;
+            int first = Math.Max(0, (int)Math.Floor((-slidingOffsetX - pitch) / (double)pitch));
+            int last = Math.Min(_visibleFrames.Count - 1,
+                (int)Math.Ceiling((pnlFrameThumbnailStrip.ClientSize.Width - slidingOffsetX + pitch) / (double)pitch));
+
+            using var borderPen = new Pen(System.Drawing.Color.FromArgb(88, 96, 110));
+            using var centerHighlightPen = new Pen(System.Drawing.Color.FromArgb(0, 220, 120), 4);
+            using var centerGlowPen = new Pen(System.Drawing.Color.FromArgb(170, 0, 220, 120), 7);
+            using var deletedBrush = new SolidBrush(System.Drawing.Color.FromArgb(120, 30, 30, 30));
+            using var reviewPen = new Pen(System.Drawing.Color.FromArgb(255, 152, 0), 2);
+
+            for (int i = first; i <= last; i++)
+            {
+                int x = slidingOffsetX + i * pitch;
+                var rect = new Rectangle(x, top, itemWidth, itemHeight);
+                var frame = _visibleFrames[i];
+
+                Bitmap? thumbnail = GetFrameThumbnail(i);
+                if (thumbnail != null)
+                    e.Graphics.DrawImage(thumbnail, rect);
+                else
+                    e.Graphics.FillRectangle(Brushes.DimGray, rect);
+
+                if (frame.IsDeleted)
+                    e.Graphics.FillRectangle(deletedBrush, rect);
+
+                e.Graphics.DrawRectangle(frame.NeedsReview ? reviewPen : borderPen, rect);
+            }
+
+            var centerRect = new Rectangle(centerLeft, top, itemWidth, itemHeight);
+            e.Graphics.DrawRectangle(centerGlowPen, Rectangle.Inflate(centerRect, 4, 4));
+            e.Graphics.DrawRectangle(centerHighlightPen, Rectangle.Inflate(centerRect, 3, 3));
+        }
+
+        private Bitmap? GetFrameThumbnail(int index)
+        {
+            if (_visibleFrames == null || index < 0 || index >= _visibleFrames.Count)
+                return null;
+
+            if (_thumbnailCache.TryGetValue(index, out Bitmap? cached))
+                return cached;
+
+            string path = ResolveImagePath(_visibleFrames[index].Name);
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                return null;
+
+            try
+            {
+                using var fs = File.OpenRead(path);
+                using var image = System.Drawing.Image.FromStream(fs);
+                var thumbnail = new Bitmap(80, 44);
+                using (Graphics graphics = Graphics.FromImage(thumbnail))
+                {
+                    graphics.Clear(System.Drawing.Color.FromArgb(35, 38, 44));
+                    graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+
+                    float scale = Math.Min(80f / image.Width, 44f / image.Height);
+                    int drawWidth = Math.Max(1, (int)(image.Width * scale));
+                    int drawHeight = Math.Max(1, (int)(image.Height * scale));
+                    int x = (80 - drawWidth) / 2;
+                    int y = (44 - drawHeight) / 2;
+                    graphics.DrawImage(image, x, y, drawWidth, drawHeight);
+                }
+
+                _thumbnailCache[index] = thumbnail;
+                TrimThumbnailCache();
+                return thumbnail;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void TrimThumbnailCache()
+        {
+            if (_thumbnailCache.Count <= 240) return;
+
+            var keep = new HashSet<int>();
+            int first = Math.Max(0, _currentFrameIndex - 80);
+            int last = Math.Min((_visibleFrames?.Count ?? 0) - 1, _currentFrameIndex + 80);
+            for (int i = first; i <= last; i++)
+                keep.Add(i);
+
+            foreach (int key in _thumbnailCache.Keys.ToList())
+            {
+                if (keep.Contains(key)) continue;
+                _thumbnailCache[key].Dispose();
+                _thumbnailCache.Remove(key);
+            }
+        }
+
+        private void ClearThumbnailCache()
+        {
+            foreach (Bitmap bitmap in _thumbnailCache.Values)
+                bitmap.Dispose();
+            _thumbnailCache.Clear();
+        }
+
+        private void RefreshFilmstripHighlight(bool forceFullRefresh = false)
+        {
+            if (pnlFrameThumbnailStrip.IsDisposed) return;
+
+            pnlFrameThumbnailStrip.Invalidate();
+            pnlFrameThumbnailStrip.Update();
+            _previousThumbnailHighlightIndex = _currentFrameIndex;
+        }
+
+        private void ScrollThumbnailToCurrentFrame()
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0) return;
+            RefreshFilmstripHighlight(forceFullRefresh: true);
+        }
+
         /// <summary>
         /// 데이터 정리 패널 안의 입력, 버튼, 상태 안내가 서로 겹치지 않도록 한곳에서 위치를 계산합니다.
         /// WinForms 디자이너 좌표는 화면 크기에 취약하므로, 실행 시 현재 패널 폭을 기준으로 다시 배치합니다.
         /// </summary>
         private void ArrangeDataCleanerPanel()
         {
-            int panelWidth = Math.Max(900, grpDataCleaner.ClientSize.Width);
-            grpDataCleaner.Dock = DockStyle.None;
-            grpDataCleaner.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
-
-            int left = panelWidth < 1400 ? 58 : 88;
-            int labelWidth = panelWidth < 1400 ? 200 : 170;
-            int inputWidth = panelWidth < 1400 ? 120 : 130;
-            int row1 = 76;
-            int row2 = 118;
-            int rowHeight = 30;
+            int panelWidth = Math.Max(280, grpDataCleaner.ClientSize.Width);
+            int panelHeight = Math.Max(240, grpDataCleaner.ClientSize.Height);
+            int left = 14;
+            int rightPadding = 14;
+            int contentWidth = Math.Max(220, panelWidth - left - rightPadding);
+            int labelWidth = Math.Clamp(contentWidth / 3, 92, 112);
+            int inputGap = 6;
+            int inputWidth = Math.Max(52, (contentWidth - labelWidth - 22 - inputGap * 3) / 2);
+            int row1 = 30;
+            int row2 = 62;
+            int row3 = 92;
+            int row4 = 122;
+            int rowHeight = 27;
 
             int minX = left + labelWidth;
-            int separatorX = minX + inputWidth + 16;
-            int maxX = separatorX + 28;
+            int separatorX = minX + inputWidth + inputGap;
+            int maxX = separatorX + 22;
 
-            int buttonWidth = panelWidth < 1400 ? 180 : 215;
-            int buttonHeight = 30;
-            int buttonGap = panelWidth < 1400 ? 12 : 18;
-            int rightMargin = panelWidth < 1400 ? 18 : 84;
-            int buttonCol2X = panelWidth - rightMargin - buttonWidth;
-            int buttonCol1X = buttonCol2X - buttonWidth - buttonGap;
-
-            int comboLabelWidth = panelWidth < 1400 ? 96 : 105;
-            int comboLabelX = Math.Min(maxX + inputWidth + 36, buttonCol1X - 420);
-            int comboX = comboLabelX + comboLabelWidth;
-            int comboWidth = Math.Max(220, Math.Min(panelWidth < 1400 ? 320 : 380, buttonCol1X - comboX - 18));
+            int comboLabelX = left;
+            int comboX = left + 82;
+            int comboWidth = Math.Max(120, contentWidth - 82);
+            int buttonWidth = contentWidth;
+            int sectionGap = panelHeight < 360 ? 10 : 16;
+            int buttonGap = panelHeight < 330 ? 5 : 8;
+            int buttonHeight = Math.Clamp((panelHeight - 230) / 8, 24, 32);
 
             PlaceFilterRangeRow(lblAngleRange, txtAngleMinFilter, lblAngleRangeSeparator, txtAngleMaxFilter,
                 left, minX, separatorX, maxX, row1, labelWidth, inputWidth, rowHeight);
             PlaceFilterRangeRow(lblThrottleRange, txtThrottleMinFilter, lblThrottleRangeSeparator, txtThrottleMaxFilter,
                 left, minX, separatorX, maxX, row2, labelWidth, inputWidth, rowHeight);
 
-            PlaceFilterComboRow(lblModeFilter, cmbModeFilter, comboLabelX, comboX, row1, comboLabelWidth, comboWidth, rowHeight);
-            PlaceFilterComboRow(lblScenarioFilter, cmbScenarioFilter, comboLabelX, comboX, row2, comboLabelWidth, comboWidth, rowHeight);
+            PlaceFilterComboRow(lblModeFilter, cmbModeFilter, comboLabelX, comboX, row3, comboWidth, rowHeight);
+            PlaceFilterComboRow(lblScenarioFilter, cmbScenarioFilter, comboLabelX, comboX, row4, comboWidth, rowHeight);
 
-            if (_lblCleanWorkflowSummary != null)
-            {
-                _lblCleanWorkflowSummary.Location = new Point(left, 30);
-                _lblCleanWorkflowSummary.Size = new Size(Math.Max(300, buttonCol1X - left - 20), 26);
-            }
-
-            if (_btnSetRangeStart != null)
-                PlaceButton(_btnSetRangeStart, buttonCol1X, 30, buttonWidth, buttonHeight);
-            if (_btnSetRangeEnd != null)
-                PlaceButton(_btnSetRangeEnd, buttonCol2X, 30, buttonWidth, buttonHeight);
-            if (_lblSelectedFrameRange != null)
-            {
-                _lblSelectedFrameRange.Location = new Point(buttonCol1X, 62);
-                _lblSelectedFrameRange.Size = new Size(buttonWidth * 2 + buttonGap, 24);
-            }
+            int buttonY = row4 + rowHeight + sectionGap;
+            PlaceButton(btnApplyFrameFilter, left, buttonY, buttonWidth, buttonHeight);
+            PlaceButton(btnClearFrameFilter, left, buttonY += buttonHeight + buttonGap, buttonWidth, buttonHeight);
 
             if (_btnShowReviewCandidates != null)
-                PlaceButton(_btnShowReviewCandidates, buttonCol1X, 88, buttonWidth, buttonHeight);
-
-            PlaceButton(btnExcludeSelectedFrames, buttonCol2X, 88, buttonWidth, buttonHeight);
-            PlaceButton(btnApplyFrameFilter, buttonCol1X, 120, buttonWidth, buttonHeight);
-            PlaceButton(btnClearFrameFilter, buttonCol2X, 120, buttonWidth, buttonHeight);
-            PlaceButton(btnExportCleanDataset, buttonCol1X, 152, buttonWidth, buttonHeight);
-            PlaceButton(btnRestoreFrames, buttonCol2X, 152, buttonWidth, buttonHeight);
-            PlaceButton(btnSaveCleanupState, buttonCol1X, 184, buttonWidth, buttonHeight);
-
-            if (panelWidth < 1180)
             {
-                int singleColX = panelWidth - rightMargin - buttonWidth;
-                PlaceButton(_btnSetRangeStart!, singleColX, 24, buttonWidth, buttonHeight);
-                PlaceButton(_btnSetRangeEnd!, singleColX, 56, buttonWidth, buttonHeight);
-                if (_lblSelectedFrameRange != null)
-                {
-                    _lblSelectedFrameRange.Location = new Point(singleColX, 88);
-                    _lblSelectedFrameRange.Size = new Size(buttonWidth, 24);
-                }
-                PlaceButton(_btnShowReviewCandidates!, singleColX, 116, buttonWidth, buttonHeight);
-                PlaceButton(btnExcludeSelectedFrames, singleColX, 148, buttonWidth, buttonHeight);
-                PlaceButton(btnApplyFrameFilter, singleColX, 180, buttonWidth, buttonHeight);
-                PlaceButton(btnClearFrameFilter, singleColX, 212, buttonWidth, buttonHeight);
-                PlaceButton(btnExportCleanDataset, singleColX, 244, buttonWidth, buttonHeight);
-                PlaceButton(btnRestoreFrames, singleColX, 276, buttonWidth, buttonHeight);
-                PlaceButton(btnSaveCleanupState, singleColX, 308, buttonWidth, buttonHeight);
+                PlaceButton(_btnShowReviewCandidates, left, buttonY += buttonHeight + buttonGap, buttonWidth, buttonHeight);
+                buttonY += buttonHeight + buttonGap;
             }
+
+            PlaceButton(btnExcludeSelectedFrames, left, buttonY, buttonWidth, buttonHeight);
+            PlaceButton(btnRestoreFrames, left, buttonY += buttonHeight + buttonGap, buttonWidth, buttonHeight);
+
+            int finalActionY = Math.Max(buttonY + buttonHeight + sectionGap, panelHeight - (buttonHeight * 2 + buttonGap + 18));
+            PlaceButton(btnSaveCleanupState, left, finalActionY, buttonWidth, buttonHeight);
+            PlaceButton(btnExportCleanDataset, left, finalActionY + buttonHeight + buttonGap, buttonWidth, buttonHeight);
 
             LayoutCleanupGuidanceControls();
         }
@@ -1098,35 +1395,36 @@ namespace TeamApp
             int labelX,
             int comboX,
             int y,
-            int labelWidth,
             int comboWidth,
             int rowHeight)
         {
             label.AutoSize = false;
             label.Location = new Point(labelX, y + 3);
-            label.Size = new Size(labelWidth, rowHeight);
+            label.Size = new Size(84, rowHeight);
             comboBox.Location = new Point(comboX, y);
             comboBox.Size = new Size(comboWidth, rowHeight);
         }
 
         private static void PlaceButton(Button button, int x, int y, int width, int height)
         {
-            if (button == null) return;
             button.Location = new Point(x, y);
             button.Size = new Size(width, height);
-            button.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            button.Enabled = true;
-            button.BringToFront();
+            button.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         }
 
         /// <summary>
         /// 오른쪽 프레임 정보 영역을 촘촘하게 재배치합니다.
         /// 검토 힌트와 재생속도 입력이 겹치지 않도록 런타임에서 위치를 정리합니다.
         /// </summary>
-        private void ArrangeFrameInfoPanel()
+        private void ArrangeFrameInfoPanel() => ArrangeFrameInfoPanel(Math.Max(0, grpDataExplorer.ClientSize.Height - 54));
+
+        private void ArrangeFrameInfoPanel(int playbackY)
         {
-            int left = lblFrameValue.Left;
-            int width = lblFrameValue.Width;
+            int margin = 14;
+            int y = Math.Max(splitContainerFramePreview.Bottom + 8, playbackY - 42);
+            int availableWidth = Math.Max(360, grpDataExplorer.ClientSize.Width - margin * 2);
+            int gap = 12;
+            int valueWidth = Math.Max(150, (availableWidth - gap * 3) / 4);
 
             lblFrameValue.Font = new Font("resource/PretendardVariable.ttf", 12F, System.Drawing.FontStyle.Bold);
             lblAngleValue.Font = new Font("resource/PretendardVariable.ttf", 10.5F);
@@ -1134,21 +1432,20 @@ namespace TeamApp
             lblModeValue.Font = new Font("resource/PretendardVariable.ttf", 10.5F);
             lblPlayInterval.Font = new Font("resource/PretendardVariable.ttf", 9.5F, System.Drawing.FontStyle.Bold);
 
-            lblFrameValue.Location = new Point(left, 58);
-            lblFrameValue.Size = new Size(width, 32);
-            lblAngleValue.Location = new Point(left, 212);
-            lblAngleValue.Size = new Size(width, 31);
-            lblThrottleValue.Location = new Point(left, 245);
-            lblThrottleValue.Size = new Size(width, 42);
-            lblModeValue.Location = new Point(left, 289);
-            lblModeValue.Size = new Size(width, 30);
+            lblFrameValue.BringToFront();
 
-            lblPlayInterval.Location = new Point(left, 414);
-            lblPlayInterval.Size = new Size(92, 28);
-            if (_cmbPlaybackSpeed != null)
+            lblAngleValue.Location = new Point(margin, y);
+            lblAngleValue.Size = new Size(valueWidth, 28);
+            lblThrottleValue.Location = new Point(lblAngleValue.Right + gap, y);
+            lblThrottleValue.Size = new Size(valueWidth, 28);
+            lblModeValue.Location = new Point(lblThrottleValue.Right + gap, y);
+            lblModeValue.Size = new Size(valueWidth, 28);
+
+            if (_lblFrameReviewHint != null)
             {
-                _cmbPlaybackSpeed.Location = new Point(left + 84, 410);
-                _cmbPlaybackSpeed.Size = new Size(Math.Max(90, width - 90), 28);
+                _lblFrameReviewHint.Location = new Point(lblModeValue.Right + gap, y);
+                _lblFrameReviewHint.Size = new Size(Math.Max(160, availableWidth - (lblModeValue.Right + gap - margin)), 40);
+                _lblFrameReviewHint.BringToFront();
             }
         }
 
@@ -1213,7 +1510,7 @@ namespace TeamApp
                 _lblCleanupWorkflowHint = new System.Windows.Forms.Label
                 {
                     Name = "lblCleanupWorkflowHint",
-                    Text = "대량 정리: 표 드래그 또는 시작/끝 지정 -> '선택 제외' -> Ctrl+S 저장",
+                    Text = "대량 정리: 표/트랙바 드래그 선택 -> Delete 또는 '선택 제외' -> Ctrl+S 저장",
                     Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                     Font = new System.Drawing.Font("resource/PretendardVariable.ttf", 9F),
                     ForeColor = System.Drawing.Color.DimGray
@@ -1226,87 +1523,35 @@ namespace TeamApp
             LayoutCleanupGuidanceControls();
         }
 
-        private void ConfigureRangeSelectionControls()
-        {
-            if (_btnSetRangeStart == null)
-            {
-                _btnSetRangeStart = new Button
-                {
-                    Name = "btnSetRangeStart",
-                    Text = "시작 지정",
-                    UseVisualStyleBackColor = false,
-                    BackColor = System.Drawing.Color.FromArgb(245, 249, 255),
-                    Font = new Font("resource/PretendardVariable.ttf", 9F)
-                };
-                _btnSetRangeStart.Click += (_, _) => SetCurrentFrameAsRangePoint(isStart: true);
-                grpDataCleaner.Controls.Add(_btnSetRangeStart);
-                _btnSetRangeStart.BringToFront();
-            }
-
-            if (_btnSetRangeEnd == null)
-            {
-                _btnSetRangeEnd = new Button
-                {
-                    Name = "btnSetRangeEnd",
-                    Text = "끝 지정",
-                    UseVisualStyleBackColor = false,
-                    BackColor = System.Drawing.Color.FromArgb(245, 249, 255),
-                    Font = new Font("resource/PretendardVariable.ttf", 9F)
-                };
-                _btnSetRangeEnd.Click += (_, _) => SetCurrentFrameAsRangePoint(isStart: false);
-                grpDataCleaner.Controls.Add(_btnSetRangeEnd);
-                _btnSetRangeEnd.BringToFront();
-            }
-
-            if (_lblSelectedFrameRange == null)
-            {
-                _lblSelectedFrameRange = new System.Windows.Forms.Label
-                {
-                    Name = "lblSelectedFrameRange",
-                    Text = "선택 범위: -",
-                    AutoSize = false,
-                    Font = new Font("resource/PretendardVariable.ttf", 9F),
-                    ForeColor = System.Drawing.Color.FromArgb(70, 70, 70)
-                };
-                grpDataCleaner.Controls.Add(_lblSelectedFrameRange);
-                _lblSelectedFrameRange.BringToFront();
-            }
-        }
-
-        private void ConfigureCleanWorkflowSummary()
-        {
-            if (_lblCleanWorkflowSummary != null) return;
-
-            _lblCleanWorkflowSummary = new System.Windows.Forms.Label
-            {
-                Name = "lblCleanWorkflowSummary",
-                Text = "학습 데이터 흐름: 원본 보존 -> 제외 표시 저장 -> Clean 폴더 생성 -> Clean 폴더로 학습",
-                AutoSize = false,
-                Font = new Font("resource/PretendardVariable.ttf", 9.5F, System.Drawing.FontStyle.Bold),
-                ForeColor = System.Drawing.Color.FromArgb(35, 80, 120)
-            };
-            grpDataCleaner.Controls.Add(_lblCleanWorkflowSummary);
-            _lblCleanWorkflowSummary.BringToFront();
-        }
-
         private void LayoutCleanupGuidanceControls()
         {
+            if (grpDataCleaner.ClientSize.Width < 420)
+            {
+                if (_lblCleanupSummary != null)
+                    _lblCleanupSummary.Visible = false;
+                if (_lblCleanupWorkflowHint != null)
+                    _lblCleanupWorkflowHint.Visible = false;
+                return;
+            }
+
             int buttonLeft = btnApplyFrameFilter.Left > 0
                 ? btnApplyFrameFilter.Left
                 : grpDataCleaner.ClientSize.Width - 500;
             int width = Math.Max(300, buttonLeft - 36);
-            int y = Math.Max(168, grpDataCleaner.ClientSize.Height - 44);
+            int y = Math.Max(148, grpDataCleaner.ClientSize.Height - 54);
 
             if (_lblCleanupSummary != null)
             {
+                _lblCleanupSummary.Visible = true;
                 _lblCleanupSummary.Location = new Point(20, y);
-                _lblCleanupSummary.Size = new Size(width, 19);
+                _lblCleanupSummary.Size = new Size(width, 22);
             }
 
             if (_lblCleanupWorkflowHint != null)
             {
-                _lblCleanupWorkflowHint.Location = new Point(20, y + 19);
-                _lblCleanupWorkflowHint.Size = new Size(width, 19);
+                _lblCleanupWorkflowHint.Visible = true;
+                _lblCleanupWorkflowHint.Location = new Point(20, y + 23);
+                _lblCleanupWorkflowHint.Size = new Size(width, 22);
             }
         }
 
@@ -1404,6 +1649,10 @@ namespace TeamApp
             dgvFrameCatalog.DataSource = null;
             dgvFrameCatalog.DataSource = _visibleFrames;
             ApplyFrameCatalogRowStyle();
+            ClearThumbnailCache();
+            UpdateThumbnailStripScrollArea();
+            RefreshFilmstripHighlight(forceFullRefresh: true);
+            RenderDataViewerFrameChart();
 
             trkFrameTimeline.Minimum = 0;
             trkFrameTimeline.Maximum = Math.Max(0, _visibleFrames.Count - 1);
@@ -1453,6 +1702,8 @@ namespace TeamApp
 
             if (trkFrameTimeline.Value != idx)
                 trkFrameTimeline.Value = idx;
+            RefreshFilmstripHighlight();
+            UpdateDataViewerTimelinePlayhead(autoScroll: _isPlaybackRunning);
 
             var frame = _visibleFrames[idx];
 
@@ -1470,6 +1721,7 @@ namespace TeamApp
                     ? System.Drawing.Color.FromArgb(150, 95, 0)
                     : System.Drawing.Color.DimGray;
             }
+            ScrollThumbnailToCurrentFrame();
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
         }
@@ -1564,18 +1816,19 @@ namespace TeamApp
 
         private int GetPlaybackIntervalFromSpeed()
         {
-            int speed = 1;
-            if (_cmbPlaybackSpeed?.SelectedItem != null)
+            decimal speed = 1.0M;
+            if (_cmbPlaybackSpeed?.SelectedItem is string selectedSpeed &&
+                int.TryParse(selectedSpeed.Replace("배", string.Empty), out int comboSpeed))
             {
-                string text = _cmbPlaybackSpeed.SelectedItem.ToString() ?? "1배";
-                string numberText = text.Replace("배", "").Trim();
-                if (!int.TryParse(numberText, out speed))
-                    speed = 1;
+                speed = Math.Clamp(comboSpeed, 1, 10);
+            }
+            else
+            {
+                speed = Math.Max(0.25M, numPlaybackIntervalMs.Value);
             }
 
-            speed = Math.Clamp(speed, 1, 10);
             const int baseIntervalMs = 200;
-            return Math.Max(20, baseIntervalMs / speed);
+            return Math.Max(20, (int)Math.Round(baseIntervalMs / speed));
         }
 
         private void TogglePlayPause()
@@ -1915,10 +2168,7 @@ namespace TeamApp
                 int cleanedCatalogCount = RewriteCleanCatalogFiles(cleanFolder, deletedNames);
 
                 MessageBox.Show(
-                    "학습용 Clean 폴더가 생성되었습니다.\n\n" +
-                    "원본 폴더는 그대로 보존됩니다.\n" +
-                    "Clean 폴더에는 제외 표시된 프레임을 제거한 학습용 데이터만 들어갑니다.\n\n" +
-                    $"Clean 경로: {cleanFolder}\n삭제된 이미지: {deletedImageCount}개\n정제된 카탈로그: {cleanedCatalogCount}개",
+                    $"학습용 Clean 폴더가 생성되었습니다.\n\n경로: {cleanFolder}\n삭제된 이미지: {deletedImageCount}개\n정제된 카탈로그: {cleanedCatalogCount}개",
                     "클린 폴더 추출 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                 var useForTraining = MessageBox.Show(
@@ -2447,10 +2697,12 @@ namespace TeamApp
 
                 _allFrames = frames;
                 _hasUnsavedCleanupChanges = false;
+                _timelineViewStart = 0;
+                _previousThumbnailHighlightIndex = -1;
                 // 초기 로드: 전체 프레임을 표시합니다.
                 RefreshFrameBinding();  // _visibleFrames 설정과 RefreshFrameView 호출
 
-                UpdateDataFolderStatus(folder);
+                stsDataPath.Text = "경로: " + folder;
                 _isChartDirty = true;
                 SetIndex(0);
             }
@@ -2465,29 +2717,20 @@ namespace TeamApp
             }
         }
 
-        private void UpdateDataFolderStatus(string folder)
-        {
-            string displayPath = string.IsNullOrWhiteSpace(folder) ? "경로: -" : "데이터 폴더: " + folder;
-            stsDataPath.Text = displayPath;
-            stsDataFooterPath.Text = displayPath;
-        }
-
         // 학습 실행 기능
 
         private void InitializeTrainingControls()
         {
-            lblEpoch.Text = "학습 횟수";
-
             cmbTrainingModelType.Items.Clear();
             cmbTrainingModelType.Items.AddRange(new object[] { "linear", "inferred", "tensorrt_linear", "tflite_linear", "categorical", "rnn", "3d", "imu", "behavior" });
             if (string.IsNullOrWhiteSpace(cmbTrainingModelType.Text))
                 cmbTrainingModelType.Text = "linear";
 
             if (string.IsNullOrWhiteSpace(txtTrainingTubPath.Text))
-                txtTrainingTubPath.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "data");
+                txtTrainingTubPath.Text = "data";
 
             if (string.IsNullOrWhiteSpace(txtTrainingModelPath.Text))
-                txtTrainingModelPath.Text = GetDefaultTrainingModelPath();
+                txtTrainingModelPath.Text = "models/pilot.keras";
 
             numTrainingEpochs.Minimum = 1;
             numTrainingEpochs.Maximum = 10000;
@@ -2504,49 +2747,13 @@ namespace TeamApp
             tabTrainingMonitor.Resize += (_, _) => LayoutTrainingTab();
         }
 
-        private string GetDefaultTrainingModelPath()
-        {
-            string modelFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "donkeycar_models");
-            Directory.CreateDirectory(modelFolder);
-            return Path.Combine(modelFolder, "pilot.keras");
-        }
-
-        private void NormalizeTrainingPathsForDisplay()
-        {
-            txtTrainingTubPath.Text = NormalizeWindowsTrainingPath(
-                txtTrainingTubPath.Text,
-                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
-
-            txtTrainingModelPath.Text = NormalizeWindowsTrainingPath(
-                txtTrainingModelPath.Text,
-                Path.GetDirectoryName(GetDefaultTrainingModelPath()) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
-        }
-
-        private string NormalizeWindowsTrainingPath(string path, string baseFolder)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-                return path;
-
-            string trimmed = path.Trim();
-            if (trimmed.StartsWith("~/", StringComparison.Ordinal) || trimmed.StartsWith("/", StringComparison.Ordinal))
-                return trimmed;
-
-            if (Path.IsPathRooted(trimmed))
-                return Path.GetFullPath(trimmed);
-
-            Directory.CreateDirectory(baseFolder);
-            return Path.GetFullPath(Path.Combine(baseFolder, Path.GetFileName(trimmed)));
-        }
-
         private void ConfigureTrainingSummaryLabels()
         {
             _lblTrainingSummaryTitle ??= CreateTrainingSummaryLabel("lblTrainingSummaryTitle", "학습 요약", true);
             _lblTrainingSummaryStatus ??= CreateTrainingSummaryLabel("lblTrainingSummaryStatus", "상태: 대기", false);
-            _lblTrainingSummaryEpoch ??= CreateTrainingSummaryLabel("lblTrainingSummaryEpoch", "학습 횟수: -", false);
+            _lblTrainingSummaryEpoch ??= CreateTrainingSummaryLabel("lblTrainingSummaryEpoch", "Epoch: -", false);
             _lblTrainingSummaryProgress ??= CreateTrainingSummaryLabel("lblTrainingSummaryProgress", "진행률: -", false);
-            _lblTrainingSummaryLoss ??= CreateTrainingSummaryLabel("lblTrainingSummaryLoss", "점수(높을수록 좋음): -", false);
+            _lblTrainingSummaryLoss ??= CreateTrainingSummaryLabel("lblTrainingSummaryLoss", "loss: -", false);
         }
 
         private System.Windows.Forms.Label CreateTrainingSummaryLabel(string name, string text, bool bold)
@@ -2709,20 +2916,16 @@ namespace TeamApp
                 return;
             }
 
-            if (!HasTrainingEnvironmentInputs())
+            bool detected = await DetectTrainingEnvironmentAsync(showSuccessMessage: false, clearLog: false);
+            if (!detected)
             {
-                bool detected = await DetectTrainingEnvironmentAsync(showSuccessMessage: false, clearLog: false);
-                if (!detected)
-                {
-                    MessageBox.Show(
-                        "학습 환경 자동 감지에 실패했습니다.\n\n" +
-                        "자동 감지 버튼을 눌러 로그를 확인하거나, WSL Ubuntu / Conda 경로 / Donkey 프로젝트 경로를 직접 선택해 주세요.",
-                        "학습 환경 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
+                MessageBox.Show(
+                    "학습 환경 자동 감지에 실패했습니다.\n\n" +
+                    "자동 감지 버튼을 눌러 로그를 확인하거나, WSL Ubuntu / Conda 경로 / Donkey 프로젝트 경로를 직접 선택해 주세요.",
+                    "학습 환경 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
             }
 
-            NormalizeTrainingPathsForDisplay();
             if (!TryBuildTrainingCommand(out var arguments, out string displayArguments)) return;
 
             btnStartTrainingProcess.Enabled = false;
@@ -2752,7 +2955,6 @@ namespace TeamApp
                     _trainingProcess.StartInfo.ArgumentList.Add(argument);
 
                 AppendTrainingLog("학습 프로세스를 시작합니다.");
-                AppendTrainingLog("첫 학습 횟수는 데이터 캐싱과 모델 준비 때문에 오래 걸릴 수 있습니다.");
                 AppendTrainingLog("실행 명령: wsl " + displayArguments);
 
                 _trainingProcess.Start();
@@ -2819,7 +3021,6 @@ namespace TeamApp
             string modelPath = txtTrainingModelPath.Text.Trim();
             string wslDistro = NormalizeWslDistroName(cmbTrainingWslDistro.Text);
             string condaPath = cmbCondaPath.Text.Trim();
-            int epochCount = Math.Max(1, (int)numTrainingEpochs.Value);
 
             if (string.IsNullOrWhiteSpace(wslDistro))
             {
@@ -2865,7 +3066,6 @@ namespace TeamApp
             string wslCondaPath = ConvertToWslPath(condaPath);
             string wslTubPath = ConvertToWslPath(tubPath);
             string wslModelPath = ConvertToWslPath(modelPath);
-            string wslTrainingConfigPath = "/tmp/teamapp_train_config.py";
 
             string command =
                 "export PYTHONUNBUFFERED=1 && " +
@@ -2876,27 +3076,15 @@ namespace TeamApp
                 "cd " + QuotePathForBash(wslMycarPath) + " && " +
                 "if [ ! -f config.py ] && [ ! -f manage.py ]; then echo " +
                 QuoteForBash("[error] Donkey 프로젝트 파일(config.py 또는 manage.py)을 찾을 수 없습니다: " + wslMycarPath) + "; exit 2; fi && " +
-                "if [ -f config.py ]; then cp config.py " + QuotePathForBash(wslTrainingConfigPath) + "; else : > " + QuotePathForBash(wslTrainingConfigPath) + "; fi && " +
-                "printf " + QuoteForBash("\n# TeamApp runtime training settings\nMAX_EPOCHS = " + epochCount.ToString(CultureInfo.InvariantCulture) + "\n") +
-                " >> " + QuotePathForBash(wslTrainingConfigPath) + " && " +
                 QuotePathForBash(wslCondaPath) + " run --no-capture-output -n " + QuoteForBash(envName) + " " +
                 "donkey train " +
                 "--tub " + QuotePathForBash(wslTubPath) + " " +
                 "--model " + QuotePathForBash(wslModelPath) + " " +
-                "--type " + QuoteForBash(modelType) + " " +
-                "--config " + QuotePathForBash(wslTrainingConfigPath);
+                "--type " + QuoteForBash(modelType);
 
             arguments.AddRange(new[] { "-d", wslDistro, "bash", "-lc", command });
             displayArguments = "-d " + QuoteProcessArgument(wslDistro) + " bash -lc " + QuoteForBash(command);
             return true;
-        }
-
-        private bool HasTrainingEnvironmentInputs()
-        {
-            return !string.IsNullOrWhiteSpace(NormalizeWslDistroName(cmbTrainingWslDistro.Text)) &&
-                   !string.IsNullOrWhiteSpace(cmbCondaPath.Text.Trim()) &&
-                   !string.IsNullOrWhiteSpace(txtTrainingPythonEnvName.Text.Trim()) &&
-                   !string.IsNullOrWhiteSpace(cmbMycarProjectPath.Text.Trim());
         }
 
         private string ConvertToWslPath(string winPath)
@@ -2989,7 +3177,7 @@ namespace TeamApp
         {
             if (rtbTrainingOutput.IsDisposed || string.IsNullOrEmpty(chunk)) return;
 
-            string sanitized = NormalizeTrainingLogChunk(chunk);
+            string sanitized = AnsiEscapeRegex.Replace(chunk, string.Empty).Replace("\0", string.Empty);
             if (sanitized.Length == 0) return;
 
             void AppendChunk()
@@ -3005,38 +3193,10 @@ namespace TeamApp
                 AppendChunk();
         }
 
-        private string NormalizeTrainingLogChunk(string chunk)
-        {
-            string sanitized = AnsiEscapeRegex.Replace(chunk, string.Empty).Replace("\0", string.Empty);
-
-            // DonkeyCar may log this as ERROR even when the training process exits with code 0.
-            // It means the optional model database file was not written, not that the model training failed.
-            return sanitized.Replace(
-                "ERROR:donkeycar.pipeline.database:Failed writing database file:",
-                "[참고] 모델 기록 DB 저장 실패(학습 모델 저장과는 별개):",
-                StringComparison.OrdinalIgnoreCase);
-        }
-
         private void ApplyTrainingOutputChunk(string text)
         {
             foreach (char ch in text)
             {
-                if (ch == '\b')
-                {
-                    if (_trainingOutputLineBuffer.Length > 0)
-                        _trainingOutputLineBuffer.Length--;
-
-                    if (rtbTrainingOutput.TextLength > 0)
-                    {
-                        rtbTrainingOutput.Select(rtbTrainingOutput.TextLength - 1, 1);
-                        rtbTrainingOutput.SelectedText = string.Empty;
-                    }
-                    continue;
-                }
-
-                if (char.IsControl(ch) && ch != '\r' && ch != '\n' && ch != '\t')
-                    continue;
-
                 if (ch == '\r')
                 {
                     UpdateTrainingSummaryFromText(_trainingOutputLineBuffer.ToString());
@@ -3056,11 +3216,6 @@ namespace TeamApp
                 _trainingOutputLineBuffer.Append(ch);
                 rtbTrainingOutput.AppendText(ch.ToString());
             }
-
-            // Keras progress output is often updated in-place without a newline.
-            // Parse the current unfinished line too, so the summary labels update while training is running.
-            if (_trainingOutputLineBuffer.Length > 0)
-                UpdateTrainingSummaryFromText(_trainingOutputLineBuffer.ToString());
         }
 
         private void UpdateTrainingSummaryFromText(string rawText)
@@ -3079,8 +3234,7 @@ namespace TeamApp
                 UpdateTrainingSummary(status: text.Contains("종료 코드: 0", StringComparison.OrdinalIgnoreCase) ? "완료" : "오류");
             }
 
-            if (text.Contains("[error]", StringComparison.OrdinalIgnoreCase) ||
-                text.Contains("train: error", StringComparison.OrdinalIgnoreCase) ||
+            if (text.Contains("error", StringComparison.OrdinalIgnoreCase) ||
                 text.Contains("Traceback", StringComparison.OrdinalIgnoreCase) ||
                 text.Contains("Exception", StringComparison.OrdinalIgnoreCase))
             {
@@ -3096,32 +3250,20 @@ namespace TeamApp
                     progress: "0%");
             }
 
-            Match progressMatch = Regex.Match(text, @"(?<current>\d+)\s*/\s*(?<total>\d+)", RegexOptions.IgnoreCase);
+            Match progressMatch = Regex.Match(text, @"(?<current>\d+)\s*/\s*(?<total>\d+).*?(?:loss:\s*(?<loss>[0-9.]+))?", RegexOptions.IgnoreCase);
             if (progressMatch.Success &&
                 int.TryParse(progressMatch.Groups["current"].Value, out int currentStep) &&
                 int.TryParse(progressMatch.Groups["total"].Value, out int totalStep) &&
                 totalStep > 0)
             {
                 int percent = Math.Max(0, Math.Min(100, currentStep * 100 / totalStep));
-                UpdateTrainingSummary(progress: percent + "%");
+                string? loss = progressMatch.Groups["loss"].Success ? progressMatch.Groups["loss"].Value : null;
+                UpdateTrainingSummary(progress: percent + "%", loss: loss);
             }
-
-            Match valLossMatch = Regex.Match(text, @"(?:^|\s)val_loss:\s*(?<loss>[0-9.]+)", RegexOptions.IgnoreCase);
-            if (valLossMatch.Success)
-                UpdateTrainingSummary(loss: FormatTrainingScore(valLossMatch.Groups["loss"].Value));
 
             Match lossMatch = Regex.Match(text, @"(?:^|\s)loss:\s*(?<loss>[0-9.]+)", RegexOptions.IgnoreCase);
             if (lossMatch.Success)
-                UpdateTrainingSummary(loss: FormatTrainingScore(lossMatch.Groups["loss"].Value));
-        }
-
-        private string FormatTrainingScore(string lossText)
-        {
-            if (!double.TryParse(lossText, NumberStyles.Float, CultureInfo.InvariantCulture, out double loss))
-                return "-";
-
-            double score = Math.Clamp((1.0 - loss) * 100.0, 0.0, 100.0);
-            return $"{score:0}점";
+                UpdateTrainingSummary(loss: lossMatch.Groups["loss"].Value);
         }
 
         private void UpdateTrainingSummary(
@@ -3141,13 +3283,13 @@ namespace TeamApp
                 }
 
                 if (_lblTrainingSummaryEpoch != null && epoch != null)
-                    _lblTrainingSummaryEpoch.Text = "학습 횟수: " + epoch;
+                    _lblTrainingSummaryEpoch.Text = "Epoch: " + epoch;
 
                 if (_lblTrainingSummaryProgress != null && progress != null)
                     _lblTrainingSummaryProgress.Text = "진행률: " + progress;
 
                 if (_lblTrainingSummaryLoss != null && loss != null)
-                    _lblTrainingSummaryLoss.Text = "점수(높을수록 좋음): " + loss;
+                    _lblTrainingSummaryLoss.Text = "loss: " + loss;
             }
 
             if (grpTrainingConfig.InvokeRequired)
@@ -3898,6 +4040,167 @@ namespace TeamApp
             pnlChartHost.Controls.Add(_frameChart);
         }
 
+        private void InitDataViewerFrameChart()
+        {
+            if (_dataViewerFrameChart != null) return;
+
+            pnlDataViewerChartHost.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            pnlDataViewerChartHost.BackColor = System.Drawing.Color.FromArgb(30, 30, 30);
+
+            _dataViewerFrameChart = new FormsPlot
+            {
+                Dock = DockStyle.Fill,
+                Name = "formsPlotDataViewer"
+            };
+            _dataViewerFrameChart.UserInputProcessor.Disable();
+            _dataViewerFrameChart.MouseDown += DataViewerFrameChart_MouseDown;
+
+            _dataViewerFrameChart.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1e1e1e");
+            _dataViewerFrameChart.Plot.DataBackground.Color = ScottPlot.Color.FromHex("#2d2d30");
+
+            _timelineScrollBar = new HScrollBar
+            {
+                Dock = DockStyle.Bottom,
+                Name = "hsbTimeline",
+                Height = 18,
+                SmallChange = 5,
+                LargeChange = TimelineVisibleFrameWindow
+            };
+            _timelineScrollBar.Scroll += TimelineScrollBar_Scroll;
+
+            pnlDataViewerChartHost.Controls.Clear();
+            pnlDataViewerChartHost.Controls.Add(_dataViewerFrameChart);
+            pnlDataViewerChartHost.Controls.Add(_timelineScrollBar);
+        }
+
+        private void DataViewerFrameChart_MouseDown(object? sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left || _dataViewerFrameChart == null || _allFrames.Count == 0)
+                return;
+
+            // ScottPlot 5에서는 GetCoordinateX(e.X) 대신 Pixel 기반 GetCoordinates()를 사용합니다.
+            Coordinates coordinates = _dataViewerFrameChart.Plot.GetCoordinates(
+                new Pixel(e.X, e.Y),
+                _dataViewerFrameChart.Plot.Axes.Bottom,
+                _dataViewerFrameChart.Plot.Axes.Left);
+
+            int maxIndex = Math.Max(0, GetTimelineFrameCount() - 1);
+            int targetIndex = Math.Clamp((int)Math.Round(coordinates.X), 0, maxIndex);
+            SetIndex(targetIndex);
+        }
+
+        private int GetTimelineFrameCount()
+        {
+            if (_visibleFrames != null && _visibleFrames.Count > 0)
+                return _visibleFrames.Count;
+
+            return _allFrames?.Count ?? 0;
+        }
+
+        private int GetMaxTimelineViewStart()
+        {
+            int count = GetTimelineFrameCount();
+            return Math.Max(0, count - TimelineVisibleFrameWindow);
+        }
+
+        private void ConfigureTimelineScrollBar()
+        {
+            if (_timelineScrollBar == null) return;
+
+            int count = GetTimelineFrameCount();
+            int maxStart = GetMaxTimelineViewStart();
+
+            _isSyncingTimelineScrollBar = true;
+            try
+            {
+                _timelineScrollBar.Enabled = count > TimelineVisibleFrameWindow;
+                _timelineScrollBar.Minimum = 0;
+                _timelineScrollBar.LargeChange = Math.Max(1, Math.Min(TimelineVisibleFrameWindow, Math.Max(1, count)));
+                _timelineScrollBar.SmallChange = Math.Max(1, TimelineVisibleFrameWindow / 10);
+                _timelineScrollBar.Maximum = Math.Max(0, count - 1);
+                _timelineScrollBar.Value = Math.Clamp(_timelineViewStart, 0, maxStart);
+            }
+            finally
+            {
+                _isSyncingTimelineScrollBar = false;
+            }
+        }
+
+        private void TimelineScrollBar_Scroll(object? sender, ScrollEventArgs e)
+        {
+            if (_isSyncingTimelineScrollBar) return;
+            SetTimelineViewStart(e.NewValue, syncScrollBar: false, refresh: true);
+        }
+
+        private void SetTimelineViewStart(int start, bool syncScrollBar, bool refresh)
+        {
+            _timelineViewStart = Math.Clamp(start, 0, GetMaxTimelineViewStart());
+
+            if (syncScrollBar && _timelineScrollBar != null)
+            {
+                _isSyncingTimelineScrollBar = true;
+                try
+                {
+                    int scrollbarMaxValue = Math.Max(_timelineScrollBar.Minimum, _timelineScrollBar.Maximum - _timelineScrollBar.LargeChange + 1);
+                    _timelineScrollBar.Value = Math.Clamp(_timelineViewStart, _timelineScrollBar.Minimum, scrollbarMaxValue);
+                }
+                finally
+                {
+                    _isSyncingTimelineScrollBar = false;
+                }
+            }
+
+            if (refresh)
+                ApplyDataViewerTimelineAxisLimits(refresh: true);
+        }
+
+        private void ApplyDataViewerTimelineAxisLimits(bool refresh)
+        {
+            if (_dataViewerFrameChart == null) return;
+
+            int count = GetTimelineFrameCount();
+            int start = Math.Clamp(_timelineViewStart, 0, GetMaxTimelineViewStart());
+            int end = count <= TimelineVisibleFrameWindow
+                ? TimelineVisibleFrameWindow
+                : start + TimelineVisibleFrameWindow;
+
+            _dataViewerFrameChart.Plot.Axes.SetLimits(start, end, -1.3, 1.3);
+            SyncTimelineScrollBarToView();
+
+            if (refresh)
+                _dataViewerFrameChart.Refresh();
+        }
+
+        private void SyncTimelineScrollBarToView()
+        {
+            if (_timelineScrollBar == null) return;
+
+            _isSyncingTimelineScrollBar = true;
+            try
+            {
+                int scrollbarMaxValue = Math.Max(_timelineScrollBar.Minimum, _timelineScrollBar.Maximum - _timelineScrollBar.LargeChange + 1);
+                _timelineScrollBar.Value = Math.Clamp(_timelineViewStart, _timelineScrollBar.Minimum, scrollbarMaxValue);
+            }
+            finally
+            {
+                _isSyncingTimelineScrollBar = false;
+            }
+        }
+
+        private void UpdateDataViewerTimelinePlayhead(bool autoScroll)
+        {
+            if (_dataViewerFrameChart == null || _dataViewerPlayheadLine == null || _currentFrameIndex < 0)
+                return;
+
+            if (autoScroll && _currentFrameIndex > _timelineViewStart + TimelineVisibleFrameWindow / 2)
+                SetTimelineViewStart(_currentFrameIndex - TimelineVisibleFrameWindow / 2, syncScrollBar: true, refresh: false);
+            else if (_currentFrameIndex < _timelineViewStart)
+                SetTimelineViewStart(_currentFrameIndex, syncScrollBar: true, refresh: false);
+
+            _dataViewerPlayheadLine.X = _currentFrameIndex;
+            ApplyDataViewerTimelineAxisLimits(refresh: true);
+        }
+
         // 기본 모드는 선 그래프, 필터 모드는 원본 인덱스 기준 점 그래프로 표시합니다.
         /// <summary>
         /// 기본 모드에서는 제외되지 않은 원본 프레임을 연속 인덱스 Line으로 표시합니다.
@@ -3912,37 +4215,57 @@ namespace TeamApp
             }
 
             if (_frameChart == null) InitFrameChart();
+            RenderFrameChartTo(_frameChart!, compact: false);
+            _isChartDirty = false;
+        }
 
-            var plot = _frameChart!.Plot;
+        private void RenderDataViewerFrameChart()
+        {
+            if (_allFrames == null || _allFrames.Count == 0 || pnlDataViewerChartHost == null)
+                return;
+
+            if (_dataViewerFrameChart == null) InitDataViewerFrameChart();
+            ConfigureTimelineScrollBar();
+            RenderFrameChartTo(_dataViewerFrameChart!, compact: true);
+        }
+
+        private void RenderFrameChartTo(FormsPlot chart, bool compact)
+        {
+            var plot = chart.Plot;
 
             // 한글 폰트를 지정해 차트 라벨이 깨지지 않도록 합니다.
-            _frameChart.Plot.Axes.Title.Label.FontName = "Malgun Gothic";
-            _frameChart.Plot.Axes.Bottom.Label.FontName = "Malgun Gothic";
-            _frameChart.Plot.Axes.Left.Label.FontName = "Malgun Gothic";
-            _frameChart.Plot.Axes.Bottom.TickLabelStyle.FontName = "Malgun Gothic";
-            _frameChart.Plot.Axes.Left.TickLabelStyle.FontName = "Malgun Gothic";
+            chart.Plot.Axes.Title.Label.FontName = "Malgun Gothic";
+            chart.Plot.Axes.Bottom.Label.FontName = "Malgun Gothic";
+            chart.Plot.Axes.Left.Label.FontName = "Malgun Gothic";
+            chart.Plot.Axes.Bottom.TickLabelStyle.FontName = "Malgun Gothic";
+            chart.Plot.Axes.Left.TickLabelStyle.FontName = "Malgun Gothic";
             plot.Legend.FontName = "Malgun Gothic";
-            plot.Legend.FontSize = 13;
+            plot.Legend.FontSize = compact ? 9 : 13;
             plot.Legend.FontColor = ScottPlot.Color.FromHex("#222222");
             plot.Legend.BackgroundColor = ScottPlot.Color.FromHex("#F7F7F7");
             plot.Legend.OutlineColor = ScottPlot.Color.FromHex("#777777");
 
             plot.Clear();
+            if (ReferenceEquals(chart, _dataViewerFrameChart))
+                _dataViewerPlayheadLine = null;
 
-            var chartFrames = _isFrameFilterActive
-                ? _visibleFrames.Where(f => !f.IsDeleted).ToList()
-                : _allFrames.Where(f => !f.IsDeleted).ToList();
+            var chartFrames = compact
+                ? (_visibleFrames != null && _visibleFrames.Count > 0 ? _visibleFrames.ToList() : _allFrames.ToList())
+                : _isFrameFilterActive
+                    ? _visibleFrames.Where(f => !f.IsDeleted).ToList()
+                    : _allFrames.Where(f => !f.IsDeleted).ToList();
 
             if (chartFrames.Count == 0)
             {
                 plot.Title("No valid frames");
-                _frameChart.Refresh();
-                _isChartDirty = false;
+                chart.Refresh();
                 return;
             }
 
             int n = chartFrames.Count;
-            double[] xs = _isFrameFilterActive
+            double[] xs = compact
+                ? Enumerable.Range(0, n).Select(i => (double)i).ToArray()
+                : _isFrameFilterActive
                 ? chartFrames.Select(frame => (double)frame.OriginalIndex).ToArray()
                 : Enumerable.Range(0, n).Select(i => (double)i).ToArray();
             double[] angleYs = chartFrames.Select(f => f.Angle).ToArray();
@@ -3987,21 +4310,32 @@ namespace TeamApp
             plot.XLabel(_isFrameFilterActive
                 ? "Original frame index"
                 : "Training frame order");
-            plot.YLabel("Value (-1 ~ 1)");
-            plot.Title(_isFrameFilterActive
-                ? $"Filtered distribution [shown: {n} / total: {_allFrames.Count}]"
-                : $"Steering/Speed flow [train: {n} / total: {_allFrames.Count} / excluded: {_allFrames.Count(f => f.IsDeleted)}]");
-            plot.Axes.SetLimitsY(-1.2, 1.2);
+            plot.YLabel(compact ? "" : "Value (-1 ~ 1)");
+            plot.Title(compact
+                ? $"Steering / Speed   shown {n} / total {_allFrames.Count}"
+                : _isFrameFilterActive
+                    ? $"Filtered distribution [shown: {n} / total: {_allFrames.Count}]"
+                    : $"Steering/Speed flow [train: {n} / total: {_allFrames.Count} / excluded: {_allFrames.Count(f => f.IsDeleted)}]");
+            if (compact)
+            {
+                _dataViewerPlayheadLine = plot.Add.VerticalLine(Math.Max(0, _currentFrameIndex), 2.5f, ScottPlot.Color.FromHex("#FF2D2D"));
+                _dataViewerPlayheadLine.LegendText = "Playhead";
+                _dataViewerPlayheadLine.IsDraggable = false;
+                ApplyDataViewerTimelineAxisLimits(refresh: false);
+            }
+            else
+            {
+                plot.Axes.SetLimitsY(-1.2, 1.2);
+            }
             plot.ShowLegend(Alignment.UpperRight);
             plot.Axes.Color(ScottPlot.Color.FromHex("#DDE3EA"));
 
             plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#444444");
 
-            _frameChart.Refresh();
-            _isChartDirty = false;
+            chart.Refresh();
         }
 
-        private void cmbTrainingModelType_SelectedIndexChanged(object sender, EventArgs e)
+        private void dgvFrameCatalog_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
 
         }
