@@ -38,6 +38,23 @@ namespace TeamApp
         private const int TimelineVisibleFrameWindow = 100;
         private int _timelineViewStart = 0;
         private bool _isSyncingTimelineScrollBar = false;
+        private bool _showDeletedOnGraph = true;
+        private HScrollBar? _filmstripScrollBar;
+        private Button? _btnReturnFilmstripToCurrent;
+        private int _filmstripViewOffsetPixels = 0;
+        private bool _isSyncingFilmstripScrollBar = false;
+        private bool _isFilmstripViewLockedByUser = false;
+        private bool _isDraggingFilmstripSelection = false;
+        private bool _filmstripDragMoved = false;
+        private bool _suppressNextFilmstripClick = false;
+        private int _filmstripDragStartIndex = -1;
+        private int _lastFilmstripDragIndex = -1;
+        private int _lastSelectedFrameIndex = -1;
+        private bool _catalogDragMoved = false;
+        private int _lastCatalogDragIndex = -1;
+        private int _dragPreviewSelectionStartIndex = -1;
+        private int _dragPreviewSelectionEndIndex = -1;
+        private DateTime _lastDragChartRenderUtc = DateTime.MinValue;
         private bool _isChartDirty = true;
         private bool _tutorialRunning = false;
         private bool _isFrameFilterActive = false;
@@ -53,6 +70,7 @@ namespace TeamApp
         private readonly Dictionary<int, Bitmap> _thumbnailCache = new();
         private int _previousThumbnailHighlightIndex = -1;
         private Button? _btnShowReviewCandidates;
+        private Button? _btnToggleDeletedGraph;
         private readonly StringBuilder _trainingOutputLineBuffer = new StringBuilder();
         private System.Windows.Forms.Label? _lblTrainingSummaryTitle;
         private System.Windows.Forms.Label? _lblTrainingSummaryStatus;
@@ -84,6 +102,14 @@ namespace TeamApp
             public Control? Target { get; }
             public TabPage? TabPage { get; }
         }
+
+        private enum TurnDirection
+        {
+            None,
+            Left,
+            Right
+        }
+
         public Form1()
         {
             InitializeComponent();
@@ -118,6 +144,8 @@ namespace TeamApp
             btnDetectTrainingEnvironment.Click += BtnDetectTrainingEnvironment_Click;
             btnSelectTrainingWslDistro.Click += BtnSelectTrainingWslDistro_Click;
             btnSelectCondaPath.Click += BtnSelectCondaPath_Click;
+            cmbScenarioFilter.SelectedIndexChanged += CmbScenarioFilter_SelectedIndexChanged;
+            cmbScenarioFilter.TextChanged += CmbScenarioFilter_SelectedIndexChanged;
 
             mnuFileOpenDataFolder.Click += (s, _) => BtnOpenDataFolder_Click(s!, EventArgs.Empty);
             mnuFileReloadData.Click += (s, _) => BtnReloadData_Click(s!, EventArgs.Empty);
@@ -129,6 +157,7 @@ namespace TeamApp
 
             ConfigureFrameCatalogGrid();
             ApplyDataManagerUiStyle();
+            ConfigureDeletedGraphToggleButton();
             ConfigureReviewCandidateControls();
             ConfigureCleanupGuidanceControls();
             ConfigureResponsiveDataViewerLayout();
@@ -488,6 +517,21 @@ namespace TeamApp
 
         private void BtnClearFrameFilter_Click(object? sender, EventArgs e) => ClearFrameFilter();
 
+        private void CmbScenarioFilter_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            switch (GetSelectedTurnDirection())
+            {
+                case TurnDirection.Right:
+                    txtAngleMinFilter.Text = "0";
+                    txtAngleMaxFilter.Text = "1";
+                    break;
+                case TurnDirection.Left:
+                    txtAngleMinFilter.Text = "-1";
+                    txtAngleMaxFilter.Text = "0";
+                    break;
+            }
+        }
+
         private void BtnShowReviewCandidates_Click(object? sender, EventArgs e)
         {
             if (_allFrames == null || _allFrames.Count == 0)
@@ -600,7 +644,11 @@ namespace TeamApp
 
             int idx = _visibleFrames.IndexOf(selectedFrame);
             if (idx >= 0 && idx < _visibleFrames.Count)
+            {
+                _lastSelectedFrameIndex = idx;
                 DisplayFrameAtIndex(idx);
+                RefreshSelectionVisuals();
+            }
         }
 
         private void TrkFrameTimeline_Scroll(object sender, EventArgs e)
@@ -682,13 +730,6 @@ namespace TeamApp
             dgvFrameCatalog.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
             {
-                DataPropertyName = nameof(FrameData.FormattedIndex),
-                HeaderText = "번호",
-                Width = 76,
-                Frozen = true
-            });
-            dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
-            {
                 DataPropertyName = nameof(FrameData.Name),
                 HeaderText = "이미지 파일",
                 AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
@@ -717,22 +758,41 @@ namespace TeamApp
 
             _dragStartFrameRowIndex = rowIndex;
             _isDraggingFrameRows = true;
+            _catalogDragMoved = false;
+            _lastCatalogDragIndex = rowIndex;
         }
 
         private void DgvFrameCatalog_MouseMove(object? sender, MouseEventArgs e)
         {
             if (!_isDraggingFrameRows || e.Button != MouseButtons.Left) return;
 
-            int rowIndex = GetFrameGridRowIndexAt(e.Location);
-            if (rowIndex < 0 || _dragStartFrameRowIndex < 0) return;
+            AutoScrollFrameCatalogDuringDrag(e.Y);
 
-            SelectFrameGridRange(_dragStartFrameRowIndex, rowIndex);
+            int rowIndex = GetFrameGridDragRowIndex(e.Location);
+            if (rowIndex < 0 || _dragStartFrameRowIndex < 0) return;
+            if (rowIndex == _lastCatalogDragIndex) return;
+
+            _catalogDragMoved = true;
+            _lastCatalogDragIndex = rowIndex;
+            SelectFrameGridRange(_dragStartFrameRowIndex, rowIndex, centerCatalog: false);
         }
 
         private void DgvFrameCatalog_MouseUp(object? sender, MouseEventArgs e)
         {
+            if (_isDraggingFrameRows && !_catalogDragMoved)
+            {
+                int rowIndex = GetFrameGridRowIndexAt(e.Location);
+                if (rowIndex < 0)
+                    rowIndex = _dragStartFrameRowIndex;
+
+                if (rowIndex >= 0 && rowIndex < _visibleFrames.Count)
+                    ApplyFrameSelection(rowIndex, System.Windows.Forms.Keys.None);
+            }
+
             _isDraggingFrameRows = false;
             _dragStartFrameRowIndex = -1;
+            _catalogDragMoved = false;
+            _lastCatalogDragIndex = -1;
         }
 
         private void TrkFrameTimeline_MouseDown(object? sender, MouseEventArgs e)
@@ -770,6 +830,57 @@ namespace TeamApp
             return hit.Type == DataGridViewHitTestType.Cell ? hit.RowIndex : -1;
         }
 
+        private int GetFrameGridDragRowIndex(Point point)
+        {
+            int rowIndex = GetFrameGridRowIndexAt(point);
+            if (rowIndex >= 0)
+                return rowIndex;
+
+            if (dgvFrameCatalog.Rows.Count == 0)
+                return -1;
+
+            int first = dgvFrameCatalog.FirstDisplayedScrollingRowIndex >= 0
+                ? dgvFrameCatalog.FirstDisplayedScrollingRowIndex
+                : 0;
+            int visible = Math.Max(1, dgvFrameCatalog.DisplayedRowCount(includePartialRow: true));
+            int last = Math.Min(dgvFrameCatalog.Rows.Count - 1, first + visible - 1);
+
+            if (point.Y <= dgvFrameCatalog.ColumnHeadersHeight)
+                return first;
+            if (point.Y >= dgvFrameCatalog.ClientSize.Height - 1)
+                return last;
+
+            return -1;
+        }
+
+        private void AutoScrollFrameCatalogDuringDrag(int mouseY)
+        {
+            if (dgvFrameCatalog.Rows.Count == 0 || dgvFrameCatalog.FirstDisplayedScrollingRowIndex < 0)
+                return;
+
+            int visible = Math.Max(1, dgvFrameCatalog.DisplayedRowCount(includePartialRow: true));
+            int first = dgvFrameCatalog.FirstDisplayedScrollingRowIndex;
+            int maxFirst = Math.Max(0, dgvFrameCatalog.Rows.Count - visible);
+            int edge = Math.Max(28, dgvFrameCatalog.ClientSize.Height / 8);
+            int nextFirst = first;
+
+            if (mouseY <= dgvFrameCatalog.ColumnHeadersHeight + edge)
+                nextFirst = Math.Max(0, first - 1);
+            else if (mouseY >= dgvFrameCatalog.ClientSize.Height - edge)
+                nextFirst = Math.Min(maxFirst, first + 1);
+
+            if (nextFirst == first)
+                return;
+
+            try
+            {
+                dgvFrameCatalog.FirstDisplayedScrollingRowIndex = nextFirst;
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+
         private int GetTimelineIndexAt(int mouseX)
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0)
@@ -788,23 +899,167 @@ namespace TeamApp
         /// 마우스 드래그 선택에서 사용하는 범위 선택입니다.
         /// 선택 자체를 유지해야 하므로 SetIndex를 호출하지 않고 현재 행 표시만 갱신합니다.
         /// </summary>
-        private void SelectFrameGridRange(int startRowIndex, int endRowIndex)
+        private void SelectFrameGridRange(
+            int startRowIndex,
+            int endRowIndex,
+            bool centerCatalog = true,
+            bool renderChart = true,
+            bool updateFilmstripNow = false)
         {
             if (dgvFrameCatalog.Rows.Count == 0) return;
 
             int from = Math.Max(0, Math.Min(startRowIndex, endRowIndex));
             int to = Math.Min(dgvFrameCatalog.Rows.Count - 1, Math.Max(startRowIndex, endRowIndex));
 
+            if (updateFilmstripNow)
+                SetDragSelectionPreview(from, to);
+
             _isFrameSelectionUpdating = true;
             dgvFrameCatalog.ClearSelection();
             for (int rowIndex = from; rowIndex <= to; rowIndex++)
                 dgvFrameCatalog.Rows[rowIndex].Selected = true;
+            InvalidateFrameCatalogRows(from, to);
 
-            dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[endRowIndex].Cells[0];
+            int focusRowIndex = Math.Clamp(endRowIndex, from, to);
+            dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[focusRowIndex].Cells[0];
+            if (centerCatalog)
+                ScrollCatalogToFrame(focusRowIndex);
             _isFrameSelectionUpdating = false;
 
-            if (endRowIndex >= 0 && endRowIndex < _visibleFrames.Count)
-                DisplayFrameAtIndex(endRowIndex);
+            if (updateFilmstripNow)
+                RefreshSelectionVisuals(renderChart: false, updateFilmstripNow: true);
+
+            if (focusRowIndex >= 0 && focusRowIndex < _visibleFrames.Count)
+            {
+                _lastSelectedFrameIndex = focusRowIndex;
+                DisplayFrameAtIndex(focusRowIndex);
+            }
+
+            if (renderChart)
+                RefreshSelectionVisuals(renderChart: true, updateFilmstripNow: false);
+            else if (!updateFilmstripNow)
+                RefreshSelectionVisuals(renderChart: false, updateFilmstripNow: false);
+        }
+
+        private void ApplyFrameSelectionFromFilmstrip(int clickedIndex)
+            => ApplyFrameSelection(clickedIndex, ModifierKeys, removeRangeOnShift: true);
+
+        private void ApplyFrameSelection(
+            int clickedIndex,
+            Keys modifiers,
+            bool removeRangeOnShift = false,
+            bool? ctrlSelectedBefore = null)
+        {
+            if (_visibleFrames == null || clickedIndex < 0 || clickedIndex >= _visibleFrames.Count)
+                return;
+
+            _isFrameSelectionUpdating = true;
+
+            try
+            {
+                if ((modifiers & Keys.Shift) == Keys.Shift && _lastSelectedFrameIndex >= 0)
+                {
+                    int from = Math.Min(_lastSelectedFrameIndex, clickedIndex);
+                    int to = Math.Max(_lastSelectedFrameIndex, clickedIndex);
+                    if (!removeRangeOnShift)
+                        dgvFrameCatalog.ClearSelection();
+
+                    for (int i = from; i <= to && i < dgvFrameCatalog.Rows.Count; i++)
+                        dgvFrameCatalog.Rows[i].Selected = !removeRangeOnShift;
+                }
+                else if ((modifiers & Keys.Control) == Keys.Control)
+                {
+                    if (clickedIndex < dgvFrameCatalog.Rows.Count)
+                    {
+                        bool wasSelected = ctrlSelectedBefore ?? dgvFrameCatalog.Rows[clickedIndex].Selected;
+                        dgvFrameCatalog.Rows[clickedIndex].Selected = !wasSelected;
+                    }
+                }
+                else
+                {
+                    dgvFrameCatalog.ClearSelection();
+                    if (clickedIndex < dgvFrameCatalog.Rows.Count)
+                        dgvFrameCatalog.Rows[clickedIndex].Selected = true;
+                }
+
+                if (clickedIndex < dgvFrameCatalog.Rows.Count)
+                {
+                    dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[clickedIndex].Cells[0];
+                    ScrollCatalogToFrame(clickedIndex);
+                }
+            }
+            finally
+            {
+                _isFrameSelectionUpdating = false;
+            }
+
+            _lastSelectedFrameIndex = clickedIndex;
+            DisplayFrameAtIndex(clickedIndex);
+            RefreshSelectionVisuals();
+        }
+
+        private void ScrollCatalogToFrame(int rowIndex)
+        {
+            if (dgvFrameCatalog.Rows.Count == 0 || rowIndex < 0 || rowIndex >= dgvFrameCatalog.Rows.Count)
+                return;
+
+            if (dgvFrameCatalog.FirstDisplayedScrollingRowIndex < 0)
+                return;
+
+            int visibleRows = Math.Max(1, dgvFrameCatalog.DisplayedRowCount(includePartialRow: true));
+            int first = dgvFrameCatalog.FirstDisplayedScrollingRowIndex;
+            int last = Math.Min(dgvFrameCatalog.Rows.Count - 1, first + visibleRows - 1);
+
+            if (rowIndex >= first && rowIndex <= last)
+                return;
+
+            int targetFirst = rowIndex < first
+                ? rowIndex
+                : Math.Max(0, rowIndex - visibleRows + 1);
+
+            try
+            {
+                dgvFrameCatalog.FirstDisplayedScrollingRowIndex = targetFirst;
+            }
+            catch (InvalidOperationException)
+            {
+                // 바인딩 직후 아직 표시 가능한 행 계산이 끝나지 않은 짧은 순간을 방어합니다.
+            }
+        }
+
+        private void SetDragSelectionPreview(int from, int to)
+        {
+            _dragPreviewSelectionStartIndex = Math.Max(0, from);
+            _dragPreviewSelectionEndIndex = Math.Max(0, to);
+        }
+
+        private void ClearDragSelectionPreview()
+        {
+            _dragPreviewSelectionStartIndex = -1;
+            _dragPreviewSelectionEndIndex = -1;
+        }
+
+        private bool ShouldRenderDragChart()
+        {
+            DateTime now = DateTime.UtcNow;
+            if ((now - _lastDragChartRenderUtc).TotalMilliseconds < 90)
+                return false;
+
+            _lastDragChartRenderUtc = now;
+            return true;
+        }
+
+        private void InvalidateFrameCatalogRows(int from, int to)
+        {
+            if (dgvFrameCatalog.Rows.Count == 0)
+                return;
+
+            from = Math.Clamp(from, 0, dgvFrameCatalog.Rows.Count - 1);
+            to = Math.Clamp(to, 0, dgvFrameCatalog.Rows.Count - 1);
+            for (int rowIndex = Math.Min(from, to); rowIndex <= Math.Max(from, to); rowIndex++)
+                dgvFrameCatalog.InvalidateRow(rowIndex);
+
+            dgvFrameCatalog.Update();
         }
 
         /// <summary>
@@ -869,6 +1124,47 @@ namespace TeamApp
             ArrangeDataCleanerPanel();
             ArrangeFrameInfoPanel();
             grpDataCleaner.Resize += (_, _) => ArrangeDataCleanerPanel();
+        }
+
+        private void ConfigureDeletedGraphToggleButton()
+        {
+            if (_btnToggleDeletedGraph == null)
+            {
+                _btnToggleDeletedGraph = new Button
+                {
+                    Name = "btnToggleDeletedGraph",
+                    Text = "제외 구간 표시",
+                    Size = new Size(124, 28),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                    UseVisualStyleBackColor = false,
+                    BackColor = System.Drawing.Color.FromArgb(255, 238, 238)
+                };
+                _btnToggleDeletedGraph.Click += BtnToggleDeletedGraph_Click;
+                grpDataExplorer.Controls.Add(_btnToggleDeletedGraph);
+            }
+
+            UpdateDeletedGraphToggleButton();
+            _btnToggleDeletedGraph.BringToFront();
+        }
+
+        private void BtnToggleDeletedGraph_Click(object? sender, EventArgs e)
+        {
+            _showDeletedOnGraph = !_showDeletedOnGraph;
+            UpdateDeletedGraphToggleButton();
+            RenderDataViewerFrameChart();
+            RenderFrameChart();
+        }
+
+        private void UpdateDeletedGraphToggleButton()
+        {
+            if (_btnToggleDeletedGraph == null) return;
+
+            _btnToggleDeletedGraph.Text = _showDeletedOnGraph
+                ? "제외 구간 표시"
+                : "제외 선 끊기";
+            _btnToggleDeletedGraph.BackColor = _showDeletedOnGraph
+                ? System.Drawing.Color.FromArgb(255, 238, 238)
+                : System.Drawing.Color.FromArgb(240, 244, 248);
         }
 
         private void HideRangeCleanupControls()
@@ -1002,6 +1298,13 @@ namespace TeamApp
                 toolbarButtons[i].Location = new Point(margin + i * (toolbarButtonWidth + toolbarGap), toolbarY);
                 toolbarButtons[i].Size = new Size(toolbarButtonWidth, toolbarButtonHeight);
             }
+            if (_btnToggleDeletedGraph != null)
+            {
+                _btnToggleDeletedGraph.Location = new Point(
+                    Math.Max(btnGuide.Right + toolbarGap, width - margin - 124),
+                    toolbarY);
+                _btnToggleDeletedGraph.Size = new Size(124, toolbarButtonHeight);
+            }
 
             int contentTop = toolbarY + toolbarButtonHeight + 12;
             int playbackButtonHeight = 32;
@@ -1009,7 +1312,8 @@ namespace TeamApp
             int timelineHeight = 42;
             int timelineY = Math.Max(contentTop + 190, playbackY - timelineHeight - 8);
             int thumbnailHeight = 58;
-            int thumbnailY = Math.Max(contentTop + 120, timelineY - thumbnailHeight - 8);
+            int thumbnailScrollHeight = 17;
+            int thumbnailY = Math.Max(contentTop + 120, timelineY - thumbnailHeight - thumbnailScrollHeight - 8);
             int splitHeight = Math.Max(120, thumbnailY - contentTop - 10);
             int cleanerWidth = Math.Clamp(width / 4, 300, 380);
             int cleanerLeft = width - margin - cleanerWidth;
@@ -1026,6 +1330,7 @@ namespace TeamApp
 
             pnlFrameThumbnailStrip.Location = new Point(margin, thumbnailY);
             pnlFrameThumbnailStrip.Size = new Size(width - margin * 2, thumbnailHeight);
+            LayoutFilmstripScrollControls(margin, thumbnailY + thumbnailHeight + 2, width - margin * 2, thumbnailScrollHeight);
             UpdateThumbnailStripScrollArea();
 
             trkFrameTimeline.Location = new Point(margin, timelineY);
@@ -1071,29 +1376,401 @@ namespace TeamApp
         {
             pnlFrameThumbnailStrip.AutoScroll = false;
             pnlFrameThumbnailStrip.BackColor = System.Drawing.Color.FromArgb(28, 31, 36);
+            EnableDoubleBuffering(pnlFrameThumbnailStrip);
             pnlFrameThumbnailStrip.Paint += PnlFrameThumbnailStrip_Paint;
             pnlFrameThumbnailStrip.MouseClick += PnlFrameThumbnailStrip_MouseClick;
-            pnlFrameThumbnailStrip.Resize += (_, _) => pnlFrameThumbnailStrip.Invalidate();
+            pnlFrameThumbnailStrip.MouseDown += PnlFrameThumbnailStrip_MouseDown;
+            pnlFrameThumbnailStrip.MouseMove += PnlFrameThumbnailStrip_MouseMove;
+            pnlFrameThumbnailStrip.MouseUp += PnlFrameThumbnailStrip_MouseUp;
+            pnlFrameThumbnailStrip.MouseWheel += PnlFrameThumbnailStrip_MouseWheel;
+            pnlFrameThumbnailStrip.MouseEnter += (_, _) => pnlFrameThumbnailStrip.Focus();
+            pnlFrameThumbnailStrip.Resize += (_, _) =>
+            {
+                UpdateThumbnailStripScrollArea();
+                pnlFrameThumbnailStrip.Invalidate();
+            };
+
+            if (_filmstripScrollBar == null)
+            {
+                _filmstripScrollBar = new HScrollBar
+                {
+                    Name = "hsbFrameThumbnailStrip",
+                    Height = 17,
+                    SmallChange = 88,
+                    LargeChange = Math.Max(88, pnlFrameThumbnailStrip.ClientSize.Width)
+                };
+                _filmstripScrollBar.Scroll += FilmstripScrollBar_Scroll;
+                grpDataExplorer.Controls.Add(_filmstripScrollBar);
+            }
+
+            if (_btnReturnFilmstripToCurrent == null)
+            {
+                _btnReturnFilmstripToCurrent = new Button
+                {
+                    Name = "btnReturnFilmstripToCurrent",
+                    Text = "선택 프레임",
+                    Size = new Size(112, 24),
+                    Visible = false,
+                    UseVisualStyleBackColor = false,
+                    BackColor = System.Drawing.Color.FromArgb(229, 241, 255)
+                };
+                _btnReturnFilmstripToCurrent.Click += (_, _) => CenterFilmstripOnCurrentFrame();
+                grpDataExplorer.Controls.Add(_btnReturnFilmstripToCurrent);
+                _btnReturnFilmstripToCurrent.BringToFront();
+            }
         }
 
         private void UpdateThumbnailStripScrollArea()
         {
             pnlFrameThumbnailStrip.AutoScrollMinSize = Size.Empty;
+            ConfigureFilmstripScrollBar();
+            ClampFilmstripViewOffset(syncScrollBar: true);
+            UpdateReturnFilmstripButton();
+        }
+
+        private void LayoutFilmstripScrollControls(int x, int y, int width, int height)
+        {
+            if (_filmstripScrollBar != null)
+                _filmstripScrollBar.SetBounds(x, y, width, height);
+
+            UpdateReturnFilmstripButton();
+        }
+
+        private void ConfigureFilmstripScrollBar()
+        {
+            if (_filmstripScrollBar == null) return;
+
+            int minOffset = GetMinFilmstripViewOffset();
+            int maxOffset = GetMaxFilmstripViewOffset();
+
+            _isSyncingFilmstripScrollBar = true;
+            try
+            {
+                _filmstripScrollBar.SmallChange = 88;
+                _filmstripScrollBar.LargeChange = Math.Max(88, pnlFrameThumbnailStrip.ClientSize.Width);
+
+                int scrollMaximum = Math.Max(minOffset, maxOffset + _filmstripScrollBar.LargeChange - 1);
+                _filmstripScrollBar.Maximum = scrollMaximum;
+                _filmstripScrollBar.Minimum = minOffset;
+                _filmstripScrollBar.Enabled = maxOffset > minOffset;
+                _filmstripScrollBar.Value = Math.Clamp(_filmstripViewOffsetPixels, minOffset, maxOffset);
+            }
+            finally
+            {
+                _isSyncingFilmstripScrollBar = false;
+            }
+        }
+
+        private void FilmstripScrollBar_Scroll(object? sender, ScrollEventArgs e)
+        {
+            if (_isSyncingFilmstripScrollBar) return;
+
+            _isFilmstripViewLockedByUser = true;
+            SetFilmstripViewOffset(e.NewValue, syncScrollBar: false);
+        }
+
+        private int GetMaxFilmstripViewOffset()
+        {
+            int count = _visibleFrames?.Count ?? 0;
+            if (count <= 0) return 0;
+
+            const int pitch = 88;
+            return GetMinFilmstripViewOffset() + Math.Max(0, count - 1) * pitch;
+        }
+
+        private int GetMinFilmstripViewOffset()
+        {
+            const int itemWidth = 80;
+            int centerLeft = (pnlFrameThumbnailStrip.ClientSize.Width - itemWidth) / 2;
+            return 8 - centerLeft;
+        }
+
+        private int GetCenteredFilmstripOffset(int frameIndex)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return 0;
+
+            const int itemWidth = 80;
+            const int pitch = 88;
+            int centerLeft = (pnlFrameThumbnailStrip.ClientSize.Width - itemWidth) / 2;
+            return Math.Clamp(8 + frameIndex * pitch - centerLeft, GetMinFilmstripViewOffset(), GetMaxFilmstripViewOffset());
+        }
+
+        private void SetFilmstripViewOffset(int offset, bool syncScrollBar)
+        {
+            _filmstripViewOffsetPixels = Math.Clamp(offset, GetMinFilmstripViewOffset(), GetMaxFilmstripViewOffset());
+
+            if (syncScrollBar && _filmstripScrollBar != null)
+            {
+                _isSyncingFilmstripScrollBar = true;
+                try
+                {
+                    int maxValue = Math.Max(_filmstripScrollBar.Minimum, _filmstripScrollBar.Maximum - _filmstripScrollBar.LargeChange + 1);
+                    _filmstripScrollBar.Value = Math.Clamp(_filmstripViewOffsetPixels, _filmstripScrollBar.Minimum, maxValue);
+                }
+                finally
+                {
+                    _isSyncingFilmstripScrollBar = false;
+                }
+            }
+
+            UpdateReturnFilmstripButton();
+            RefreshFilmstripHighlight(forceFullRefresh: true);
+        }
+
+        private void ClampFilmstripViewOffset(bool syncScrollBar)
+        {
+            SetFilmstripViewOffset(_filmstripViewOffsetPixels, syncScrollBar);
+        }
+
+        private void CenterFilmstripOnCurrentFrame()
+        {
+            if (_currentFrameIndex < 0) return;
+
+            _isFilmstripViewLockedByUser = false;
+            SetFilmstripViewOffset(GetCenteredFilmstripOffset(_currentFrameIndex), syncScrollBar: true);
+        }
+
+        private void UpdateReturnFilmstripButton()
+        {
+            if (_btnReturnFilmstripToCurrent == null || _visibleFrames == null || _visibleFrames.Count == 0 || _currentFrameIndex < 0)
+            {
+                if (_btnReturnFilmstripToCurrent != null)
+                    _btnReturnFilmstripToCurrent.Visible = false;
+                return;
+            }
+
+            int targetOffset = GetCenteredFilmstripOffset(_currentFrameIndex);
+            bool shouldShow = _isFilmstripViewLockedByUser && Math.Abs(_filmstripViewOffsetPixels - targetOffset) > 8;
+            _btnReturnFilmstripToCurrent.Visible = shouldShow;
+            if (!shouldShow) return;
+
+            int margin = 8;
+            int y = pnlFrameThumbnailStrip.Bottom - _btnReturnFilmstripToCurrent.Height - 5;
+            if (_filmstripViewOffsetPixels > targetOffset)
+            {
+                _btnReturnFilmstripToCurrent.Text = "< 선택 프레임";
+                _btnReturnFilmstripToCurrent.Location = new Point(pnlFrameThumbnailStrip.Left + margin, y);
+            }
+            else
+            {
+                _btnReturnFilmstripToCurrent.Text = "선택 프레임 >";
+                _btnReturnFilmstripToCurrent.Location = new Point(
+                    pnlFrameThumbnailStrip.Right - _btnReturnFilmstripToCurrent.Width - margin, y);
+            }
+
+            _btnReturnFilmstripToCurrent.BringToFront();
         }
 
         private void PnlFrameThumbnailStrip_MouseClick(object? sender, MouseEventArgs e)
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
+            if (_suppressNextFilmstripClick)
+            {
+                _suppressNextFilmstripClick = false;
+                return;
+            }
 
-            const int itemWidth = 80;
-            const int pitch = 88;
-            int currentIndex = Math.Clamp(_currentFrameIndex, 0, _visibleFrames.Count - 1);
-            int centerLeft = (pnlFrameThumbnailStrip.ClientSize.Width - itemWidth) / 2;
-            int slidingOffsetX = centerLeft - currentIndex * pitch;
-            int index = (int)Math.Round((e.X - slidingOffsetX) / (double)pitch);
-
+            int index = GetFilmstripIndexAt(e.X);
             if (index >= 0 && index < _visibleFrames.Count)
-                SetIndex(index);
+                ApplyFrameSelectionFromFilmstrip(index);
+        }
+
+        private void PnlFrameThumbnailStrip_MouseDown(object? sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left || _visibleFrames == null || _visibleFrames.Count == 0)
+                return;
+
+            int index = GetFilmstripIndexAt(e.X);
+            if (index < 0 || index >= _visibleFrames.Count)
+                return;
+
+            LockFilmstripViewAtCurrentVisualPosition();
+            _filmstripDragStartIndex = index;
+            _lastFilmstripDragIndex = index;
+            _isDraggingFilmstripSelection = true;
+            _filmstripDragMoved = false;
+            pnlFrameThumbnailStrip.Capture = true;
+        }
+
+        private void PnlFrameThumbnailStrip_MouseMove(object? sender, MouseEventArgs e)
+        {
+            if (!_isDraggingFilmstripSelection || e.Button != MouseButtons.Left || _filmstripDragStartIndex < 0)
+                return;
+
+            AutoScrollFilmstripDuringDrag(e.X);
+
+            int index = GetFilmstripIndexAt(e.X);
+            if (index < 0)
+                index = GetNearestFilmstripIndexAt(e.X);
+            if (index < 0 || index >= _visibleFrames.Count)
+                return;
+
+            if (index == _lastFilmstripDragIndex)
+                return;
+
+            _lastFilmstripDragIndex = index;
+            _filmstripDragMoved = true;
+            SelectFrameGridRange(
+                _filmstripDragStartIndex,
+                index,
+                centerCatalog: false,
+                renderChart: ShouldRenderDragChart(),
+                updateFilmstripNow: true);
+        }
+
+        private void PnlFrameThumbnailStrip_MouseUp(object? sender, MouseEventArgs e)
+        {
+            if (!_isDraggingFilmstripSelection)
+                return;
+
+            if (_filmstripDragMoved)
+            {
+                int releaseIndex = GetFilmstripIndexAt(e.X);
+                if (releaseIndex < 0)
+                    releaseIndex = GetNearestFilmstripIndexAt(e.X);
+
+                if (releaseIndex >= 0 && releaseIndex < _visibleFrames.Count)
+                {
+                    SelectFrameGridRange(
+                        _filmstripDragStartIndex,
+                        releaseIndex,
+                        centerCatalog: false,
+                        renderChart: true,
+                        updateFilmstripNow: true);
+                }
+
+                _suppressNextFilmstripClick = true;
+            }
+
+            ClearDragSelectionPreview();
+            _isDraggingFilmstripSelection = false;
+            _filmstripDragStartIndex = -1;
+            _lastFilmstripDragIndex = -1;
+            pnlFrameThumbnailStrip.Capture = false;
+        }
+
+        private void PnlFrameThumbnailStrip_MouseWheel(object? sender, MouseEventArgs e)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0) return;
+
+            int wheelSteps = Math.Max(-6, Math.Min(6, e.Delta / 120));
+            if (wheelSteps == 0)
+                wheelSteps = e.Delta > 0 ? 1 : -1;
+
+            LockFilmstripViewAtCurrentVisualPosition();
+            SetFilmstripViewOffset(_filmstripViewOffsetPixels - wheelSteps * 88, syncScrollBar: true);
+        }
+
+        private void LockFilmstripViewAtCurrentVisualPosition()
+        {
+            if (_isFilmstripViewLockedByUser)
+                return;
+
+            int currentSlidingOffset = GetFilmstripSlidingOffsetX();
+            _filmstripViewOffsetPixels = 8 - currentSlidingOffset;
+            _isFilmstripViewLockedByUser = true;
+            SyncFilmstripScrollBarToView();
+            UpdateReturnFilmstripButton();
+        }
+
+        private void SyncFilmstripScrollBarToView()
+        {
+            if (_filmstripScrollBar == null)
+                return;
+
+            _isSyncingFilmstripScrollBar = true;
+            try
+            {
+                int maxValue = Math.Max(_filmstripScrollBar.Minimum, _filmstripScrollBar.Maximum - _filmstripScrollBar.LargeChange + 1);
+                _filmstripScrollBar.Value = Math.Clamp(_filmstripViewOffsetPixels, _filmstripScrollBar.Minimum, maxValue);
+            }
+            finally
+            {
+                _isSyncingFilmstripScrollBar = false;
+            }
+        }
+
+        private int GetFilmstripIndexAt(int mouseX)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return -1;
+
+            var (first, last) = GetVisibleFilmstripIndexRange();
+            for (int index = first; index <= last; index++)
+            {
+                if (GetFilmstripItemRect(index).Contains(mouseX, pnlFrameThumbnailStrip.ClientSize.Height / 2))
+                    return index;
+            }
+
+            return -1;
+        }
+
+        private int GetNearestFilmstripIndexAt(int mouseX)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return -1;
+
+            const int pitch = 88;
+            int slidingOffsetX = GetFilmstripSlidingOffsetX();
+            int index = (int)Math.Round((mouseX - slidingOffsetX) / (double)pitch);
+            return Math.Clamp(index, 0, _visibleFrames.Count - 1);
+        }
+
+        private void AutoScrollFilmstripDuringDrag(int mouseX)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return;
+
+            int edge = Math.Max(36, pnlFrameThumbnailStrip.ClientSize.Width / 12);
+            int nextOffset = _filmstripViewOffsetPixels;
+
+            if (mouseX <= edge)
+                nextOffset -= 88;
+            else if (mouseX >= pnlFrameThumbnailStrip.ClientSize.Width - edge)
+                nextOffset += 88;
+
+            if (nextOffset == _filmstripViewOffsetPixels)
+                return;
+
+            _isFilmstripViewLockedByUser = true;
+            SetFilmstripViewOffset(nextOffset, syncScrollBar: true);
+        }
+
+        private int GetFilmstripSlidingOffsetX()
+        {
+            if (_visibleFrames != null && _visibleFrames.Count > 0 && !_isFilmstripViewLockedByUser && !_isDraggingFilmstripSelection)
+            {
+                const int itemWidth = 80;
+                const int pitch = 88;
+                int currentIndex = Math.Clamp(_currentFrameIndex, 0, _visibleFrames.Count - 1);
+                int centerLeft = (pnlFrameThumbnailStrip.ClientSize.Width - itemWidth) / 2;
+                return centerLeft - currentIndex * pitch;
+            }
+
+            return 8 - _filmstripViewOffsetPixels;
+        }
+
+        private Rectangle GetFilmstripItemRect(int index)
+        {
+            const int itemWidth = 80;
+            const int itemHeight = 44;
+            const int pitch = 88;
+            int top = Math.Max(4, (pnlFrameThumbnailStrip.ClientSize.Height - itemHeight) / 2 - 2);
+            return new Rectangle(GetFilmstripSlidingOffsetX() + index * pitch, top, itemWidth, itemHeight);
+        }
+
+        private (int First, int Last) GetVisibleFilmstripIndexRange(int paddingFrames = 0)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return (0, -1);
+
+            const int pitch = 88;
+            int slidingOffsetX = GetFilmstripSlidingOffsetX();
+            int first = Math.Max(0, (int)Math.Floor((-slidingOffsetX - pitch) / (double)pitch) - paddingFrames);
+            int last = Math.Min(_visibleFrames.Count - 1,
+                (int)Math.Ceiling((pnlFrameThumbnailStrip.ClientSize.Width - slidingOffsetX + pitch) / (double)pitch) + paddingFrames);
+            return (first, last);
         }
 
         private void PnlFrameThumbnailStrip_Paint(object? sender, PaintEventArgs e)
@@ -1112,25 +1789,25 @@ namespace TeamApp
 
             const int itemWidth = 80;
             const int itemHeight = 44;
-            const int pitch = 88;
             int top = Math.Max(4, (pnlFrameThumbnailStrip.ClientSize.Height - itemHeight) / 2 - 2);
-            int currentIndex = Math.Clamp(_currentFrameIndex, 0, _visibleFrames.Count - 1);
             int centerLeft = (pnlFrameThumbnailStrip.ClientSize.Width - itemWidth) / 2;
-            int slidingOffsetX = centerLeft - currentIndex * pitch;
-            int first = Math.Max(0, (int)Math.Floor((-slidingOffsetX - pitch) / (double)pitch));
-            int last = Math.Min(_visibleFrames.Count - 1,
-                (int)Math.Ceiling((pnlFrameThumbnailStrip.ClientSize.Width - slidingOffsetX + pitch) / (double)pitch));
+            var (first, last) = GetVisibleFilmstripIndexRange();
 
             using var borderPen = new Pen(System.Drawing.Color.FromArgb(88, 96, 110));
             using var centerHighlightPen = new Pen(System.Drawing.Color.FromArgb(0, 220, 120), 4);
             using var centerGlowPen = new Pen(System.Drawing.Color.FromArgb(170, 0, 220, 120), 7);
+            using var selectedPen = new Pen(System.Drawing.Color.FromArgb(74, 144, 226), 4);
+            using var selectedFillBrush = new SolidBrush(System.Drawing.Color.FromArgb(65, 74, 144, 226));
             using var deletedBrush = new SolidBrush(System.Drawing.Color.FromArgb(120, 30, 30, 30));
+            using var deletedXPen = new Pen(System.Drawing.Color.FromArgb(230, 220, 40, 40), 5);
             using var reviewPen = new Pen(System.Drawing.Color.FromArgb(255, 152, 0), 2);
+            using var numberBackBrush = new SolidBrush(System.Drawing.Color.FromArgb(170, 0, 0, 0));
+            using var numberFont = new Font("맑은 고딕", 7.5F, System.Drawing.FontStyle.Bold);
+            HashSet<int> selectedIndices = GetSelectedVisibleIndices();
 
             for (int i = first; i <= last; i++)
             {
-                int x = slidingOffsetX + i * pitch;
-                var rect = new Rectangle(x, top, itemWidth, itemHeight);
+                var rect = GetFilmstripItemRect(i);
                 var frame = _visibleFrames[i];
 
                 Bitmap? thumbnail = GetFrameThumbnail(i);
@@ -1140,14 +1817,63 @@ namespace TeamApp
                     e.Graphics.FillRectangle(Brushes.DimGray, rect);
 
                 if (frame.IsDeleted)
+                {
                     e.Graphics.FillRectangle(deletedBrush, rect);
+                    e.Graphics.DrawLine(deletedXPen, rect.Left + 9, rect.Top + 7, rect.Right - 9, rect.Bottom - 7);
+                    e.Graphics.DrawLine(deletedXPen, rect.Right - 9, rect.Top + 7, rect.Left + 9, rect.Bottom - 7);
+                }
+
+                if (selectedIndices.Contains(i))
+                    e.Graphics.FillRectangle(selectedFillBrush, rect);
+
+                DrawFilmstripImageNumber(e.Graphics, rect, frame, numberBackBrush, numberFont);
 
                 e.Graphics.DrawRectangle(frame.NeedsReview ? reviewPen : borderPen, rect);
+
+                if (selectedIndices.Contains(i))
+                    e.Graphics.DrawRectangle(selectedPen, Rectangle.Inflate(rect, 2, 2));
             }
 
-            var centerRect = new Rectangle(centerLeft, top, itemWidth, itemHeight);
-            e.Graphics.DrawRectangle(centerGlowPen, Rectangle.Inflate(centerRect, 4, 4));
-            e.Graphics.DrawRectangle(centerHighlightPen, Rectangle.Inflate(centerRect, 3, 3));
+            Rectangle highlightRect;
+            if (_isFilmstripViewLockedByUser || _isDraggingFilmstripSelection)
+            {
+                int currentIndex = Math.Clamp(_currentFrameIndex, 0, _visibleFrames.Count - 1);
+                highlightRect = GetFilmstripItemRect(currentIndex);
+            }
+            else
+            {
+                highlightRect = new Rectangle(centerLeft, top, itemWidth, itemHeight);
+            }
+
+            if (highlightRect.Right >= 0 && highlightRect.Left <= pnlFrameThumbnailStrip.ClientSize.Width)
+            {
+                e.Graphics.DrawRectangle(centerGlowPen, Rectangle.Inflate(highlightRect, 4, 4));
+                e.Graphics.DrawRectangle(centerHighlightPen, Rectangle.Inflate(highlightRect, 3, 3));
+            }
+        }
+
+        private void DrawFilmstripImageNumber(Graphics graphics, Rectangle rect, FrameData frame, Brush backBrush, Font font)
+        {
+            string text = frame.ImageNumber >= 0
+                ? frame.ImageNumber.ToString(CultureInfo.InvariantCulture)
+                : "-";
+
+            var labelRect = new Rectangle(rect.Left, rect.Bottom - 14, rect.Width, 14);
+            graphics.FillRectangle(backBrush, labelRect);
+            TextRenderer.DrawText(
+                graphics,
+                text,
+                font,
+                labelRect,
+                System.Drawing.Color.White,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        }
+
+        private static void EnableDoubleBuffering(Control control)
+        {
+            typeof(Control)
+                .GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(control, true, null);
         }
 
         private Bitmap? GetFrameThumbnail(int index)
@@ -1192,11 +1918,14 @@ namespace TeamApp
 
         private void TrimThumbnailCache()
         {
-            if (_thumbnailCache.Count <= 240) return;
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+            {
+                ClearThumbnailCache();
+                return;
+            }
 
             var keep = new HashSet<int>();
-            int first = Math.Max(0, _currentFrameIndex - 80);
-            int last = Math.Min((_visibleFrames?.Count ?? 0) - 1, _currentFrameIndex + 80);
+            var (first, last) = GetVisibleFilmstripIndexRange(paddingFrames: 18);
             for (int i = first; i <= last; i++)
                 keep.Add(i);
 
@@ -1220,14 +1949,21 @@ namespace TeamApp
             if (pnlFrameThumbnailStrip.IsDisposed) return;
 
             pnlFrameThumbnailStrip.Invalidate();
-            pnlFrameThumbnailStrip.Update();
             _previousThumbnailHighlightIndex = _currentFrameIndex;
         }
 
         private void ScrollThumbnailToCurrentFrame()
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
-            RefreshFilmstripHighlight(forceFullRefresh: true);
+            if (!_isFilmstripViewLockedByUser)
+            {
+                SetFilmstripViewOffset(GetCenteredFilmstripOffset(_currentFrameIndex), syncScrollBar: true);
+            }
+            else
+            {
+                UpdateReturnFilmstripButton();
+                RefreshFilmstripHighlight(forceFullRefresh: true);
+            }
         }
 
         /// <summary>
@@ -1374,28 +2110,21 @@ namespace TeamApp
             }
         }
 
-        /// <summary>
-        /// 이상 후보 확인 UI는 Designer 파일을 수정하지 않고 코드에서 추가합니다.
-        /// 버튼은 검색 버튼 근처에 두고, 힌트 라벨은 현재 프레임 정보 영역에 표시합니다.
-        /// </summary>
         private void ConfigureReviewCandidateControls()
         {
             if (_btnShowReviewCandidates == null)
             {
-                _btnShowReviewCandidates = new Button
-                {
-                    Name = "btnShowReviewCandidates",
-                    Text = "이상 후보 보기",
-                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                    Location = new Point(btnApplyFrameFilter.Left, 29),
-                    Size = btnApplyFrameFilter.Size,
-                    UseVisualStyleBackColor = false,
-                    BackColor = System.Drawing.Color.FromArgb(255, 249, 219)
-                };
+                _btnShowReviewCandidates = btnShowReviewCandidates;
                 _btnShowReviewCandidates.Click += BtnShowReviewCandidates_Click;
-                grpDataCleaner.Controls.Add(_btnShowReviewCandidates);
-                _btnShowReviewCandidates.BringToFront();
             }
+
+            _btnShowReviewCandidates.Text = "이상 후보 보기";
+            _btnShowReviewCandidates.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            _btnShowReviewCandidates.UseVisualStyleBackColor = false;
+            _btnShowReviewCandidates.BackColor = System.Drawing.Color.FromArgb(255, 249, 219);
+            if (_btnShowReviewCandidates.Parent != grpDataCleaner)
+                grpDataCleaner.Controls.Add(_btnShowReviewCandidates);
+            _btnShowReviewCandidates.BringToFront();
 
             if (_lblFrameReviewHint == null)
             {
@@ -1486,32 +2215,35 @@ namespace TeamApp
         private void ApplyFrameCatalogRowStyle()
         {
             foreach (DataGridViewRow row in dgvFrameCatalog.Rows)
-            {
-                if (row.DataBoundItem is not FrameData frame) continue;
+                ApplyFrameCatalogRowStyle(row);
+        }
 
-                if (frame.IsDeleted)
-                {
-                    row.DefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(242, 242, 242);
-                    row.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(145, 52, 52);
-                    row.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(255, 204, 204);
-                    row.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.FromArgb(90, 20, 20);
-                }
-                else if (frame.NeedsReview)
-                {
-                    row.DefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(255, 249, 196);
-                    row.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(80, 60, 0);
-                    row.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(255, 214, 102);
-                    row.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.Black;
-                }
-                else
-                {
-                    row.DefaultCellStyle.BackColor = row.Index % 2 == 0
-                        ? System.Drawing.Color.White
-                        : System.Drawing.Color.FromArgb(248, 250, 252);
-                    row.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(30, 30, 30);
-                    row.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(51, 122, 183);
-                    row.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.White;
-                }
+        private void ApplyFrameCatalogRowStyle(DataGridViewRow row)
+        {
+            if (row.DataBoundItem is not FrameData frame) return;
+
+            if (frame.IsDeleted)
+            {
+                row.DefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(242, 242, 242);
+                row.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(145, 52, 52);
+                row.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(255, 204, 204);
+                row.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.FromArgb(90, 20, 20);
+            }
+            else if (frame.NeedsReview)
+            {
+                row.DefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(255, 249, 196);
+                row.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(80, 60, 0);
+                row.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(255, 214, 102);
+                row.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.Black;
+            }
+            else
+            {
+                row.DefaultCellStyle.BackColor = row.Index % 2 == 0
+                    ? System.Drawing.Color.White
+                    : System.Drawing.Color.FromArgb(248, 250, 252);
+                row.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(30, 30, 30);
+                row.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(51, 122, 183);
+                row.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.White;
             }
         }
 
@@ -1601,6 +2333,7 @@ namespace TeamApp
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
             idx = Math.Max(0, Math.Min(_visibleFrames.Count - 1, idx));
             _currentFrameIndex = idx;
+            _lastSelectedFrameIndex = idx;
 
             // 선택 변경 이벤트가 중복 실행되지 않도록 잠시 막습니다.
             _isFrameSelectionUpdating = true;
@@ -1609,7 +2342,7 @@ namespace TeamApp
             {
                 dgvFrameCatalog.Rows[idx].Selected = true;
                 dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[idx].Cells[0];
-                dgvFrameCatalog.FirstDisplayedScrollingRowIndex = Math.Max(0, idx);
+                ScrollCatalogToFrame(idx);
             }
             _isFrameSelectionUpdating = false;
 
@@ -1617,6 +2350,7 @@ namespace TeamApp
                 trkFrameTimeline.Value = idx;
 
             DisplayFrameAtIndex(idx);
+            RefreshSelectionVisuals();
         }
 
         private void DisplayFrameAtIndex(int idx)
@@ -1627,7 +2361,6 @@ namespace TeamApp
 
             if (trkFrameTimeline.Value != idx)
                 trkFrameTimeline.Value = idx;
-            RefreshFilmstripHighlight();
             UpdateDataViewerTimelinePlayhead(autoScroll: _isPlaybackRunning);
 
             var frame = _visibleFrames[idx];
@@ -1650,6 +2383,7 @@ namespace TeamApp
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
         }
+
         /// <summary>
         /// 현재 폴더와 파일명으로 실제 이미지 경로를 찾습니다.
         /// 폴더 루트와 하위 images 폴더를 모두 확인합니다.
@@ -1804,6 +2538,8 @@ namespace TeamApp
             if (!TryReadFilterRanges(out double angleMin, out double angleMax,
                                      out double throttleMin, out double throttleMax))
                 return;
+            if (!ValidateScenarioAngleRange(angleMin, angleMax))
+                return;
 
             // 제외되지 않은 프레임 중 범위 조건에 맞는 항목만 남깁니다.
             _visibleFrames = _allFrames
@@ -1811,11 +2547,12 @@ namespace TeamApp
                             f.Angle >= angleMin && f.Angle <= angleMax &&
                             f.Throttle >= throttleMin && f.Throttle <= throttleMax &&
                             MatchesComboFilter(cmbModeFilter, f.Mode) &&
-                            MatchesComboFilter(cmbScenarioFilter, f.Scenario))
+                            MatchesScenarioFilter(f))
                 .ToList();
 
             _isFrameFilterActive = true;
             _isChartDirty = true;
+            _timelineViewStart = 0;
             RefreshFrameView();
             if (_visibleFrames.Count > 0) SetIndex(0);
             else ClearPreviewSelection();
@@ -1847,6 +2584,45 @@ namespace TeamApp
             return true;
         }
 
+        private TurnDirection GetSelectedTurnDirection()
+        {
+            string selected = cmbScenarioFilter.SelectedItem?.ToString() ?? cmbScenarioFilter.Text;
+            string normalized = NormalizeFilterText(selected);
+
+            if (normalized.Contains("right") || normalized.Contains("우"))
+                return TurnDirection.Right;
+            if (normalized.Contains("left") || normalized.Contains("좌"))
+                return TurnDirection.Left;
+
+            return TurnDirection.None;
+        }
+
+        private bool ValidateScenarioAngleRange(double angleMin, double angleMax)
+        {
+            const double epsilon = 0.000001;
+            TurnDirection direction = GetSelectedTurnDirection();
+
+            if (direction == TurnDirection.Right &&
+                (angleMin < 0 - epsilon || angleMax > 1 + epsilon))
+            {
+                MessageBox.Show(
+                    "현재 선택된 상황은 우회전입니다.\n방향값 범위를 0 ~ 1 사이의 값으로 설정해 주세요.",
+                    "상황/방향값 범위 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (direction == TurnDirection.Left &&
+                (angleMin < -1 - epsilon || angleMax > 0 + epsilon))
+            {
+                MessageBox.Show(
+                    "현재 선택된 상황은 좌회전입니다.\n방향값 범위를 -1 ~ 0 사이의 값으로 설정해 주세요.",
+                    "상황/방향값 범위 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            return true;
+        }
+
         private bool MatchesComboFilter(ComboBox comboBox, string value)
         {
             string selected = comboBox.SelectedItem?.ToString() ?? comboBox.Text;
@@ -1858,6 +2634,24 @@ namespace TeamApp
                 NormalizeFilterText(value),
                 NormalizeFilterText(selected),
                 StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool MatchesScenarioFilter(FrameData frame)
+        {
+            string selected = cmbScenarioFilter.SelectedItem?.ToString() ?? cmbScenarioFilter.Text;
+            if (string.IsNullOrWhiteSpace(selected) ||
+                selected.Equals("All", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return GetSelectedTurnDirection() switch
+            {
+                TurnDirection.Right => frame.Angle >= 0,
+                TurnDirection.Left => frame.Angle <= 0,
+                _ => string.Equals(
+                    NormalizeFilterText(frame.Scenario),
+                    NormalizeFilterText(selected),
+                    StringComparison.OrdinalIgnoreCase)
+            };
         }
 
         private string NormalizeFilterText(string text)
@@ -1880,9 +2674,72 @@ namespace TeamApp
             _isFrameFilterActive = false;
             _visibleFrames = _allFrames;
             _isChartDirty = true;
+            _timelineViewStart = 0;
             RefreshFrameView();
             if (_visibleFrames.Count > 0) SetIndex(0);
             else ClearPreviewSelection();
+        }
+
+        private HashSet<int> GetSelectedVisibleIndices()
+        {
+            var selected = new HashSet<int>();
+
+            if (_dragPreviewSelectionStartIndex >= 0 && _dragPreviewSelectionEndIndex >= 0)
+            {
+                int from = Math.Min(_dragPreviewSelectionStartIndex, _dragPreviewSelectionEndIndex);
+                int to = Math.Max(_dragPreviewSelectionStartIndex, _dragPreviewSelectionEndIndex);
+                for (int index = from; index <= to && index < (_visibleFrames?.Count ?? 0); index++)
+                    selected.Add(index);
+            }
+
+            if (_visibleFrames == null || _visibleFrames.Count == 0 || dgvFrameCatalog.Rows.Count == 0)
+                return selected;
+
+            foreach (DataGridViewRow row in dgvFrameCatalog.SelectedRows)
+            {
+                if (row.DataBoundItem is not FrameData frame) continue;
+
+                int index = _visibleFrames.IndexOf(frame);
+                if (index >= 0)
+                    selected.Add(index);
+            }
+
+            return selected;
+        }
+
+        private List<(int Start, int End)> GetSelectedVisibleRanges()
+        {
+            var indices = GetSelectedVisibleIndices().OrderBy(i => i).ToList();
+            var ranges = new List<(int Start, int End)>();
+            if (indices.Count == 0)
+                return ranges;
+
+            int start = indices[0];
+            int end = indices[0];
+
+            for (int i = 1; i < indices.Count; i++)
+            {
+                if (indices[i] == end + 1)
+                {
+                    end = indices[i];
+                    continue;
+                }
+
+                ranges.Add((start, end));
+                start = end = indices[i];
+            }
+
+            ranges.Add((start, end));
+            return ranges;
+        }
+
+        private void RefreshSelectionVisuals(bool renderChart = true, bool updateFilmstripNow = false)
+        {
+            pnlFrameThumbnailStrip.Invalidate();
+            if (updateFilmstripNow)
+                pnlFrameThumbnailStrip.Update();
+            if (renderChart)
+                RenderDataViewerFrameChart();
         }
 
         // Soft Delete 구간 처리
@@ -2289,6 +3146,7 @@ namespace TeamApp
             public string Scenario { get; set; } = "-";
             public string Name { get; set; } = string.Empty;
             public int OriginalIndex { get; set; } = -1;
+            public int ImageNumber { get; set; } = -1;
 
             /// <summary>
             /// true이면 학습에서 제외하지만 실제 파일은 보존합니다.
@@ -2457,6 +3315,15 @@ namespace TeamApp
                 .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase);
         }
 
+        private int ExtractImageNumber(string imageName)
+        {
+            string fileName = Path.GetFileName(imageName) ?? string.Empty;
+            Match match = Regex.Match(fileName, @"^\d+");
+            return match.Success && int.TryParse(match.Value, out int number)
+                ? number
+                : -1;
+        }
+
         private FrameData? ParseFrameFromCatalogLine(string rawLine, string folderPath)
         {
             string line = rawLine.Trim();
@@ -2472,6 +3339,7 @@ namespace TeamApp
             return new FrameData
             {
                 Name = imageName,
+                ImageNumber = ExtractImageNumber(imageName),
                 ImagePath = ResolveImagePathFromFolder(folderPath, imageName),
                 Angle = ReadDouble(root, "user/angle", "angle"),
                 Throttle = ReadDouble(root, "user/throttle", "throttle"),
@@ -2584,6 +3452,7 @@ namespace TeamApp
                     {
                         OriginalIndex = frames.Count,
                         Name = Path.GetFileName(imagePath),
+                        ImageNumber = ExtractImageNumber(Path.GetFileName(imagePath)),
                         ImagePath = imagePath,
                         IsCatalogMissing = true
                     });
@@ -3970,6 +4839,8 @@ namespace TeamApp
             };
             _dataViewerFrameChart.UserInputProcessor.Disable();
             _dataViewerFrameChart.MouseDown += DataViewerFrameChart_MouseDown;
+            _dataViewerFrameChart.MouseWheel += DataViewerFrameChart_MouseWheel;
+            _dataViewerFrameChart.MouseEnter += (_, _) => _dataViewerFrameChart.Focus();
 
             _dataViewerFrameChart.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1e1e1e");
             _dataViewerFrameChart.Plot.DataBackground.Color = ScottPlot.Color.FromHex("#2d2d30");
@@ -4000,9 +4871,40 @@ namespace TeamApp
                 _dataViewerFrameChart.Plot.Axes.Bottom,
                 _dataViewerFrameChart.Plot.Axes.Left);
 
-            int maxIndex = Math.Max(0, GetTimelineFrameCount() - 1);
-            int targetIndex = Math.Clamp((int)Math.Round(coordinates.X), 0, maxIndex);
-            SetIndex(targetIndex);
+            int targetIndex = GetNearestVisibleFrameIndexByImageNumber(coordinates.X);
+            ApplyFrameSelection(targetIndex, ModifierKeys);
+        }
+
+        private int GetNearestVisibleFrameIndexByImageNumber(double imageNumber)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return 0;
+
+            int bestIndex = 0;
+            double bestDistance = double.MaxValue;
+            for (int i = 0; i < _visibleFrames.Count; i++)
+            {
+                double distance = Math.Abs(GetFrameXAxisValue(_visibleFrames[i], i) - imageNumber);
+                if (distance >= bestDistance) continue;
+
+                bestDistance = distance;
+                bestIndex = i;
+            }
+
+            return bestIndex;
+        }
+
+        private void DataViewerFrameChart_MouseWheel(object? sender, MouseEventArgs e)
+        {
+            if (_dataViewerFrameChart == null || GetTimelineFrameCount() == 0)
+                return;
+
+            int wheelSteps = Math.Max(-6, Math.Min(6, e.Delta / 120));
+            if (wheelSteps == 0)
+                wheelSteps = e.Delta > 0 ? 1 : -1;
+
+            int panStep = Math.Max(1, TimelineVisibleFrameWindow / 10);
+            SetTimelineViewStart(_timelineViewStart - wheelSteps * panStep, syncScrollBar: true, refresh: true);
         }
 
         private int GetTimelineFrameCount()
@@ -4076,15 +4978,31 @@ namespace TeamApp
 
             int count = GetTimelineFrameCount();
             int start = Math.Clamp(_timelineViewStart, 0, GetMaxTimelineViewStart());
-            int end = count <= TimelineVisibleFrameWindow
-                ? TimelineVisibleFrameWindow
-                : start + TimelineVisibleFrameWindow;
+            int endIndex = count == 0
+                ? 0
+                : Math.Min(count - 1, count <= TimelineVisibleFrameWindow
+                    ? count - 1
+                    : start + TimelineVisibleFrameWindow);
 
-            _dataViewerFrameChart.Plot.Axes.SetLimits(start, end, -1.3, 1.3);
+            double startX = GetTimelineXForVisibleIndex(start);
+            double endX = GetTimelineXForVisibleIndex(endIndex);
+            if (endX <= startX)
+                endX = startX + Math.Max(1, TimelineVisibleFrameWindow);
+
+            _dataViewerFrameChart.Plot.Axes.SetLimits(startX, endX, -1.3, 1.3);
             SyncTimelineScrollBarToView();
 
             if (refresh)
                 _dataViewerFrameChart.Refresh();
+        }
+
+        private double GetTimelineXForVisibleIndex(int index)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return index;
+
+            index = Math.Clamp(index, 0, _visibleFrames.Count - 1);
+            return GetFrameXAxisValue(_visibleFrames[index], index);
         }
 
         private void SyncTimelineScrollBarToView()
@@ -4113,7 +5031,7 @@ namespace TeamApp
             else if (_currentFrameIndex < _timelineViewStart)
                 SetTimelineViewStart(_currentFrameIndex, syncScrollBar: true, refresh: false);
 
-            _dataViewerPlayheadLine.X = _currentFrameIndex;
+            _dataViewerPlayheadLine.X = GetTimelineXForVisibleIndex(_currentFrameIndex);
             ApplyDataViewerTimelineAxisLimits(refresh: true);
         }
 
@@ -4145,6 +5063,54 @@ namespace TeamApp
             RenderFrameChartTo(_dataViewerFrameChart!, compact: true);
         }
 
+        private double GetFrameXAxisValue(FrameData frame, int fallbackIndex)
+        {
+            if (frame.ImageNumber >= 0)
+                return frame.ImageNumber;
+
+            if (frame.OriginalIndex >= 0)
+                return frame.OriginalIndex;
+
+            return fallbackIndex;
+        }
+
+        private void AddDeletedFrameSpans(Plot plot, List<FrameData> chartFrames, double[] xs)
+        {
+            int start = -1;
+            int end = -1;
+
+            for (int i = 0; i < chartFrames.Count; i++)
+            {
+                if (chartFrames[i].IsDeleted)
+                {
+                    int xIndex = (int)Math.Round(xs[i]);
+                    if (start < 0)
+                        start = end = xIndex;
+                    else
+                        end = xIndex;
+                    continue;
+                }
+
+                AddPendingDeletedSpan();
+            }
+
+            AddPendingDeletedSpan();
+
+            void AddPendingDeletedSpan()
+            {
+                if (start < 0) return;
+
+                var span = plot.Add.HorizontalSpan(start, end,
+                    ScottPlot.Color.FromSDColor(System.Drawing.Color.FromArgb(50, System.Drawing.Color.Red)));
+                span.LegendText = "Excluded";
+                span.LineColor = ScottPlot.Color.FromSDColor(System.Drawing.Color.FromArgb(120, System.Drawing.Color.Red));
+                span.LineWidth = 1;
+                span.EnableAutoscale = false;
+
+                start = end = -1;
+            }
+        }
+
         private void RenderFrameChartTo(FormsPlot chart, bool compact)
         {
             var plot = chart.Plot;
@@ -4168,8 +5134,8 @@ namespace TeamApp
             var chartFrames = compact
                 ? (_visibleFrames != null && _visibleFrames.Count > 0 ? _visibleFrames.ToList() : _allFrames.ToList())
                 : _isFrameFilterActive
-                    ? _visibleFrames.Where(f => !f.IsDeleted).ToList()
-                    : _allFrames.Where(f => !f.IsDeleted).ToList();
+                    ? _visibleFrames.ToList()
+                    : _allFrames.ToList();
 
             if (chartFrames.Count == 0)
             {
@@ -4179,13 +5145,11 @@ namespace TeamApp
             }
 
             int n = chartFrames.Count;
-            double[] xs = compact
-                ? Enumerable.Range(0, n).Select(i => (double)i).ToArray()
-                : _isFrameFilterActive
-                ? chartFrames.Select(frame => (double)frame.OriginalIndex).ToArray()
-                : Enumerable.Range(0, n).Select(i => (double)i).ToArray();
-            double[] angleYs = chartFrames.Select(f => f.Angle).ToArray();
-            double[] throttleYs = chartFrames.Select(f => f.Throttle).ToArray();
+            double[] xs = chartFrames
+                .Select((frame, index) => GetFrameXAxisValue(frame, index))
+                .ToArray();
+            double[] angleYs = chartFrames.Select(f => !_showDeletedOnGraph && f.IsDeleted ? double.NaN : f.Angle).ToArray();
+            double[] throttleYs = chartFrames.Select(f => !_showDeletedOnGraph && f.IsDeleted ? double.NaN : f.Throttle).ToArray();
 
             double[] zeroXs = { xs.Min(), xs.Max() };
             double[] zeroYs = { 0, 0 };
@@ -4222,10 +5186,28 @@ namespace TeamApp
                 sigThrottle.LegendText = "Speed";
             }
 
+            if (compact)
+            {
+                if (_showDeletedOnGraph)
+                    AddDeletedFrameSpans(plot, chartFrames, xs);
+
+                foreach (var (start, end) in _isPlaybackRunning
+                    ? Enumerable.Empty<(int Start, int End)>()
+                    : GetSelectedVisibleRanges())
+                {
+                    double startX = GetFrameXAxisValue(chartFrames[Math.Clamp(start, 0, chartFrames.Count - 1)], start);
+                    double endX = GetFrameXAxisValue(chartFrames[Math.Clamp(end, 0, chartFrames.Count - 1)], end);
+                    var selectedSpan = plot.Add.HorizontalSpan(Math.Min(startX, endX), Math.Max(startX, endX),
+                        ScottPlot.Color.FromHex("#4A90E2").WithOpacity(0.24));
+                    selectedSpan.LegendText = "Selected";
+                    selectedSpan.LineColor = ScottPlot.Color.FromHex("#4A90E2").WithOpacity(0.75);
+                    selectedSpan.LineWidth = 1.2f;
+                    selectedSpan.EnableAutoscale = false;
+                }
+            }
+
             // 축 라벨과 제목
-            plot.XLabel(_isFrameFilterActive
-                ? "Original frame index"
-                : "Training frame order");
+            plot.XLabel("Image number");
             plot.YLabel(compact ? "" : "Value (-1 ~ 1)");
             plot.Title(compact
                 ? $"Steering / Speed   shown {n} / total {_allFrames.Count}"
@@ -4234,7 +5216,7 @@ namespace TeamApp
                     : $"Steering/Speed flow [train: {n} / total: {_allFrames.Count} / excluded: {_allFrames.Count(f => f.IsDeleted)}]");
             if (compact)
             {
-                _dataViewerPlayheadLine = plot.Add.VerticalLine(Math.Max(0, _currentFrameIndex), 2.5f, ScottPlot.Color.FromHex("#FF2D2D"));
+                _dataViewerPlayheadLine = plot.Add.VerticalLine(GetTimelineXForVisibleIndex(_currentFrameIndex), 2.5f, ScottPlot.Color.FromHex("#FF2D2D"));
                 _dataViewerPlayheadLine.LegendText = "Playhead";
                 _dataViewerPlayheadLine.IsDraggable = false;
                 ApplyDataViewerTimelineAxisLimits(refresh: false);
