@@ -1143,12 +1143,12 @@ namespace TeamApp
             lblModeValue.Location = new Point(left, 289);
             lblModeValue.Size = new Size(width, 30);
 
-            lblPlayInterval.Location = new Point(left, 390);
+            lblPlayInterval.Location = new Point(left, 414);
             lblPlayInterval.Size = new Size(92, 28);
             if (_cmbPlaybackSpeed != null)
             {
-                _cmbPlaybackSpeed.Location = new Point(left + 96, 389);
-                _cmbPlaybackSpeed.Size = new Size(Math.Max(90, width - 96), 27);
+                _cmbPlaybackSpeed.Location = new Point(left + 84, 410);
+                _cmbPlaybackSpeed.Size = new Size(Math.Max(90, width - 90), 28);
             }
         }
 
@@ -2655,7 +2655,7 @@ namespace TeamApp
             PlaceTrainingSummaryLabel(_lblTrainingSummaryLoss, summaryX + summaryTitleWidth + summaryGap + (summaryItemWidth + summaryGap) * 3, summaryY, summaryItemWidth, buttonHeight);
 
             grpTrainingOutput.Location = new Point(margin, grpTrainingConfig.Bottom + 16);
-            grpTrainingOutput.Size = new Size(groupWidth, Math.Max(260, tabTrainingMonitor.ClientSize.Height - grpTrainingOutput.Top - 42));
+            grpTrainingOutput.Size = new Size(groupWidth, Math.Max(50, tabTrainingMonitor.ClientSize.Height - grpTrainingOutput.Top - 42));
             grpTrainingOutput.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
             rtbTrainingOutput.Dock = DockStyle.Fill;

@@ -227,7 +227,7 @@
             tabControlMain.Margin = new Padding(2);
             tabControlMain.Name = "tabControlMain";
             tabControlMain.SelectedIndex = 0;
-            tabControlMain.Size = new Size(1229, 690);
+            tabControlMain.Size = new Size(1229, 775);
             tabControlMain.TabIndex = 1;
             // 
             // tabPageDataViewer
@@ -239,7 +239,7 @@
             tabPageDataViewer.Margin = new Padding(2);
             tabPageDataViewer.Name = "tabPageDataViewer";
             tabPageDataViewer.Padding = new Padding(2);
-            tabPageDataViewer.Size = new Size(1221, 662);
+            tabPageDataViewer.Size = new Size(1221, 747);
             tabPageDataViewer.TabIndex = 0;
             tabPageDataViewer.Text = "데이터 뷰어";
             tabPageDataViewer.UseVisualStyleBackColor = true;
@@ -248,7 +248,7 @@
             // 
             statusStripDataFooter.ImageScalingSize = new Size(20, 20);
             statusStripDataFooter.Items.AddRange(new ToolStripItem[] { stsDataFooterPath });
-            statusStripDataFooter.Location = new Point(2, 638);
+            statusStripDataFooter.Location = new Point(2, 723);
             statusStripDataFooter.Name = "statusStripDataFooter";
             statusStripDataFooter.Padding = new Padding(1, 0, 11, 0);
             statusStripDataFooter.Size = new Size(1217, 22);
@@ -287,11 +287,11 @@
             grpDataCleaner.Controls.Add(lblAngleRange);
             grpDataCleaner.Controls.Add(btnApplyFrameFilter);
             grpDataCleaner.Controls.Add(btnClearFrameFilter);
-            grpDataCleaner.Location = new Point(2, 476);
+            grpDataCleaner.Location = new Point(2, 500);
             grpDataCleaner.Margin = new Padding(2);
             grpDataCleaner.Name = "grpDataCleaner";
             grpDataCleaner.Padding = new Padding(2);
-            grpDataCleaner.Size = new Size(1216, 165);
+            grpDataCleaner.Size = new Size(1216, 226);
             grpDataCleaner.TabIndex = 23;
             grpDataCleaner.TabStop = false;
             grpDataCleaner.Text = "터브 정리기";
@@ -558,7 +558,7 @@
             grpDataExplorer.Margin = new Padding(2);
             grpDataExplorer.Name = "grpDataExplorer";
             grpDataExplorer.Padding = new Padding(2);
-            grpDataExplorer.Size = new Size(1220, 476);
+            grpDataExplorer.Size = new Size(1220, 499);
             grpDataExplorer.TabIndex = 22;
             grpDataExplorer.TabStop = false;
             grpDataExplorer.Text = "터브 탐색기";
@@ -566,7 +566,7 @@
             // trkFrameTimeline
             // 
             trkFrameTimeline.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            trkFrameTimeline.Location = new Point(-1, 428);
+            trkFrameTimeline.Location = new Point(-1, 451);
             trkFrameTimeline.Margin = new Padding(2);
             trkFrameTimeline.Maximum = 0;
             trkFrameTimeline.Name = "trkFrameTimeline";
@@ -668,7 +668,7 @@
             // splitContainerFramePreview.Panel2
             // 
             splitContainerFramePreview.Panel2.Controls.Add(picFramePreview);
-            splitContainerFramePreview.Size = new Size(994, 377);
+            splitContainerFramePreview.Size = new Size(994, 400);
             splitContainerFramePreview.SplitterDistance = 280;
             splitContainerFramePreview.SplitterWidth = 5;
             splitContainerFramePreview.TabIndex = 44;
@@ -694,7 +694,7 @@
             dgvFrameCatalog.RowHeadersVisible = false;
             dgvFrameCatalog.RowHeadersWidth = 51;
             dgvFrameCatalog.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvFrameCatalog.Size = new Size(280, 377);
+            dgvFrameCatalog.Size = new Size(280, 400);
             dgvFrameCatalog.TabIndex = 13;
             dgvFrameCatalog.SelectionChanged += DgvFrameCatalog_SelectionChanged;
             // 
@@ -705,7 +705,7 @@
             picFramePreview.Location = new Point(0, 0);
             picFramePreview.Margin = new Padding(2);
             picFramePreview.Name = "picFramePreview";
-            picFramePreview.Size = new Size(709, 377);
+            picFramePreview.Size = new Size(709, 400);
             picFramePreview.SizeMode = PictureBoxSizeMode.Zoom;
             picFramePreview.TabIndex = 4;
             picFramePreview.TabStop = false;
@@ -810,7 +810,7 @@
             tabTrainingMonitor.Margin = new Padding(2);
             tabTrainingMonitor.Name = "tabTrainingMonitor";
             tabTrainingMonitor.Padding = new Padding(2);
-            tabTrainingMonitor.Size = new Size(1221, 662);
+            tabTrainingMonitor.Size = new Size(1221, 747);
             tabTrainingMonitor.TabIndex = 1;
             tabTrainingMonitor.Text = "학습 실행";
             tabTrainingMonitor.UseVisualStyleBackColor = true;
@@ -820,7 +820,7 @@
             // 
             statusStripTraining.ImageScalingSize = new Size(20, 20);
             statusStripTraining.Items.AddRange(new ToolStripItem[] { stsTrainingStatus });
-            statusStripTraining.Location = new Point(2, 638);
+            statusStripTraining.Location = new Point(2, 723);
             statusStripTraining.Name = "statusStripTraining";
             statusStripTraining.Padding = new Padding(1, 0, 9, 0);
             statusStripTraining.Size = new Size(1217, 22);
@@ -837,12 +837,13 @@
             // grpTrainingOutput
             // 
             grpTrainingOutput.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            grpTrainingOutput.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             grpTrainingOutput.Controls.Add(rtbTrainingOutput);
             grpTrainingOutput.Location = new Point(9, 292);
             grpTrainingOutput.Margin = new Padding(6);
             grpTrainingOutput.Name = "grpTrainingOutput";
             grpTrainingOutput.Padding = new Padding(2);
-            grpTrainingOutput.Size = new Size(936, 186);
+            grpTrainingOutput.Size = new Size(936, 169);
             grpTrainingOutput.TabIndex = 1;
             grpTrainingOutput.TabStop = false;
             grpTrainingOutput.Text = "학습 로그";
@@ -855,7 +856,7 @@
             rtbTrainingOutput.Location = new Point(2, 18);
             rtbTrainingOutput.Margin = new Padding(2);
             rtbTrainingOutput.Name = "rtbTrainingOutput";
-            rtbTrainingOutput.Size = new Size(932, 166);
+            rtbTrainingOutput.Size = new Size(932, 149);
             rtbTrainingOutput.TabIndex = 0;
             rtbTrainingOutput.Text = "";
             // 
@@ -1152,7 +1153,7 @@
             tabGraphStats.Margin = new Padding(2);
             tabGraphStats.Name = "tabGraphStats";
             tabGraphStats.Padding = new Padding(2);
-            tabGraphStats.Size = new Size(1221, 662);
+            tabGraphStats.Size = new Size(1221, 747);
             tabGraphStats.TabIndex = 2;
             tabGraphStats.Text = "그래프/통계";
             tabGraphStats.UseVisualStyleBackColor = true;
@@ -1202,7 +1203,7 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1230, 715);
+            ClientSize = new Size(1230, 800);
             Controls.Add(tabControlMain);
             Controls.Add(menuStripMain);
             MainMenuStrip = menuStripMain;
