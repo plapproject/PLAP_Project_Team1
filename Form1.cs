@@ -847,7 +847,7 @@ namespace TeamApp
             tabPageDataViewer.Text = "데이터 확인";
             tabGraphStats.Text = "그래프/통계";
             grpDataExplorer.Text = "데이터 탐색";
-            grpDataCleaner.Text = "데이터 정리 - 검색 / 제외 / 복원 / 학습용 폴더 만들기";
+            grpDataCleaner.Text = "데이터 정리";
             lblFrameRange.Text = "구간 제외/복원";
             lblAngleRange.Text = "방향값 범위 (-1~1):";
             lblThrottleRange.Text = "속도값 범위 (-1~1):";
@@ -1059,7 +1059,7 @@ namespace TeamApp
             int margin = 14;
             int toolbarY = 22;
             int toolbarGap = 8;
-            int toolbarButtonWidth = 112;
+            int toolbarButtonWidth = 124;
             int toolbarButtonHeight = 28;
 
             var toolbarButtons = new[] { btnOpenDataFolder, btnReloadData, btnToggleTheme, btnGuide };
@@ -2721,16 +2721,18 @@ namespace TeamApp
 
         private void InitializeTrainingControls()
         {
+            lblEpoch.Text = "학습 횟수";
+
             cmbTrainingModelType.Items.Clear();
             cmbTrainingModelType.Items.AddRange(new object[] { "linear", "inferred", "tensorrt_linear", "tflite_linear", "categorical", "rnn", "3d", "imu", "behavior" });
             if (string.IsNullOrWhiteSpace(cmbTrainingModelType.Text))
                 cmbTrainingModelType.Text = "linear";
 
             if (string.IsNullOrWhiteSpace(txtTrainingTubPath.Text))
-                txtTrainingTubPath.Text = "data";
+                txtTrainingTubPath.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "data");
 
             if (string.IsNullOrWhiteSpace(txtTrainingModelPath.Text))
-                txtTrainingModelPath.Text = "models/pilot.keras";
+                txtTrainingModelPath.Text = GetDefaultTrainingModelPath();
 
             numTrainingEpochs.Minimum = 1;
             numTrainingEpochs.Maximum = 10000;
@@ -2747,13 +2749,49 @@ namespace TeamApp
             tabTrainingMonitor.Resize += (_, _) => LayoutTrainingTab();
         }
 
+        private string GetDefaultTrainingModelPath()
+        {
+            string modelFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "donkeycar_models");
+            Directory.CreateDirectory(modelFolder);
+            return Path.Combine(modelFolder, "pilot.keras");
+        }
+
+        private void NormalizeTrainingPathsForDisplay()
+        {
+            txtTrainingTubPath.Text = NormalizeWindowsTrainingPath(
+                txtTrainingTubPath.Text,
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
+
+            txtTrainingModelPath.Text = NormalizeWindowsTrainingPath(
+                txtTrainingModelPath.Text,
+                Path.GetDirectoryName(GetDefaultTrainingModelPath()) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+        }
+
+        private string NormalizeWindowsTrainingPath(string path, string baseFolder)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return path;
+
+            string trimmed = path.Trim();
+            if (trimmed.StartsWith("~/", StringComparison.Ordinal) || trimmed.StartsWith("/", StringComparison.Ordinal))
+                return trimmed;
+
+            if (Path.IsPathRooted(trimmed))
+                return Path.GetFullPath(trimmed);
+
+            Directory.CreateDirectory(baseFolder);
+            return Path.GetFullPath(Path.Combine(baseFolder, Path.GetFileName(trimmed)));
+        }
+
         private void ConfigureTrainingSummaryLabels()
         {
             _lblTrainingSummaryTitle ??= CreateTrainingSummaryLabel("lblTrainingSummaryTitle", "학습 요약", true);
             _lblTrainingSummaryStatus ??= CreateTrainingSummaryLabel("lblTrainingSummaryStatus", "상태: 대기", false);
-            _lblTrainingSummaryEpoch ??= CreateTrainingSummaryLabel("lblTrainingSummaryEpoch", "Epoch: -", false);
+            _lblTrainingSummaryEpoch ??= CreateTrainingSummaryLabel("lblTrainingSummaryEpoch", "학습 횟수: -", false);
             _lblTrainingSummaryProgress ??= CreateTrainingSummaryLabel("lblTrainingSummaryProgress", "진행률: -", false);
-            _lblTrainingSummaryLoss ??= CreateTrainingSummaryLabel("lblTrainingSummaryLoss", "loss: -", false);
+            _lblTrainingSummaryLoss ??= CreateTrainingSummaryLabel("lblTrainingSummaryLoss", "점수(높을수록 좋음): -", false);
         }
 
         private System.Windows.Forms.Label CreateTrainingSummaryLabel(string name, string text, bool bold)
@@ -2866,6 +2904,8 @@ namespace TeamApp
             grpTrainingOutput.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
             rtbTrainingOutput.Dock = DockStyle.Fill;
+            rtbTrainingOutput.BackColor = System.Drawing.Color.Black;
+            rtbTrainingOutput.ForeColor = System.Drawing.Color.White;
             statusStripTraining.Dock = DockStyle.Bottom;
         }
 
@@ -2916,16 +2956,20 @@ namespace TeamApp
                 return;
             }
 
-            bool detected = await DetectTrainingEnvironmentAsync(showSuccessMessage: false, clearLog: false);
-            if (!detected)
+            if (!HasTrainingEnvironmentInputs())
             {
-                MessageBox.Show(
-                    "학습 환경 자동 감지에 실패했습니다.\n\n" +
-                    "자동 감지 버튼을 눌러 로그를 확인하거나, WSL Ubuntu / Conda 경로 / Donkey 프로젝트 경로를 직접 선택해 주세요.",
-                    "학습 환경 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                bool detected = await DetectTrainingEnvironmentAsync(showSuccessMessage: false, clearLog: false);
+                if (!detected)
+                {
+                    MessageBox.Show(
+                        "학습 환경 자동 감지에 실패했습니다.\n\n" +
+                        "자동 감지 버튼을 눌러 로그를 확인하거나, WSL Ubuntu / Conda 경로 / Donkey 프로젝트 경로를 직접 선택해 주세요.",
+                        "학습 환경 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
             }
 
+            NormalizeTrainingPathsForDisplay();
             if (!TryBuildTrainingCommand(out var arguments, out string displayArguments)) return;
 
             btnStartTrainingProcess.Enabled = false;
@@ -2955,6 +2999,7 @@ namespace TeamApp
                     _trainingProcess.StartInfo.ArgumentList.Add(argument);
 
                 AppendTrainingLog("학습 프로세스를 시작합니다.");
+                AppendTrainingLog("첫 학습 횟수는 데이터 캐싱과 모델 준비 때문에 오래 걸릴 수 있습니다.");
                 AppendTrainingLog("실행 명령: wsl " + displayArguments);
 
                 _trainingProcess.Start();
@@ -3021,6 +3066,7 @@ namespace TeamApp
             string modelPath = txtTrainingModelPath.Text.Trim();
             string wslDistro = NormalizeWslDistroName(cmbTrainingWslDistro.Text);
             string condaPath = cmbCondaPath.Text.Trim();
+            int epochCount = Math.Max(1, (int)numTrainingEpochs.Value);
 
             if (string.IsNullOrWhiteSpace(wslDistro))
             {
@@ -3066,6 +3112,7 @@ namespace TeamApp
             string wslCondaPath = ConvertToWslPath(condaPath);
             string wslTubPath = ConvertToWslPath(tubPath);
             string wslModelPath = ConvertToWslPath(modelPath);
+            string wslTrainingConfigPath = "/tmp/teamapp_train_config.py";
 
             string command =
                 "export PYTHONUNBUFFERED=1 && " +
@@ -3076,15 +3123,27 @@ namespace TeamApp
                 "cd " + QuotePathForBash(wslMycarPath) + " && " +
                 "if [ ! -f config.py ] && [ ! -f manage.py ]; then echo " +
                 QuoteForBash("[error] Donkey 프로젝트 파일(config.py 또는 manage.py)을 찾을 수 없습니다: " + wslMycarPath) + "; exit 2; fi && " +
+                "if [ -f config.py ]; then cp config.py " + QuotePathForBash(wslTrainingConfigPath) + "; else : > " + QuotePathForBash(wslTrainingConfigPath) + "; fi && " +
+                "printf " + QuoteForBash("\n# TeamApp runtime training settings\nMAX_EPOCHS = " + epochCount.ToString(CultureInfo.InvariantCulture) + "\n") +
+                " >> " + QuotePathForBash(wslTrainingConfigPath) + " && " +
                 QuotePathForBash(wslCondaPath) + " run --no-capture-output -n " + QuoteForBash(envName) + " " +
                 "donkey train " +
                 "--tub " + QuotePathForBash(wslTubPath) + " " +
                 "--model " + QuotePathForBash(wslModelPath) + " " +
-                "--type " + QuoteForBash(modelType);
+                "--type " + QuoteForBash(modelType) + " " +
+                "--config " + QuotePathForBash(wslTrainingConfigPath);
 
             arguments.AddRange(new[] { "-d", wslDistro, "bash", "-lc", command });
             displayArguments = "-d " + QuoteProcessArgument(wslDistro) + " bash -lc " + QuoteForBash(command);
             return true;
+        }
+
+        private bool HasTrainingEnvironmentInputs()
+        {
+            return !string.IsNullOrWhiteSpace(NormalizeWslDistroName(cmbTrainingWslDistro.Text)) &&
+                   !string.IsNullOrWhiteSpace(cmbCondaPath.Text.Trim()) &&
+                   !string.IsNullOrWhiteSpace(txtTrainingPythonEnvName.Text.Trim()) &&
+                   !string.IsNullOrWhiteSpace(cmbMycarProjectPath.Text.Trim());
         }
 
         private string ConvertToWslPath(string winPath)
@@ -3177,7 +3236,7 @@ namespace TeamApp
         {
             if (rtbTrainingOutput.IsDisposed || string.IsNullOrEmpty(chunk)) return;
 
-            string sanitized = AnsiEscapeRegex.Replace(chunk, string.Empty).Replace("\0", string.Empty);
+            string sanitized = NormalizeTrainingLogChunk(chunk);
             if (sanitized.Length == 0) return;
 
             void AppendChunk()
@@ -3193,10 +3252,38 @@ namespace TeamApp
                 AppendChunk();
         }
 
+        private string NormalizeTrainingLogChunk(string chunk)
+        {
+            string sanitized = AnsiEscapeRegex.Replace(chunk, string.Empty).Replace("\0", string.Empty);
+
+            // DonkeyCar may log this as ERROR even when the training process exits with code 0.
+            // It means the optional model database file was not written, not that the model training failed.
+            return sanitized.Replace(
+                "ERROR:donkeycar.pipeline.database:Failed writing database file:",
+                "[참고] 모델 기록 DB 저장 실패(학습 모델 저장과는 별개):",
+                StringComparison.OrdinalIgnoreCase);
+        }
+
         private void ApplyTrainingOutputChunk(string text)
         {
             foreach (char ch in text)
             {
+                if (ch == '\b')
+                {
+                    if (_trainingOutputLineBuffer.Length > 0)
+                        _trainingOutputLineBuffer.Length--;
+
+                    if (rtbTrainingOutput.TextLength > 0)
+                    {
+                        rtbTrainingOutput.Select(rtbTrainingOutput.TextLength - 1, 1);
+                        rtbTrainingOutput.SelectedText = string.Empty;
+                    }
+                    continue;
+                }
+
+                if (char.IsControl(ch) && ch != '\r' && ch != '\n' && ch != '\t')
+                    continue;
+
                 if (ch == '\r')
                 {
                     UpdateTrainingSummaryFromText(_trainingOutputLineBuffer.ToString());
@@ -3216,6 +3303,11 @@ namespace TeamApp
                 _trainingOutputLineBuffer.Append(ch);
                 rtbTrainingOutput.AppendText(ch.ToString());
             }
+
+            // Keras progress output is often updated in-place without a newline.
+            // Parse the current unfinished line too, so the summary labels update while training is running.
+            if (_trainingOutputLineBuffer.Length > 0)
+                UpdateTrainingSummaryFromText(_trainingOutputLineBuffer.ToString());
         }
 
         private void UpdateTrainingSummaryFromText(string rawText)
@@ -3234,7 +3326,8 @@ namespace TeamApp
                 UpdateTrainingSummary(status: text.Contains("종료 코드: 0", StringComparison.OrdinalIgnoreCase) ? "완료" : "오류");
             }
 
-            if (text.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+            if (text.Contains("[error]", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("train: error", StringComparison.OrdinalIgnoreCase) ||
                 text.Contains("Traceback", StringComparison.OrdinalIgnoreCase) ||
                 text.Contains("Exception", StringComparison.OrdinalIgnoreCase))
             {
@@ -3250,20 +3343,32 @@ namespace TeamApp
                     progress: "0%");
             }
 
-            Match progressMatch = Regex.Match(text, @"(?<current>\d+)\s*/\s*(?<total>\d+).*?(?:loss:\s*(?<loss>[0-9.]+))?", RegexOptions.IgnoreCase);
+            Match progressMatch = Regex.Match(text, @"(?<current>\d+)\s*/\s*(?<total>\d+)", RegexOptions.IgnoreCase);
             if (progressMatch.Success &&
                 int.TryParse(progressMatch.Groups["current"].Value, out int currentStep) &&
                 int.TryParse(progressMatch.Groups["total"].Value, out int totalStep) &&
                 totalStep > 0)
             {
                 int percent = Math.Max(0, Math.Min(100, currentStep * 100 / totalStep));
-                string? loss = progressMatch.Groups["loss"].Success ? progressMatch.Groups["loss"].Value : null;
-                UpdateTrainingSummary(progress: percent + "%", loss: loss);
+                UpdateTrainingSummary(progress: percent + "%");
             }
+
+            Match valLossMatch = Regex.Match(text, @"(?:^|\s)val_loss:\s*(?<loss>[0-9.]+)", RegexOptions.IgnoreCase);
+            if (valLossMatch.Success)
+                UpdateTrainingSummary(loss: FormatTrainingScore(valLossMatch.Groups["loss"].Value));
 
             Match lossMatch = Regex.Match(text, @"(?:^|\s)loss:\s*(?<loss>[0-9.]+)", RegexOptions.IgnoreCase);
             if (lossMatch.Success)
-                UpdateTrainingSummary(loss: lossMatch.Groups["loss"].Value);
+                UpdateTrainingSummary(loss: FormatTrainingScore(lossMatch.Groups["loss"].Value));
+        }
+
+        private string FormatTrainingScore(string lossText)
+        {
+            if (!double.TryParse(lossText, NumberStyles.Float, CultureInfo.InvariantCulture, out double loss))
+                return "-";
+
+            double score = Math.Clamp((1.0 - loss) * 100.0, 0.0, 100.0);
+            return $"{score:0}점";
         }
 
         private void UpdateTrainingSummary(
@@ -3283,13 +3388,13 @@ namespace TeamApp
                 }
 
                 if (_lblTrainingSummaryEpoch != null && epoch != null)
-                    _lblTrainingSummaryEpoch.Text = "Epoch: " + epoch;
+                    _lblTrainingSummaryEpoch.Text = "학습 횟수: " + epoch;
 
                 if (_lblTrainingSummaryProgress != null && progress != null)
                     _lblTrainingSummaryProgress.Text = "진행률: " + progress;
 
                 if (_lblTrainingSummaryLoss != null && loss != null)
-                    _lblTrainingSummaryLoss.Text = "loss: " + loss;
+                    _lblTrainingSummaryLoss.Text = "점수(높을수록 좋음): " + loss;
             }
 
             if (grpTrainingConfig.InvokeRequired)
