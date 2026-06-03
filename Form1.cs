@@ -165,7 +165,7 @@ namespace TeamApp
             BeginInvoke(new Action(AskFirstUseTutorial));
 
             // 로드 시 폰트 불러오기
-            mainFonts.AddFontFile("resource/Pretendard-Regular.ttf");
+            mainFonts.AddFontFile("resource/PretendardVariable.ttf");
             cliFonts.AddFontFile("resource/JetBrainsMono-Medium.ttf");
 
             Font myFont1 = new Font(mainFonts.Families[0], 11f);
@@ -352,7 +352,7 @@ namespace TeamApp
                 Location = new Point(18, 18),
                 Size = new Size(394, 46),
                 Text = "보고 싶은 튜토리얼 섹션을 선택하세요.\nX를 누르면 튜토리얼을 시작하지 않습니다.",
-                Font = new Font("맑은 고딕", 10F),
+                Font = new Font("resource/PretendardVariable.ttf", 10F),
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
@@ -485,7 +485,7 @@ namespace TeamApp
                 Location = new Point(18, 18),
                 Size = new Size(484, 120),
                 Text = description + "\n\n다음 버튼을 누르면 다음 기능으로 넘어갑니다. X 또는 스킵을 누르면 튜토리얼을 종료합니다.",
-                Font = new Font("맑은 고딕", 10F),
+                Font = new Font("resource/PretendardVariable.ttf", 10F),
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
@@ -705,9 +705,10 @@ namespace TeamApp
             dgvFrameCatalog.Columns.Clear();
             dgvFrameCatalog.MultiSelect = true;
             dgvFrameCatalog.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvFrameCatalog.Font = new Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Regular);
-            dgvFrameCatalog.ColumnHeadersDefaultCellStyle.Font = new Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
-            dgvFrameCatalog.DefaultCellStyle.Font = new Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Regular);
+            dgvFrameCatalog.Font = new Font("resource/PretendardVariable.ttf", 10F, System.Drawing.FontStyle.Regular);
+            dgvFrameCatalog.ColumnHeadersDefaultCellStyle.Font = new Font("resource/PretendardVariable.ttf", 10F, System.Drawing.FontStyle.Bold);
+            dgvFrameCatalog.DefaultCellStyle.Font = new Font("resource/PretendardVariable.ttf", 10F, System.Drawing.FontStyle.Regular);
+            dgvFrameCatalog.EnableHeadersVisualStyles = false;
             dgvFrameCatalog.DefaultCellStyle.WrapMode = DataGridViewTriState.False;
             dgvFrameCatalog.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
             dgvFrameCatalog.Columns.Add(new DataGridViewTextBoxColumn
@@ -946,7 +947,7 @@ namespace TeamApp
                 {
                     Name = "cmbPlaybackSpeed",
                     DropDownStyle = ComboBoxStyle.DropDownList,
-                    Font = new Font("맑은 고딕", 9.5F),
+                    Font = new Font("resource/PretendardVariable.ttf", 9.5F),
                     Anchor = AnchorStyles.Top | AnchorStyles.Right
                 };
 
@@ -1127,11 +1128,11 @@ namespace TeamApp
             int left = lblFrameValue.Left;
             int width = lblFrameValue.Width;
 
-            lblFrameValue.Font = new Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
-            lblAngleValue.Font = new Font("맑은 고딕", 10.5F);
-            lblThrottleValue.Font = new Font("맑은 고딕", 10.5F);
-            lblModeValue.Font = new Font("맑은 고딕", 10.5F);
-            lblPlayInterval.Font = new Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            lblFrameValue.Font = new Font("resource/PretendardVariable.ttf", 12F, System.Drawing.FontStyle.Bold);
+            lblAngleValue.Font = new Font("resource/PretendardVariable.ttf", 10.5F);
+            lblThrottleValue.Font = new Font("resource/PretendardVariable.ttf", 10.5F);
+            lblModeValue.Font = new Font("resource/PretendardVariable.ttf", 10.5F);
+            lblPlayInterval.Font = new Font("resource/PretendardVariable.ttf", 9.5F, System.Drawing.FontStyle.Bold);
 
             lblFrameValue.Location = new Point(left, 58);
             lblFrameValue.Size = new Size(width, 32);
@@ -1183,7 +1184,7 @@ namespace TeamApp
                     Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     Location = new Point(lblModeValue.Left, 326),
                     Size = new Size(lblModeValue.Width, 54),
-                    Font = new Font("맑은 고딕", 9F),
+                    Font = new Font("resource/PretendardVariable.ttf", 9F),
                     ForeColor = System.Drawing.Color.DimGray
                 };
                 grpDataExplorer.Controls.Add(_lblFrameReviewHint);
@@ -1200,7 +1201,7 @@ namespace TeamApp
                     Name = "lblCleanupSummary",
                     Text = "정리 상태: 데이터 없음",
                     Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
-                    Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold),
+                    Font = new System.Drawing.Font("resource/PretendardVariable.ttf", 9.5F, System.Drawing.FontStyle.Bold),
                     ForeColor = System.Drawing.Color.FromArgb(45, 65, 90)
                 };
                 grpDataCleaner.Controls.Add(_lblCleanupSummary);
@@ -1214,7 +1215,7 @@ namespace TeamApp
                     Name = "lblCleanupWorkflowHint",
                     Text = "대량 정리: 표 드래그 또는 시작/끝 지정 -> '선택 제외' -> Ctrl+S 저장",
                     Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
-                    Font = new System.Drawing.Font("맑은 고딕", 9F),
+                    Font = new System.Drawing.Font("resource/PretendardVariable.ttf", 9F),
                     ForeColor = System.Drawing.Color.DimGray
                 };
                 grpDataCleaner.Controls.Add(_lblCleanupWorkflowHint);
@@ -1235,7 +1236,7 @@ namespace TeamApp
                     Text = "시작 지정",
                     UseVisualStyleBackColor = false,
                     BackColor = System.Drawing.Color.FromArgb(245, 249, 255),
-                    Font = new Font("맑은 고딕", 9F)
+                    Font = new Font("resource/PretendardVariable.ttf", 9F)
                 };
                 _btnSetRangeStart.Click += (_, _) => SetCurrentFrameAsRangePoint(isStart: true);
                 grpDataCleaner.Controls.Add(_btnSetRangeStart);
@@ -1250,7 +1251,7 @@ namespace TeamApp
                     Text = "끝 지정",
                     UseVisualStyleBackColor = false,
                     BackColor = System.Drawing.Color.FromArgb(245, 249, 255),
-                    Font = new Font("맑은 고딕", 9F)
+                    Font = new Font("resource/PretendardVariable.ttf", 9F)
                 };
                 _btnSetRangeEnd.Click += (_, _) => SetCurrentFrameAsRangePoint(isStart: false);
                 grpDataCleaner.Controls.Add(_btnSetRangeEnd);
@@ -1264,7 +1265,7 @@ namespace TeamApp
                     Name = "lblSelectedFrameRange",
                     Text = "선택 범위: -",
                     AutoSize = false,
-                    Font = new Font("맑은 고딕", 9F),
+                    Font = new Font("resource/PretendardVariable.ttf", 9F),
                     ForeColor = System.Drawing.Color.FromArgb(70, 70, 70)
                 };
                 grpDataCleaner.Controls.Add(_lblSelectedFrameRange);
@@ -1281,7 +1282,7 @@ namespace TeamApp
                 Name = "lblCleanWorkflowSummary",
                 Text = "학습 데이터 흐름: 원본 보존 -> 제외 표시 저장 -> Clean 폴더 생성 -> Clean 폴더로 학습",
                 AutoSize = false,
-                Font = new Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold),
+                Font = new Font("resource/PretendardVariable.ttf", 9.5F, System.Drawing.FontStyle.Bold),
                 ForeColor = System.Drawing.Color.FromArgb(35, 80, 120)
             };
             grpDataCleaner.Controls.Add(_lblCleanWorkflowSummary);
@@ -1546,7 +1547,7 @@ namespace TeamApp
             if (frame.NeedsReview)
                 overlayText += " / 검토";
 
-            using var font = new System.Drawing.Font("맑은 고딕", Math.Max(5.2f, 5.6f * scale), System.Drawing.FontStyle.Bold);
+            using var font = new System.Drawing.Font("resource/PretendardVariable.ttf", Math.Max(5.2f, 5.6f * scale), System.Drawing.FontStyle.Bold);
             SizeF textSize = graphics.MeasureString(overlayText, font);
             float boxWidth = textSize.Width + 12;
             float boxHeight = textSize.Height + 7;
@@ -2556,7 +2557,7 @@ namespace TeamApp
                 AutoSize = false,
                 Text = text,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Font = new System.Drawing.Font("맑은 고딕", 10.5F, bold ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular),
+                Font = new System.Drawing.Font("resource/PretendardVariable.ttf", 10.5F, bold ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular),
                 ForeColor = System.Drawing.Color.FromArgb(40, 40, 40)
             };
 
@@ -2571,9 +2572,9 @@ namespace TeamApp
         /// </summary>
         private void ApplyTrainingControlStyle()
         {
-            System.Drawing.Font commonFont = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Regular);
-            System.Drawing.Font labelFont = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Regular);
-            System.Drawing.Font buttonFont = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Regular);
+            System.Drawing.Font commonFont = new System.Drawing.Font("resource/PretendardVariable.ttf", 10.5F, System.Drawing.FontStyle.Regular);
+            System.Drawing.Font labelFont = new System.Drawing.Font("resource/PretendardVariable.ttf", 10.5F, System.Drawing.FontStyle.Regular);
+            System.Drawing.Font buttonFont = new System.Drawing.Font("resource/PretendardVariable.ttf", 10.5F, System.Drawing.FontStyle.Regular);
 
             foreach (Control control in grpTrainingConfig.Controls)
             {
@@ -2586,7 +2587,6 @@ namespace TeamApp
                 }
             }
 
-            rtbTrainingOutput.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Regular);
             grpTrainingConfig.Font = labelFont;
             grpTrainingOutput.Font = labelFont;
         }
@@ -3514,7 +3514,7 @@ namespace TeamApp
                 MaximizeBox = false,
                 FormBorderStyle = FormBorderStyle.FixedDialog,
                 ClientSize = new Size(640, 320),
-                Font = new Font("맑은 고딕", 10F)
+                Font = new Font("resource/PretendardVariable.ttf", 10F)
             };
 
             var description = new System.Windows.Forms.Label
@@ -3870,7 +3870,7 @@ namespace TeamApp
             if (lblChartDescription != null)
             {
                 lblChartDescription.AutoSize = false;
-                lblChartDescription.Font = new Font("맑은 고딕", 10F);
+                lblChartDescription.Font = new Font("resource/PretendardVariable.ttf", 10F);
                 lblChartDescription.Location = new Point(20, 14);
                 lblChartDescription.Size = new Size(Math.Max(300, tabGraphStats.ClientSize.Width - 40), 48);
                 lblChartDescription.TextAlign = ContentAlignment.MiddleLeft;

@@ -11,13 +11,14 @@
   <ItemGroup>
     <None Remove="resource\JetBrainsMono-Medium.ttf" />
     <None Remove="resource\Pretendard-Regular.ttf" />
+    <None Remove="resource\PretendardVariable.ttf" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="resource\JetBrainsMono-Medium.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="resource\Pretendard-Regular.ttf">
+    <Content Include="resource\PretendardVariable.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
             menuStripMain = new MenuStrip();
             mnuFile = new ToolStripMenuItem();
             mnuFileOpenDataFolder = new ToolStripMenuItem();
@@ -576,7 +577,7 @@
             // numPlaybackIntervalMs
             // 
             numPlaybackIntervalMs.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            numPlaybackIntervalMs.Location = new Point(1096, 397);
+            numPlaybackIntervalMs.Location = new Point(1093, 396);
             numPlaybackIntervalMs.Margin = new Padding(2);
             numPlaybackIntervalMs.Maximum = new decimal(new int[] { 5000, 0, 0, 0 });
             numPlaybackIntervalMs.Minimum = new decimal(new int[] { 10, 0, 0, 0 });
@@ -677,6 +678,13 @@
             dgvFrameCatalog.AllowUserToAddRows = false;
             dgvFrameCatalog.AllowUserToDeleteRows = false;
             dgvFrameCatalog.AllowUserToResizeRows = false;
+            dataGridViewCellStyle1.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle1.BackColor = SystemColors.Control;
+            dataGridViewCellStyle1.ForeColor = SystemColors.WindowText;
+            dataGridViewCellStyle1.SelectionBackColor = SystemColors.Highlight;
+            dataGridViewCellStyle1.SelectionForeColor = SystemColors.HighlightText;
+            dataGridViewCellStyle1.WrapMode = DataGridViewTriState.True;
+            dgvFrameCatalog.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle1;
             dgvFrameCatalog.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             dgvFrameCatalog.Dock = DockStyle.Fill;
             dgvFrameCatalog.Location = new Point(0, 0);
@@ -843,7 +851,6 @@
             // 
             rtbTrainingOutput.BackColor = SystemColors.MenuText;
             rtbTrainingOutput.Dock = DockStyle.Fill;
-            rtbTrainingOutput.Font = new Font("Consolas", 12F, FontStyle.Regular, GraphicsUnit.Point, 0);
             rtbTrainingOutput.ForeColor = SystemColors.Window;
             rtbTrainingOutput.Location = new Point(2, 18);
             rtbTrainingOutput.Margin = new Padding(2);
