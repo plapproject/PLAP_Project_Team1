@@ -1,17 +1,19 @@
-﻿using System;
+﻿using ScottPlot;
+using ScottPlot.WinForms;
+using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Globalization;
 using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Text;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using ScottPlot;
-using ScottPlot.WinForms;
 
 namespace TeamApp
 {
@@ -63,6 +65,23 @@ namespace TeamApp
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
         private static readonly Regex AnsiEscapeRegex = new(@"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", RegexOptions.Compiled);
+
+        // 외부 폰트 콜렉션 추가
+        PrivateFontCollection mainFonts = new PrivateFontCollection();
+        PrivateFontCollection cliFonts = new PrivateFontCollection();
+
+        private void ApplyFont(Control parent, Font font)
+        {
+            foreach (Control control in parent.Controls)
+            {
+                control.Font = font;
+
+                if (control.Controls.Count > 0)
+                {
+                    ApplyFont(control, font);
+                }
+            }
+        }
 
         private sealed class TutorialStep
         {
@@ -144,6 +163,16 @@ namespace TeamApp
             NormalizeTrainingPathsForDisplay();
             UpdateStatusLabels();
             BeginInvoke(new Action(AskFirstUseTutorial));
+
+            // 로드 시 폰트 불러오기
+            mainFonts.AddFontFile("resource/Pretendard-Regular.ttf");
+            cliFonts.AddFontFile("resource/JetBrainsMono-Medium.ttf");
+
+            Font myFont1 = new Font(mainFonts.Families[0], 11f);
+            Font myFont2 = new Font(cliFonts.Families[0], 12f);
+
+            ApplyFont(this, myFont1);
+            rtbTrainingOutput.Font = myFont2;
         }
 
         // UI 이벤트 처리
