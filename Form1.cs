@@ -1058,8 +1058,8 @@ namespace TeamApp
             int height = Math.Max(360, grpDataExplorer.ClientSize.Height);
             int margin = 14;
             int toolbarY = 22;
-            int toolbarGap = 8;
-            int toolbarButtonWidth = 124;
+            int toolbarGap = 6;
+            int toolbarButtonWidth = 144;
             int toolbarButtonHeight = 28;
 
             var toolbarButtons = new[] { btnOpenDataFolder, btnReloadData, btnToggleTheme, btnGuide };
