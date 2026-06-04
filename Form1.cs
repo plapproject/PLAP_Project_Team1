@@ -8,10 +8,12 @@ using System.Drawing.Text;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection.Emit;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -68,6 +70,19 @@ namespace TeamApp
         private bool _hasUnsavedCleanupChanges = false;
         private bool _showDriveOverlay = true;
         private bool _hasAutoDetectedTrainingTab = false;
+        private readonly HttpClient _pilotHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        private CancellationTokenSource? _pilotPredictionCts;
+        private int _pilotPredictionRequestVersion = 0;
+        private TabPage? tabPageModelValidation;
+        private PictureBox? picValidationPreview;
+        private Panel? pnlValidationBars;
+        private TextBox? txtPilotApiUrl;
+        private System.Windows.Forms.Label? lblPilotStatus;
+        private System.Windows.Forms.Label? lblPilotActualAngle;
+        private System.Windows.Forms.Label? lblPilotActualThrottle;
+        private System.Windows.Forms.Label? lblPilotPredictedAngle;
+        private System.Windows.Forms.Label? lblPilotPredictedThrottle;
+        private Button? btnPilotHealthCheck;
         private Process? _trainingProcess;
         private readonly Dictionary<int, Bitmap> _thumbnailCache = new();
         private int _previousThumbnailHighlightIndex = -1;
@@ -178,6 +193,7 @@ namespace TeamApp
             ConfigureFrameCatalogGrid();
             ApplyDataManagerUiStyle();
             ConfigurePlaybackSpeedComboBox();
+            ConfigureModelValidationTab();
             ConfigureDeletedGraphToggleButton();
             ConfigureReviewCandidateControls();
             ConfigureCleanupGuidanceControls();
@@ -779,6 +795,130 @@ namespace TeamApp
             trkFrameTimeline.MouseDown += TrkFrameTimeline_MouseDown;
             trkFrameTimeline.MouseMove += TrkFrameTimeline_MouseMove;
             trkFrameTimeline.MouseUp += TrkFrameTimeline_MouseUp;
+        }
+
+        private void ConfigureModelValidationTab()
+        {
+            if (tabPageModelValidation != null)
+                return;
+
+            tabPageModelValidation = new TabPage
+            {
+                Name = "tabPageModelValidation",
+                Text = "모델 검증",
+                Padding = new Padding(8),
+                UseVisualStyleBackColor = true
+            };
+
+            int insertIndex = Math.Min(2, tabControlMain.TabPages.Count);
+            tabControlMain.TabPages.Insert(insertIndex, tabPageModelValidation);
+
+            var root = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 2,
+                BackColor = System.Drawing.Color.FromArgb(245, 247, 250)
+            };
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 68F));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32F));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 74F));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 26F));
+
+            picValidationPreview = new PictureBox
+            {
+                Name = "picValidationPreview",
+                Dock = DockStyle.Fill,
+                BackColor = System.Drawing.Color.Black,
+                BorderStyle = BorderStyle.FixedSingle,
+                SizeMode = PictureBoxSizeMode.Zoom
+            };
+            picValidationPreview.Paint += PicValidationPreview_Paint;
+
+            pnlValidationBars = new Panel
+            {
+                Name = "pnlValidationBars",
+                Dock = DockStyle.Fill,
+                BackColor = System.Drawing.Color.FromArgb(26, 29, 34),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            pnlValidationBars.Paint += PnlValidationBars_Paint;
+
+            var sidePanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 9,
+                Padding = new Padding(14),
+                BackColor = System.Drawing.Color.White
+            };
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            sidePanel.Controls.Add(CreateValidationLabel("모델 추론 서버", bold: true), 0, 0);
+            txtPilotApiUrl = new TextBox
+            {
+                Name = "txtPilotApiUrl",
+                Dock = DockStyle.Fill,
+                Text = "http://127.0.0.1:5000/predict"
+            };
+            sidePanel.Controls.Add(txtPilotApiUrl, 0, 1);
+
+            lblPilotStatus = CreateValidationLabel("상태: 서버 대기 중");
+            lblPilotActualAngle = CreateValidationLabel("실제 Angle: -");
+            lblPilotActualThrottle = CreateValidationLabel("실제 Throttle: -");
+            lblPilotPredictedAngle = CreateValidationLabel("예측 Angle: -");
+            lblPilotPredictedThrottle = CreateValidationLabel("예측 Throttle: -");
+
+            sidePanel.Controls.Add(lblPilotStatus, 0, 2);
+            sidePanel.Controls.Add(lblPilotActualAngle, 0, 3);
+            sidePanel.Controls.Add(lblPilotActualThrottle, 0, 4);
+            sidePanel.Controls.Add(lblPilotPredictedAngle, 0, 5);
+            sidePanel.Controls.Add(lblPilotPredictedThrottle, 0, 6);
+
+            btnPilotHealthCheck = new Button
+            {
+                Name = "btnPilotHealthCheck",
+                Text = "서버 확인",
+                Dock = DockStyle.Fill,
+                UseVisualStyleBackColor = true
+            };
+            btnPilotHealthCheck.Click += async (_, _) => await CheckPilotServerHealthAsync();
+            sidePanel.Controls.Add(btnPilotHealthCheck, 0, 7);
+
+            var hint = CreateValidationLabel(
+                "Python 서버를 WSL에서 먼저 실행한 뒤 프레임을 선택하면 현재 이미지의 예측값을 가져옵니다.",
+                bold: false);
+            hint.AutoSize = false;
+            hint.Dock = DockStyle.Fill;
+            hint.ForeColor = System.Drawing.Color.DimGray;
+            sidePanel.Controls.Add(hint, 0, 8);
+
+            root.Controls.Add(picValidationPreview, 0, 0);
+            root.Controls.Add(sidePanel, 1, 0);
+            root.Controls.Add(pnlValidationBars, 0, 1);
+            root.SetColumnSpan(pnlValidationBars, 2);
+
+            tabPageModelValidation.Controls.Add(root);
+        }
+
+        private System.Windows.Forms.Label CreateValidationLabel(string text, bool bold = false)
+        {
+            return new System.Windows.Forms.Label
+            {
+                Text = text,
+                Dock = DockStyle.Fill,
+                AutoSize = false,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("맑은 고딕", bold ? 10.5F : 9.5F, bold ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular)
+            };
         }
 
         private void DgvFrameCatalog_MouseDown(object? sender, MouseEventArgs e)
@@ -2456,6 +2596,7 @@ namespace TeamApp
             }
             ScrollThumbnailToCurrentFrame();
             UpdateStatusLabels();
+            MaybeRequestPilotPredictionForCurrentFrame();
             BeginInvoke(new Action(AskFirstUseTutorial));
         }
 
@@ -2475,6 +2616,86 @@ namespace TeamApp
             if (File.Exists(p2)) return p2;
 
             return string.Empty;
+        }
+
+        private async Task<(double angle, double throttle)> GetPilotPredictionAsync(string imagePath, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
+                throw new FileNotFoundException("추론할 이미지 파일을 찾을 수 없습니다.", imagePath);
+
+            string endpoint = GetPilotPredictUrl();
+            byte[] imageBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken);
+            string json = JsonSerializer.Serialize(new
+            {
+                image_base64 = Convert.ToBase64String(imageBytes)
+            });
+
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            using HttpResponseMessage response = await _pilotHttpClient.PostAsync(endpoint, content, cancellationToken);
+            string responseText = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            using JsonDocument document = JsonDocument.Parse(responseText);
+            JsonElement root = document.RootElement;
+            if (root.TryGetProperty("error", out JsonElement error))
+                throw new InvalidOperationException(error.GetString() ?? "Python 추론 서버 오류");
+
+            response.EnsureSuccessStatusCode();
+            double angle = ReadJsonDouble(root, "angle");
+            double throttle = ReadJsonDouble(root, "throttle");
+            return (angle, throttle);
+        }
+
+        private static double ReadJsonDouble(JsonElement root, string propertyName)
+        {
+            if (!root.TryGetProperty(propertyName, out JsonElement value))
+                return 0.0;
+
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out double number))
+                return number;
+
+            return double.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out number)
+                ? number
+                : 0.0;
+        }
+
+        private string GetPilotPredictUrl()
+        {
+            string url = txtPilotApiUrl?.Text.Trim() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(url)
+                ? "http://127.0.0.1:5000/predict"
+                : url;
+        }
+
+        private string GetPilotHealthUrl()
+        {
+            string url = GetPilotPredictUrl();
+            return url.EndsWith("/predict", StringComparison.OrdinalIgnoreCase)
+                ? url[..^"/predict".Length] + "/health"
+                : url.TrimEnd('/') + "/health";
+        }
+
+        private async Task CheckPilotServerHealthAsync()
+        {
+            if (lblPilotStatus != null)
+                lblPilotStatus.Text = "상태: 서버 확인 중...";
+
+            try
+            {
+                using HttpResponseMessage response = await _pilotHttpClient.GetAsync(GetPilotHealthUrl());
+                string responseText = await response.Content.ReadAsStringAsync();
+                response.EnsureSuccessStatusCode();
+
+                if (lblPilotStatus != null)
+                    lblPilotStatus.Text = "상태: 서버 연결 성공";
+            }
+            catch (Exception ex)
+            {
+                if (lblPilotStatus != null)
+                    lblPilotStatus.Text = "상태: 서버 연결 실패";
+                MessageBox.Show(
+                    "Python 추론 서버에 연결할 수 없습니다.\n\n" + ex.Message,
+                    "모델 검증 서버 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void UpdatePreviewImage(string path, FrameData? frame = null)
@@ -2498,6 +2719,166 @@ namespace TeamApp
                 old?.Dispose();
             }
             catch { /* 이미지 로드 실패는 미리보기만 비우고 무시합니다. */ }
+        }
+
+        private void UpdateModelValidationView(FrameData? frame)
+        {
+            if (tabPageModelValidation == null)
+                return;
+
+            if (frame == null)
+            {
+                if (picValidationPreview != null)
+                {
+                    picValidationPreview.Image?.Dispose();
+                    picValidationPreview.Image = null;
+                }
+
+                if (lblPilotStatus != null) lblPilotStatus.Text = "상태: 프레임 없음";
+                if (lblPilotActualAngle != null) lblPilotActualAngle.Text = "실제 Angle: -";
+                if (lblPilotActualThrottle != null) lblPilotActualThrottle.Text = "실제 Throttle: -";
+                if (lblPilotPredictedAngle != null) lblPilotPredictedAngle.Text = "예측 Angle: -";
+                if (lblPilotPredictedThrottle != null) lblPilotPredictedThrottle.Text = "예측 Throttle: -";
+                pnlValidationBars?.Invalidate();
+                return;
+            }
+
+            if (lblPilotActualAngle != null)
+                lblPilotActualAngle.Text = $"실제 Angle: {frame.Angle:0.000}";
+            if (lblPilotActualThrottle != null)
+                lblPilotActualThrottle.Text = $"실제 Throttle: {frame.Throttle:0.000}";
+
+            if (frame.IsPilotPredictionLoading)
+            {
+                if (lblPilotStatus != null) lblPilotStatus.Text = "상태: 추론 요청 중...";
+            }
+            else if (!string.IsNullOrWhiteSpace(frame.PilotPredictionError))
+            {
+                if (lblPilotStatus != null) lblPilotStatus.Text = "상태: " + frame.PilotPredictionError;
+            }
+            else if (frame.PilotAngle.HasValue && frame.PilotThrottle.HasValue)
+            {
+                if (lblPilotStatus != null) lblPilotStatus.Text = "상태: 추론 완료";
+            }
+            else
+            {
+                if (lblPilotStatus != null) lblPilotStatus.Text = "상태: 추론 대기";
+            }
+
+            if (lblPilotPredictedAngle != null)
+                lblPilotPredictedAngle.Text = frame.PilotAngle.HasValue
+                    ? $"예측 Angle: {frame.PilotAngle.Value:0.000}"
+                    : "예측 Angle: -";
+            if (lblPilotPredictedThrottle != null)
+                lblPilotPredictedThrottle.Text = frame.PilotThrottle.HasValue
+                    ? $"예측 Throttle: {frame.PilotThrottle.Value:0.000}"
+                    : "예측 Throttle: -";
+
+            UpdateValidationPreviewImage(frame);
+            picValidationPreview?.Invalidate();
+            pnlValidationBars?.Invalidate();
+        }
+
+        private void UpdateValidationPreviewImage(FrameData frame)
+        {
+            if (picValidationPreview == null)
+                return;
+
+            string path = ResolveImagePath(frame.Name);
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                picValidationPreview.Image?.Dispose();
+                picValidationPreview.Image = null;
+                return;
+            }
+
+            try
+            {
+                using var fs = File.OpenRead(path);
+                using var image = System.Drawing.Image.FromStream(fs);
+                var bitmap = new Bitmap(image);
+                var old = picValidationPreview.Image;
+                picValidationPreview.Image = bitmap;
+                old?.Dispose();
+            }
+            catch
+            {
+                picValidationPreview.Image?.Dispose();
+                picValidationPreview.Image = null;
+            }
+        }
+
+        private async Task RequestPilotPredictionForFrameAsync(int frameIndex, FrameData frame)
+        {
+            string imagePath = ResolveImagePath(frame.Name);
+            if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
+            {
+                frame.PilotPredictionError = "이미지 없음";
+                frame.IsPilotPredictionLoading = false;
+                UpdateModelValidationView(frame);
+                return;
+            }
+
+            _pilotPredictionCts?.Cancel();
+            _pilotPredictionCts?.Dispose();
+            _pilotPredictionCts = new CancellationTokenSource();
+            CancellationToken cancellationToken = _pilotPredictionCts.Token;
+            int requestVersion = Interlocked.Increment(ref _pilotPredictionRequestVersion);
+
+            frame.IsPilotPredictionLoading = true;
+            frame.PilotPredictionError = string.Empty;
+            UpdateModelValidationView(frame);
+
+            try
+            {
+                var prediction = await GetPilotPredictionAsync(imagePath, cancellationToken);
+                if (cancellationToken.IsCancellationRequested ||
+                    requestVersion != _pilotPredictionRequestVersion ||
+                    frameIndex != _currentFrameIndex)
+                    return;
+
+                frame.PilotAngle = prediction.angle;
+                frame.PilotThrottle = prediction.throttle;
+                frame.PilotPredictionError = string.Empty;
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                if (requestVersion == _pilotPredictionRequestVersion && frameIndex == _currentFrameIndex)
+                    frame.PilotPredictionError = "추론 실패: " + ex.Message;
+            }
+            finally
+            {
+                if (requestVersion == _pilotPredictionRequestVersion && frameIndex == _currentFrameIndex)
+                {
+                    frame.IsPilotPredictionLoading = false;
+                    UpdateModelValidationView(frame);
+                }
+            }
+        }
+
+        private void MaybeRequestPilotPredictionForCurrentFrame()
+        {
+            if (tabPageModelValidation == null || tabControlMain.SelectedTab != tabPageModelValidation)
+                return;
+            if (_visibleFrames == null || _currentFrameIndex < 0 || _currentFrameIndex >= _visibleFrames.Count)
+            {
+                UpdateModelValidationView(null);
+                return;
+            }
+
+            FrameData frame = _visibleFrames[_currentFrameIndex];
+            UpdateModelValidationView(frame);
+
+            if (frame.PilotAngle.HasValue &&
+                frame.PilotThrottle.HasValue &&
+                string.IsNullOrWhiteSpace(frame.PilotPredictionError))
+                return;
+
+            _ = RequestPilotPredictionForFrameAsync(_currentFrameIndex, frame);
         }
 
         /// <summary>
@@ -2546,6 +2927,141 @@ namespace TeamApp
             float textY = textBox.Top + 3;
             graphics.DrawString(overlayText, font, outlineBrush, textX + 0.8f, textY + 0.8f);
             graphics.DrawString(overlayText, font, textBrush, textX, textY);
+        }
+
+        private void PicValidationPreview_Paint(object? sender, PaintEventArgs e)
+        {
+            FrameData? frame = GetCurrentVisibleFrame();
+            if (frame == null)
+                return;
+
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            Rectangle bounds = picValidationPreview?.ClientRectangle ?? Rectangle.Empty;
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+                return;
+
+            DrawValidationArrow(
+                e.Graphics,
+                bounds,
+                frame.Angle,
+                System.Drawing.Color.FromArgb(230, 255, 193, 7),
+                "실제",
+                0);
+
+            if (frame.PilotAngle.HasValue)
+            {
+                DrawValidationArrow(
+                    e.Graphics,
+                    bounds,
+                    frame.PilotAngle.Value,
+                    System.Drawing.Color.FromArgb(235, 42, 146, 255),
+                    "예측",
+                    1);
+            }
+        }
+
+        private void DrawValidationArrow(Graphics graphics, Rectangle bounds, double angle, System.Drawing.Color color, string label, int layer)
+        {
+            double clampedAngle = Math.Max(-1.0, Math.Min(1.0, angle));
+            float baseX = bounds.Left + bounds.Width / 2f;
+            float baseY = bounds.Bottom - 44f - layer * 34f;
+            float tipX = baseX + (float)(clampedAngle * bounds.Width * 0.25);
+            float tipY = baseY - 62f;
+
+            using var pen = new Pen(color, layer == 0 ? 4f : 5f)
+            {
+                StartCap = System.Drawing.Drawing2D.LineCap.Round,
+                CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(6, 8)
+            };
+            using var shadowPen = new Pen(System.Drawing.Color.FromArgb(150, 0, 0, 0), pen.Width + 2)
+            {
+                StartCap = System.Drawing.Drawing2D.LineCap.Round,
+                CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(6, 8)
+            };
+
+            graphics.DrawLine(shadowPen, baseX + 1, baseY + 1, tipX + 1, tipY + 1);
+            graphics.DrawLine(pen, baseX, baseY, tipX, tipY);
+
+            string text = $"{label} {angle:0.000}";
+            using var font = new Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            SizeF textSize = graphics.MeasureString(text, font);
+            var box = new RectangleF(tipX - textSize.Width / 2f - 6, tipY - textSize.Height - 10, textSize.Width + 12, textSize.Height + 6);
+            using var backBrush = new SolidBrush(System.Drawing.Color.FromArgb(170, 0, 0, 0));
+            using var textBrush = new SolidBrush(System.Drawing.Color.White);
+            graphics.FillRectangle(backBrush, box);
+            graphics.DrawString(text, font, textBrush, box.Left + 6, box.Top + 3);
+        }
+
+        private void PnlValidationBars_Paint(object? sender, PaintEventArgs e)
+        {
+            FrameData? frame = GetCurrentVisibleFrame();
+            e.Graphics.Clear(System.Drawing.Color.FromArgb(26, 29, 34));
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            if (frame == null)
+            {
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    "검증할 프레임이 없습니다.",
+                    new Font("맑은 고딕", 10F),
+                    pnlValidationBars?.ClientRectangle ?? Rectangle.Empty,
+                    System.Drawing.Color.White,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                return;
+            }
+
+            Rectangle bounds = pnlValidationBars?.ClientRectangle ?? Rectangle.Empty;
+            int left = 120;
+            int right = 28;
+            int top = 26;
+            int rowHeight = Math.Max(28, (bounds.Height - top - 20) / 4);
+            int barWidth = Math.Max(120, bounds.Width - left - right);
+            int centerX = left + barWidth / 2;
+
+            using var axisPen = new Pen(System.Drawing.Color.FromArgb(110, 255, 255, 255), 1);
+            e.Graphics.DrawLine(axisPen, centerX, 14, centerX, bounds.Bottom - 12);
+
+            DrawValidationBar(e.Graphics, "실제 Angle", frame.Angle, top + rowHeight * 0, left, barWidth, rowHeight, System.Drawing.Color.FromArgb(255, 193, 7));
+            DrawValidationBar(e.Graphics, "예측 Angle", frame.PilotAngle, top + rowHeight * 1, left, barWidth, rowHeight, System.Drawing.Color.FromArgb(42, 146, 255));
+            DrawValidationBar(e.Graphics, "실제 Throttle", frame.Throttle, top + rowHeight * 2, left, barWidth, rowHeight, System.Drawing.Color.FromArgb(255, 193, 7));
+            DrawValidationBar(e.Graphics, "예측 Throttle", frame.PilotThrottle, top + rowHeight * 3, left, barWidth, rowHeight, System.Drawing.Color.FromArgb(42, 146, 255));
+        }
+
+        private void DrawValidationBar(Graphics graphics, string label, double? value, int y, int left, int width, int height, System.Drawing.Color color)
+        {
+            using var labelFont = new Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            using var valueFont = new Font("맑은 고딕", 8.5F);
+            using var labelBrush = new SolidBrush(System.Drawing.Color.White);
+            using var backBrush = new SolidBrush(System.Drawing.Color.FromArgb(48, 52, 60));
+            using var barBrush = new SolidBrush(System.Drawing.Color.FromArgb(215, color));
+            using var emptyBrush = new SolidBrush(System.Drawing.Color.FromArgb(150, 160, 160, 160));
+
+            graphics.DrawString(label, labelFont, labelBrush, 12, y + 5);
+
+            var track = new Rectangle(left, y + 7, width, Math.Max(10, height - 14));
+            graphics.FillRectangle(backBrush, track);
+
+            if (!value.HasValue)
+            {
+                graphics.DrawString("-", valueFont, emptyBrush, left + width + 4, y + 5);
+                return;
+            }
+
+            double clamped = Math.Max(-1.0, Math.Min(1.0, value.Value));
+            int center = left + width / 2;
+            int valueX = center + (int)Math.Round(clamped * width / 2.0);
+            int barLeft = Math.Min(center, valueX);
+            int barRight = Math.Max(center, valueX);
+            graphics.FillRectangle(barBrush, barLeft, track.Top, Math.Max(2, barRight - barLeft), track.Height);
+            graphics.DrawString(value.Value.ToString("0.000", CultureInfo.InvariantCulture), valueFont, labelBrush, left + width + 4, y + 5);
+        }
+
+        private FrameData? GetCurrentVisibleFrame()
+        {
+            if (_visibleFrames == null || _currentFrameIndex < 0 || _currentFrameIndex >= _visibleFrames.Count)
+                return null;
+
+            return _visibleFrames[_currentFrameIndex];
         }
 
         private int GetPlaybackIntervalFromSpeed()
@@ -2948,6 +3464,8 @@ namespace TeamApp
             lblModeValue.Text = "모드: -";
             if (_lblFrameReviewHint != null)
                 _lblFrameReviewHint.Text = "검토: -";
+            _pilotPredictionCts?.Cancel();
+            UpdateModelValidationView(null);
         }
 
         private void BtnSaveCleanupState_Click(object? sender, EventArgs e)
@@ -3202,6 +3720,8 @@ namespace TeamApp
 
         private void Form1_FormClosing(object? sender, FormClosingEventArgs e)
         {
+            _pilotPredictionCts?.Cancel();
+
             if (!_hasUnsavedCleanupChanges) return;
 
             var answer = MessageBox.Show(
@@ -3227,6 +3747,10 @@ namespace TeamApp
             public string ImagePath { get; set; } = string.Empty;
             public double Angle { get; set; }
             public double Throttle { get; set; }
+            public double? PilotAngle { get; set; }
+            public double? PilotThrottle { get; set; }
+            public bool IsPilotPredictionLoading { get; set; }
+            public string PilotPredictionError { get; set; } = string.Empty;
             public string Mode { get; set; } = "-";
             public string Scenario { get; set; } = "-";
             public string Name { get; set; } = string.Empty;
@@ -4950,6 +5474,9 @@ namespace TeamApp
         {
             if (tabControlMain.SelectedTab == tabGraphStats && _isChartDirty)
                 RenderFrameChart();
+
+            if (tabPageModelValidation != null && tabControlMain.SelectedTab == tabPageModelValidation)
+                MaybeRequestPilotPredictionForCurrentFrame();
 
             if (tabControlMain.SelectedTab == tabTrainingMonitor &&
                 !_hasAutoDetectedTrainingTab &&
