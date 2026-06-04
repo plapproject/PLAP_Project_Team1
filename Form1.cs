@@ -82,7 +82,18 @@ namespace TeamApp
         private System.Windows.Forms.Label? lblPilotActualThrottle;
         private System.Windows.Forms.Label? lblPilotPredictedAngle;
         private System.Windows.Forms.Label? lblPilotPredictedThrottle;
+        private TextBox? txtInferenceModelPath;
+        private TextBox? txtInferenceDataPath;
+        private ComboBox? cmbInferenceWslDistro;
+        private ComboBox? cmbInferenceCondaPath;
+        private TextBox? txtInferencePythonEnvName;
+        private Button? btnSelectInferenceModelPath;
+        private Button? btnSelectInferenceDataPath;
+        private Button? btnStartInferenceServer;
+        private Button? btnStopInferenceServer;
         private Button? btnPilotHealthCheck;
+        private RichTextBox? rtbInferenceServerOutput;
+        private Process? _inferenceServerProcess;
         private Process? _trainingProcess;
         private readonly Dictionary<int, Bitmap> _thumbnailCache = new();
         private int _previousThumbnailHighlightIndex = -1;
@@ -247,6 +258,51 @@ namespace TeamApp
                 path = stsDataPath.Text.Replace("경로: ", "").Trim();
             }
             if (Directory.Exists(path)) _ = LoadCatalogAsync(path);
+        }
+
+        private void BtnSelectInferenceModelPath_Click(object? sender, EventArgs e)
+        {
+            using var dialog = new OpenFileDialog
+            {
+                Title = "추론 모델 파일 선택",
+                Filter = "Donkey 모델 (*.h5;*.keras;*.tflite)|*.h5;*.keras;*.tflite|모든 파일 (*.*)|*.*",
+                CheckFileExists = true
+            };
+
+            if (!string.IsNullOrWhiteSpace(txtInferenceModelPath?.Text))
+            {
+                try
+                {
+                    string? directory = Path.GetDirectoryName(txtInferenceModelPath.Text);
+                    if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                        dialog.InitialDirectory = directory;
+                }
+                catch { }
+            }
+
+            if (dialog.ShowDialog() == DialogResult.OK && txtInferenceModelPath != null)
+                txtInferenceModelPath.Text = dialog.FileName;
+        }
+
+        private void BtnSelectInferenceDataPath_Click(object? sender, EventArgs e)
+        {
+            using var dialog = new FolderBrowserDialog
+            {
+                Description = "추론에 사용할 Donkey tub 데이터 폴더를 선택하세요.",
+                ShowNewFolderButton = false
+            };
+
+            if (!string.IsNullOrWhiteSpace(txtInferenceDataPath?.Text) && Directory.Exists(txtInferenceDataPath.Text))
+                dialog.SelectedPath = txtInferenceDataPath.Text;
+            else if (!string.IsNullOrWhiteSpace(_currentDataFolderPath) && Directory.Exists(_currentDataFolderPath))
+                dialog.SelectedPath = _currentDataFolderPath;
+
+            if (dialog.ShowDialog() != DialogResult.OK)
+                return;
+
+            if (txtInferenceDataPath != null)
+                txtInferenceDataPath.Text = dialog.SelectedPath;
+            _ = LoadCatalogAsync(dialog.SelectedPath);
         }
 
         private void btnToggleTheme_Click(object sender, EventArgs e) => ToggleTheme();
@@ -820,10 +876,10 @@ namespace TeamApp
                 RowCount = 2,
                 BackColor = System.Drawing.Color.FromArgb(245, 247, 250)
             };
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 68F));
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32F));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 74F));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 26F));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 62F));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38F));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 58F));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 42F));
 
             picValidationPreview = new PictureBox
             {
@@ -847,29 +903,52 @@ namespace TeamApp
             var sidePanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 9,
-                Padding = new Padding(14),
+                ColumnCount = 3,
+                RowCount = 13,
+                Padding = new Padding(12),
                 BackColor = System.Drawing.Color.White
             };
-            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+            sidePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 94));
+            sidePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            sidePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 86));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+            for (int i = 1; i <= 8; i++)
+                sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
             sidePanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
 
-            sidePanel.Controls.Add(CreateValidationLabel("모델 추론 서버", bold: true), 0, 0);
+            var title = CreateValidationLabel("모델 추론 서버", bold: true);
+            sidePanel.Controls.Add(title, 0, 0);
+            sidePanel.SetColumnSpan(title, 3);
+
+            txtInferenceModelPath = new TextBox { Name = "txtInferenceModelPath", Dock = DockStyle.Fill };
+            btnSelectInferenceModelPath = new Button { Name = "btnSelectInferenceModelPath", Text = "모델 선택", Dock = DockStyle.Fill };
+            btnSelectInferenceModelPath.Click += BtnSelectInferenceModelPath_Click;
+            AddValidationInputRow(sidePanel, 1, "모델 파일", txtInferenceModelPath, btnSelectInferenceModelPath);
+
+            txtInferenceDataPath = new TextBox { Name = "txtInferenceDataPath", Dock = DockStyle.Fill };
+            btnSelectInferenceDataPath = new Button { Name = "btnSelectInferenceDataPath", Text = "폴더 선택", Dock = DockStyle.Fill };
+            btnSelectInferenceDataPath.Click += BtnSelectInferenceDataPath_Click;
+            AddValidationInputRow(sidePanel, 2, "데이터 폴더", txtInferenceDataPath, btnSelectInferenceDataPath);
+
+            cmbInferenceWslDistro = new ComboBox { Name = "cmbInferenceWslDistro", Dock = DockStyle.Fill };
+            AddValidationInputRow(sidePanel, 3, "WSL Ubuntu", cmbInferenceWslDistro, null);
+
+            cmbInferenceCondaPath = new ComboBox { Name = "cmbInferenceCondaPath", Dock = DockStyle.Fill };
+            AddValidationInputRow(sidePanel, 4, "Conda 경로", cmbInferenceCondaPath, null);
+
+            txtInferencePythonEnvName = new TextBox { Name = "txtInferencePythonEnvName", Dock = DockStyle.Fill };
+            AddValidationInputRow(sidePanel, 5, "Python 환경", txtInferencePythonEnvName, null);
+
             txtPilotApiUrl = new TextBox
             {
                 Name = "txtPilotApiUrl",
                 Dock = DockStyle.Fill,
                 Text = "http://127.0.0.1:5000/predict"
             };
-            sidePanel.Controls.Add(txtPilotApiUrl, 0, 1);
+            AddValidationInputRow(sidePanel, 6, "API 주소", txtPilotApiUrl, null);
 
             lblPilotStatus = CreateValidationLabel("상태: 서버 대기 중");
             lblPilotActualAngle = CreateValidationLabel("실제 Angle: -");
@@ -877,36 +956,73 @@ namespace TeamApp
             lblPilotPredictedAngle = CreateValidationLabel("예측 Angle: -");
             lblPilotPredictedThrottle = CreateValidationLabel("예측 Throttle: -");
 
-            sidePanel.Controls.Add(lblPilotStatus, 0, 2);
-            sidePanel.Controls.Add(lblPilotActualAngle, 0, 3);
-            sidePanel.Controls.Add(lblPilotActualThrottle, 0, 4);
-            sidePanel.Controls.Add(lblPilotPredictedAngle, 0, 5);
-            sidePanel.Controls.Add(lblPilotPredictedThrottle, 0, 6);
+            AddValidationWideControl(sidePanel, lblPilotStatus, 7);
+            AddValidationWideControl(sidePanel, lblPilotActualAngle, 8);
 
+            var buttonPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Padding = new Padding(0),
+                Margin = new Padding(0)
+            };
+            btnStartInferenceServer = new Button { Name = "btnStartInferenceServer", Text = "서버 시작", Width = 86, Height = 30 };
+            btnStopInferenceServer = new Button { Name = "btnStopInferenceServer", Text = "서버 중지", Width = 86, Height = 30, Enabled = false };
             btnPilotHealthCheck = new Button
             {
                 Name = "btnPilotHealthCheck",
                 Text = "서버 확인",
-                Dock = DockStyle.Fill,
+                Width = 86,
+                Height = 30,
                 UseVisualStyleBackColor = true
             };
-            btnPilotHealthCheck.Click += async (_, _) => await CheckPilotServerHealthAsync();
-            sidePanel.Controls.Add(btnPilotHealthCheck, 0, 7);
+            btnStartInferenceServer.Click += BtnStartInferenceServer_Click;
+            btnStopInferenceServer.Click += BtnStopInferenceServer_Click;
+            btnPilotHealthCheck.Click += async (_, _) => await CheckPilotServerHealthAsync(showMessageOnError: true);
+            buttonPanel.Controls.Add(btnStartInferenceServer);
+            buttonPanel.Controls.Add(btnStopInferenceServer);
+            buttonPanel.Controls.Add(btnPilotHealthCheck);
+            sidePanel.Controls.Add(buttonPanel, 0, 9);
+            sidePanel.SetColumnSpan(buttonPanel, 3);
 
-            var hint = CreateValidationLabel(
-                "Python 서버를 WSL에서 먼저 실행한 뒤 프레임을 선택하면 현재 이미지의 예측값을 가져옵니다.",
-                bold: false);
-            hint.AutoSize = false;
-            hint.Dock = DockStyle.Fill;
-            hint.ForeColor = System.Drawing.Color.DimGray;
-            sidePanel.Controls.Add(hint, 0, 8);
+            var logTitle = CreateValidationLabel("서버 로그", bold: true);
+            sidePanel.Controls.Add(logTitle, 0, 10);
+            sidePanel.SetColumnSpan(logTitle, 3);
+
+            rtbInferenceServerOutput = new RichTextBox
+            {
+                Name = "rtbInferenceServerOutput",
+                Dock = DockStyle.Fill,
+                ReadOnly = true,
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = System.Drawing.Color.FromArgb(24, 24, 24),
+                ForeColor = System.Drawing.Color.FromArgb(235, 235, 235),
+                Font = new Font("Consolas", 9F)
+            };
+            sidePanel.Controls.Add(rtbInferenceServerOutput, 0, 11);
+            sidePanel.SetColumnSpan(rtbInferenceServerOutput, 3);
+
+            var predictionPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = new Padding(0)
+            };
+            predictionPanel.Controls.Add(lblPilotActualThrottle);
+            predictionPanel.Controls.Add(lblPilotPredictedAngle);
+            predictionPanel.Controls.Add(lblPilotPredictedThrottle);
+            sidePanel.Controls.Add(predictionPanel, 0, 12);
+            sidePanel.SetColumnSpan(predictionPanel, 3);
 
             root.Controls.Add(picValidationPreview, 0, 0);
             root.Controls.Add(sidePanel, 1, 0);
+            root.SetRowSpan(sidePanel, 2);
             root.Controls.Add(pnlValidationBars, 0, 1);
-            root.SetColumnSpan(pnlValidationBars, 2);
 
             tabPageModelValidation.Controls.Add(root);
+            SyncInferenceDefaultsFromTrainingTab();
         }
 
         private System.Windows.Forms.Label CreateValidationLabel(string text, bool bold = false)
@@ -919,6 +1035,51 @@ namespace TeamApp
                 TextAlign = ContentAlignment.MiddleLeft,
                 Font = new Font("맑은 고딕", bold ? 10.5F : 9.5F, bold ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular)
             };
+        }
+
+        private void AddValidationInputRow(TableLayoutPanel panel, int row, string labelText, Control input, Control? button)
+        {
+            var label = CreateValidationLabel(labelText);
+            panel.Controls.Add(label, 0, row);
+            panel.Controls.Add(input, 1, row);
+            input.Margin = new Padding(2, 3, 6, 3);
+
+            if (button != null)
+            {
+                button.Margin = new Padding(0, 2, 0, 2);
+                panel.Controls.Add(button, 2, row);
+            }
+            else
+            {
+                panel.SetColumnSpan(input, 2);
+            }
+        }
+
+        private void AddValidationWideControl(TableLayoutPanel panel, Control control, int row)
+        {
+            control.Margin = new Padding(0, 2, 0, 2);
+            panel.Controls.Add(control, 0, row);
+            panel.SetColumnSpan(control, 3);
+        }
+
+        private void SyncInferenceDefaultsFromTrainingTab()
+        {
+            if (cmbInferenceWslDistro != null && cmbInferenceWslDistro.Items.Count == 0 && cmbTrainingWslDistro.Items.Count > 0)
+                cmbInferenceWslDistro.Items.AddRange(cmbTrainingWslDistro.Items.Cast<object>().ToArray());
+            if (cmbInferenceCondaPath != null && cmbInferenceCondaPath.Items.Count == 0 && cmbCondaPath.Items.Count > 0)
+                cmbInferenceCondaPath.Items.AddRange(cmbCondaPath.Items.Cast<object>().ToArray());
+
+            if (cmbInferenceWslDistro != null && string.IsNullOrWhiteSpace(cmbInferenceWslDistro.Text))
+                SetComboText(cmbInferenceWslDistro, cmbTrainingWslDistro.Text.Trim());
+            if (cmbInferenceCondaPath != null && string.IsNullOrWhiteSpace(cmbInferenceCondaPath.Text))
+                SetComboText(cmbInferenceCondaPath, cmbCondaPath.Text.Trim());
+            if (txtInferencePythonEnvName != null && string.IsNullOrWhiteSpace(txtInferencePythonEnvName.Text))
+                txtInferencePythonEnvName.Text = txtTrainingPythonEnvName.Text.Trim();
+
+            if (txtInferenceDataPath != null && !string.IsNullOrWhiteSpace(_currentDataFolderPath))
+                txtInferenceDataPath.Text = _currentDataFolderPath;
+            if (txtInferenceModelPath != null && string.IsNullOrWhiteSpace(txtInferenceModelPath.Text))
+                txtInferenceModelPath.Text = txtTrainingModelPath.Text.Trim();
         }
 
         private void DgvFrameCatalog_MouseDown(object? sender, MouseEventArgs e)
@@ -2674,7 +2835,7 @@ namespace TeamApp
                 : url.TrimEnd('/') + "/health";
         }
 
-        private async Task CheckPilotServerHealthAsync()
+        private async Task CheckPilotServerHealthAsync(bool showMessageOnError = true)
         {
             if (lblPilotStatus != null)
                 lblPilotStatus.Text = "상태: 서버 확인 중...";
@@ -2692,9 +2853,13 @@ namespace TeamApp
             {
                 if (lblPilotStatus != null)
                     lblPilotStatus.Text = "상태: 서버 연결 실패";
-                MessageBox.Show(
-                    "Python 추론 서버에 연결할 수 없습니다.\n\n" + ex.Message,
-                    "모델 검증 서버 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                AppendInferenceLog("[상태 확인 실패] " + ex.Message);
+                if (showMessageOnError)
+                {
+                    MessageBox.Show(
+                        "Python 추론 서버에 연결할 수 없습니다.\n\n" + ex.Message,
+                        "모델 검증 서버 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
             }
         }
 
@@ -4096,6 +4261,8 @@ namespace TeamApp
                 RefreshFrameBinding();  // _visibleFrames 설정과 RefreshFrameView 호출
 
                 stsDataPath.Text = "경로: " + folder;
+                if (txtInferenceDataPath != null)
+                    txtInferenceDataPath.Text = folder;
                 _isChartDirty = true;
                 SetIndex(0);
             }
@@ -4443,7 +4610,200 @@ namespace TeamApp
             catch (Exception ex)
             {
                 MessageBox.Show("학습 프로세스를 중지하지 못했습니다.\n\n오류 내용: " + ex.Message,
-                    "학습 중지 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                "학습 중지 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private async void BtnStartInferenceServer_Click(object? sender, EventArgs e)
+        {
+            if (_inferenceServerProcess is { HasExited: false })
+            {
+                MessageBox.Show("이미 추론 서버가 실행 중입니다.",
+                    "추론 서버", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            SyncInferenceDefaultsFromTrainingTab();
+
+            if (!TryBuildInferenceServerCommand(out var arguments, out string displayArguments))
+                return;
+
+            btnStartInferenceServer!.Enabled = false;
+            btnStopInferenceServer!.Enabled = true;
+            AppendInferenceLog("[시스템] 추론 서버를 시작합니다.");
+            AppendInferenceLog("실행 명령: wsl " + displayArguments);
+
+            try
+            {
+                _inferenceServerProcess = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "wsl",
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        StandardOutputEncoding = Encoding.UTF8,
+                        StandardErrorEncoding = Encoding.UTF8
+                    },
+                    EnableRaisingEvents = true
+                };
+
+                foreach (string argument in arguments)
+                    _inferenceServerProcess.StartInfo.ArgumentList.Add(argument);
+
+                _inferenceServerProcess.Start();
+                Task outputReader = ReadInferenceServerStreamAsync(_inferenceServerProcess.StandardOutput);
+                Task errorReader = ReadInferenceServerStreamAsync(_inferenceServerProcess.StandardError);
+
+                if (lblPilotStatus != null)
+                    lblPilotStatus.Text = "상태: 추론 서버 시작 중";
+
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(1800);
+                    if (_inferenceServerProcess is { HasExited: false })
+                        BeginInvoke(new Action(async () => await CheckPilotServerHealthAsync(showMessageOnError: false)));
+                });
+
+                await _inferenceServerProcess.WaitForExitAsync();
+                await Task.WhenAll(outputReader, errorReader);
+
+                AppendInferenceLog($"[시스템] 추론 서버가 종료되었습니다. 종료 코드: {_inferenceServerProcess.ExitCode}");
+                if (lblPilotStatus != null)
+                    lblPilotStatus.Text = $"상태: 서버 종료 코드 {_inferenceServerProcess.ExitCode}";
+            }
+            catch (Exception ex)
+            {
+                AppendInferenceLog("[오류] 추론 서버 시작 실패: " + ex.Message);
+                if (lblPilotStatus != null)
+                    lblPilotStatus.Text = "상태: 서버 시작 실패";
+                MessageBox.Show("추론 서버 시작 중 오류가 발생했습니다.\n\n" + ex.Message,
+                    "추론 서버 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (btnStartInferenceServer != null) btnStartInferenceServer.Enabled = true;
+                if (btnStopInferenceServer != null) btnStopInferenceServer.Enabled = false;
+            }
+        }
+
+        private void BtnStopInferenceServer_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (_inferenceServerProcess == null || _inferenceServerProcess.HasExited)
+                {
+                    MessageBox.Show("중지할 추론 서버가 없습니다.",
+                        "추론 서버", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                _inferenceServerProcess.Kill(true);
+                AppendInferenceLog("[시스템] 추론 서버가 사용자에 의해 중지되었습니다.");
+                if (lblPilotStatus != null)
+                    lblPilotStatus.Text = "상태: 서버 중지됨";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("추론 서버를 중지하지 못했습니다.\n\n" + ex.Message,
+                    "추론 서버 중지 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private bool TryBuildInferenceServerCommand(out List<string> arguments, out string displayArguments)
+        {
+            arguments = new List<string>();
+            displayArguments = string.Empty;
+
+            string distro = NormalizeWslDistroName(cmbInferenceWslDistro?.Text ?? cmbTrainingWslDistro.Text);
+            string condaPath = (cmbInferenceCondaPath?.Text ?? cmbCondaPath.Text).Trim();
+            string envName = (txtInferencePythonEnvName?.Text ?? txtTrainingPythonEnvName.Text).Trim();
+            string modelPath = txtInferenceModelPath?.Text.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(distro))
+            {
+                MessageBox.Show("WSL Ubuntu 버전을 입력하거나 학습 실행 탭에서 자동 감지해 주세요.",
+                    "추론 서버 입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(condaPath))
+            {
+                MessageBox.Show("Conda 실행 파일 경로를 입력하거나 학습 실행 탭에서 자동 감지해 주세요.",
+                    "추론 서버 입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(envName))
+            {
+                MessageBox.Show("Python/Conda 환경명을 입력해 주세요.",
+                    "추론 서버 입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(modelPath))
+            {
+                MessageBox.Show("추론에 사용할 모델 파일(.h5/.keras/.tflite)을 선택해 주세요.",
+                    "추론 서버 입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            string serverScriptPath = Path.Combine(AppContext.BaseDirectory, "python", "pilot_inference_server.py");
+            if (!File.Exists(serverScriptPath))
+                serverScriptPath = Path.Combine(Application.StartupPath, "python", "pilot_inference_server.py");
+            if (!File.Exists(serverScriptPath))
+            {
+                MessageBox.Show("Python 추론 서버 스크립트를 찾을 수 없습니다.\n\n" + serverScriptPath,
+                    "추론 서버 입력 확인", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            int port = GetPilotServerPort();
+            string wslCondaPath = ConvertToWslPath(condaPath);
+            string wslModelPath = ConvertModelPathForInference(modelPath);
+            string wslServerScriptPath = ConvertToWslPath(serverScriptPath);
+
+            string command =
+                "export PYTHONUNBUFFERED=1 && " +
+                "if [ ! -x " + QuotePathForBash(wslCondaPath) + " ]; then echo " +
+                QuoteForBash("[error] Conda 실행 파일을 찾을 수 없습니다: " + wslCondaPath) + "; exit 127; fi && " +
+                "if [ ! -f " + QuotePathForBash(wslServerScriptPath) + " ]; then echo " +
+                QuoteForBash("[error] 추론 서버 스크립트를 찾을 수 없습니다: " + wslServerScriptPath) + "; exit 2; fi && " +
+                "if [ ! -f " + QuotePathForBash(wslModelPath) + " ]; then echo " +
+                QuoteForBash("[error] 모델 파일을 찾을 수 없습니다: " + wslModelPath) + "; exit 2; fi && " +
+                QuotePathForBash(wslCondaPath) + " run --no-capture-output -n " + QuoteForBash(envName) + " " +
+                "python " + QuotePathForBash(wslServerScriptPath) + " " +
+                "--model " + QuotePathForBash(wslModelPath) + " " +
+                "--host 0.0.0.0 --port " + port.ToString(CultureInfo.InvariantCulture);
+
+            arguments.AddRange(new[] { "-d", distro, "bash", "-lc", command });
+            displayArguments = "-d " + QuoteProcessArgument(distro) + " bash -lc " + QuoteForBash(command);
+            return true;
+        }
+
+        private string ConvertModelPathForInference(string modelPath)
+        {
+            string trimmed = modelPath.Trim();
+            string normalized = trimmed.Replace("\\", "/");
+            if (normalized.StartsWith("~/") || normalized.StartsWith("/") || (normalized.Length >= 2 && normalized[1] == ':'))
+                return ConvertToWslPath(trimmed);
+
+            string mycarPath = cmbMycarProjectPath.Text.Trim();
+            if (!string.IsNullOrWhiteSpace(mycarPath))
+                return ConvertToWslPath(mycarPath).TrimEnd('/') + "/" + normalized.TrimStart('/');
+
+            return ConvertToWslPath(trimmed);
+        }
+
+        private int GetPilotServerPort()
+        {
+            try
+            {
+                var uri = new Uri(GetPilotPredictUrl());
+                return uri.Port > 0 ? uri.Port : 5000;
+            }
+            catch
+            {
+                return 5000;
             }
         }
 
@@ -4607,6 +4967,25 @@ namespace TeamApp
             }
         }
 
+        private async Task ReadInferenceServerStreamAsync(StreamReader reader)
+        {
+            char[] buffer = new char[512];
+
+            try
+            {
+                while (true)
+                {
+                    int read = await reader.ReadAsync(buffer, 0, buffer.Length);
+                    if (read <= 0) break;
+
+                    AppendInferenceOutputChunk(new string(buffer, 0, read));
+                }
+            }
+            catch (ObjectDisposedException) { }
+            catch (IOException) { }
+            catch (InvalidOperationException) { }
+        }
+
         private void AppendTrainingLog(string text)
         {
             if (rtbTrainingOutput.IsDisposed) return;
@@ -4621,6 +5000,44 @@ namespace TeamApp
 
             if (rtbTrainingOutput.InvokeRequired)
                 rtbTrainingOutput.BeginInvoke(new Action(Append));
+            else
+                Append();
+        }
+
+        private void AppendInferenceLog(string text)
+        {
+            if (rtbInferenceServerOutput == null || rtbInferenceServerOutput.IsDisposed)
+                return;
+
+            void Append()
+            {
+                rtbInferenceServerOutput.AppendText(text + Environment.NewLine);
+                rtbInferenceServerOutput.SelectionStart = rtbInferenceServerOutput.TextLength;
+                rtbInferenceServerOutput.ScrollToCaret();
+            }
+
+            if (rtbInferenceServerOutput.InvokeRequired)
+                rtbInferenceServerOutput.BeginInvoke(new Action(Append));
+            else
+                Append();
+        }
+
+        private void AppendInferenceOutputChunk(string chunk)
+        {
+            if (rtbInferenceServerOutput == null || rtbInferenceServerOutput.IsDisposed || string.IsNullOrEmpty(chunk))
+                return;
+
+            string clean = AnsiEscapeRegex.Replace(chunk, string.Empty).Replace("\r", Environment.NewLine);
+
+            void Append()
+            {
+                rtbInferenceServerOutput.AppendText(clean);
+                rtbInferenceServerOutput.SelectionStart = rtbInferenceServerOutput.TextLength;
+                rtbInferenceServerOutput.ScrollToCaret();
+            }
+
+            if (rtbInferenceServerOutput.InvokeRequired)
+                rtbInferenceServerOutput.BeginInvoke(new Action(Append));
             else
                 Append();
         }
@@ -5476,7 +5893,10 @@ namespace TeamApp
                 RenderFrameChart();
 
             if (tabPageModelValidation != null && tabControlMain.SelectedTab == tabPageModelValidation)
+            {
+                SyncInferenceDefaultsFromTrainingTab();
                 MaybeRequestPilotPredictionForCurrentFrame();
+            }
 
             if (tabControlMain.SelectedTab == tabTrainingMonitor &&
                 !_hasAutoDetectedTrainingTab &&
