@@ -1,12 +1,21 @@
 import argparse
 import base64
 import io
+import json
 import os
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+from urllib.parse import urlparse
 
 import numpy as np
-from flask import Flask, jsonify, request
 from PIL import Image
+
+try:
+    from flask import Flask, jsonify, request
+except Exception:
+    Flask = None
+    jsonify = None
+    request = None
 
 try:
     import tensorflow as tf
@@ -16,8 +25,7 @@ except Exception as exc:  # pragma: no cover - runtime environment guard
 else:
     TF_IMPORT_ERROR = None
 
-
-app = Flask(__name__)
+app = Flask(__name__) if Flask is not None else None
 
 MODEL_PATH = ""
 KERAS_MODEL = None
@@ -116,31 +124,102 @@ def _predict(batch: np.ndarray) -> tuple[float, float]:
     return _parse_prediction(prediction)
 
 
-@app.get("/health")
-def health():
-    return jsonify(
-        {
-            "ok": KERAS_MODEL is not None or TFLITE_INTERPRETER is not None,
-            "model": MODEL_PATH,
-            "input_width": INPUT_WIDTH,
-            "input_height": INPUT_HEIGHT,
-        }
-    )
+def _health_payload() -> dict[str, Any]:
+    return {
+        "ok": KERAS_MODEL is not None or TFLITE_INTERPRETER is not None,
+        "model": MODEL_PATH,
+        "input_width": INPUT_WIDTH,
+        "input_height": INPUT_HEIGHT,
+        "server": "flask" if Flask is not None else "stdlib",
+    }
 
 
-@app.post("/predict")
-def predict():
-    payload = request.get_json(silent=True) or {}
+def _predict_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], int]:
     image_base64 = payload.get("image_base64") or payload.get("image")
     if not image_base64:
-        return jsonify({"error": "image_base64 is required"}), 400
+        return {"error": "image_base64 is required"}, 400
 
     try:
         batch = _decode_image(image_base64)
         angle, throttle = _predict(batch)
-        return jsonify({"angle": angle, "throttle": throttle})
+        return {"angle": angle, "throttle": throttle}, 200
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+        return {"error": str(exc)}, 500
+
+
+if app is not None:
+    @app.get("/")
+    def index():
+        return jsonify(
+            {
+                "ok": True,
+                "message": "TeamApp pilot inference server",
+                "health": "/health",
+                "predict": "/predict",
+            }
+        )
+
+    @app.get("/health")
+    def health():
+        return jsonify(_health_payload())
+
+    @app.post("/predict")
+    def predict():
+        payload = request.get_json(silent=True) or {}
+        body, status_code = _predict_payload(payload)
+        return jsonify(body), status_code
+
+
+class PilotRequestHandler(BaseHTTPRequestHandler):
+    """Small fallback HTTP API used when Flask is not installed in the conda env."""
+
+    def do_GET(self) -> None:
+        path = urlparse(self.path).path
+        if path == "/":
+            self._send_json(
+                {
+                    "ok": True,
+                    "message": "TeamApp pilot inference server",
+                    "health": "/health",
+                    "predict": "/predict",
+                },
+                200,
+            )
+            return
+
+        if path != "/health":
+            self._send_json({"error": "not found"}, 404)
+            return
+
+        self._send_json(_health_payload(), 200)
+
+    def do_POST(self) -> None:
+        path = urlparse(self.path).path
+        if path != "/predict":
+            self._send_json({"error": "not found"}, 404)
+            return
+
+        try:
+            content_length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(content_length).decode("utf-8")
+            payload = json.loads(raw_body) if raw_body else {}
+        except Exception as exc:
+            self._send_json({"error": f"invalid json: {exc}"}, 400)
+            return
+
+        body, status_code = _predict_payload(payload)
+        self._send_json(body, status_code)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        print("[request] " + format % args, flush=True)
+
+    def _send_json(self, body: dict[str, Any], status_code: int) -> None:
+        data = json.dumps(body).encode("utf-8")
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
 
 def main() -> None:
@@ -151,7 +230,13 @@ def main() -> None:
     args = parser.parse_args()
 
     _load_model(args.model)
-    app.run(host=args.host, port=args.port, threaded=True)
+    if app is not None:
+        app.run(host=args.host, port=args.port, threaded=True)
+        return
+
+    server = ThreadingHTTPServer((args.host, args.port), PilotRequestHandler)
+    print(f"Pilot inference server listening on http://{args.host}:{args.port}", flush=True)
+    server.serve_forever()
 
 
 if __name__ == "__main__":
