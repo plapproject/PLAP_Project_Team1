@@ -45,8 +45,10 @@
             pnlDataViewerChartHost = new Panel();
             grpDataExplorer = new GroupBox();
             grpDataCleaner = new GroupBox();
-            lblFrameRangeSeparator = new Label();
+            txtThrottleMaxFilter = new TextBox();
             txtFrameRangeEnd = new TextBox();
+            txtAngleMaxFilter = new TextBox();
+            lblFrameRangeSeparator = new Label();
             txtFrameRangeStart = new TextBox();
             lblFrameRange = new Label();
             btnRestoreFrames = new Button();
@@ -60,8 +62,6 @@
             lblModeFilter = new Label();
             lblAngleRangeSeparator = new Label();
             lblThrottleRangeSeparator = new Label();
-            txtThrottleMaxFilter = new TextBox();
-            txtAngleMaxFilter = new TextBox();
             txtThrottleMinFilter = new TextBox();
             txtAngleMinFilter = new TextBox();
             lblThrottleRange = new Label();
@@ -130,7 +130,6 @@
             tabControlMain.SuspendLayout();
             tabPageDataViewer.SuspendLayout();
             statusStripDataFooter.SuspendLayout();
-            pnlDataViewerChartHost.SuspendLayout();
             grpDataExplorer.SuspendLayout();
             grpDataCleaner.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)trkFrameTimeline).BeginInit();
@@ -308,8 +307,10 @@
             // grpDataCleaner
             // 
             grpDataCleaner.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right;
-            grpDataCleaner.Controls.Add(lblFrameRangeSeparator);
+            grpDataCleaner.Controls.Add(txtThrottleMaxFilter);
             grpDataCleaner.Controls.Add(txtFrameRangeEnd);
+            grpDataCleaner.Controls.Add(txtAngleMaxFilter);
+            grpDataCleaner.Controls.Add(lblFrameRangeSeparator);
             grpDataCleaner.Controls.Add(txtFrameRangeStart);
             grpDataCleaner.Controls.Add(lblFrameRange);
             grpDataCleaner.Controls.Add(btnRestoreFrames);
@@ -323,8 +324,6 @@
             grpDataCleaner.Controls.Add(lblModeFilter);
             grpDataCleaner.Controls.Add(lblAngleRangeSeparator);
             grpDataCleaner.Controls.Add(lblThrottleRangeSeparator);
-            grpDataCleaner.Controls.Add(txtThrottleMaxFilter);
-            grpDataCleaner.Controls.Add(txtAngleMaxFilter);
             grpDataCleaner.Controls.Add(txtThrottleMinFilter);
             grpDataCleaner.Controls.Add(txtAngleMinFilter);
             grpDataCleaner.Controls.Add(lblThrottleRange);
@@ -342,6 +341,32 @@
             grpDataCleaner.Text = "데이터 정리 - 검색 / 제외 / 복원 / 학습용 폴더 만들기";
             grpDataCleaner.Enter += GrpDataCleaner_Enter;
             // 
+            // txtThrottleMaxFilter
+            // 
+            txtThrottleMaxFilter.Font = new Font("맑은 고딕", 10F);
+            txtThrottleMaxFilter.Location = new Point(260, 62);
+            txtThrottleMaxFilter.Margin = new Padding(2);
+            txtThrottleMaxFilter.Name = "txtThrottleMaxFilter";
+            txtThrottleMaxFilter.Size = new Size(100, 25);
+            txtThrottleMaxFilter.TabIndex = 33;
+            // 
+            // txtFrameRangeEnd
+            // 
+            txtFrameRangeEnd.Location = new Point(338, 50);
+            txtFrameRangeEnd.Name = "txtFrameRangeEnd";
+            txtFrameRangeEnd.Size = new Size(102, 23);
+            txtFrameRangeEnd.TabIndex = 46;
+            txtFrameRangeEnd.Visible = false;
+            // 
+            // txtAngleMaxFilter
+            // 
+            txtAngleMaxFilter.Font = new Font("맑은 고딕", 10F);
+            txtAngleMaxFilter.Location = new Point(260, 30);
+            txtAngleMaxFilter.Margin = new Padding(2);
+            txtAngleMaxFilter.Name = "txtAngleMaxFilter";
+            txtAngleMaxFilter.Size = new Size(100, 25);
+            txtAngleMaxFilter.TabIndex = 32;
+            // 
             // lblFrameRangeSeparator
             // 
             lblFrameRangeSeparator.AutoSize = true;
@@ -353,14 +378,6 @@
             lblFrameRangeSeparator.TabIndex = 47;
             lblFrameRangeSeparator.Text = "～";
             lblFrameRangeSeparator.Visible = false;
-            // 
-            // txtFrameRangeEnd
-            // 
-            txtFrameRangeEnd.Location = new Point(338, 50);
-            txtFrameRangeEnd.Name = "txtFrameRangeEnd";
-            txtFrameRangeEnd.Size = new Size(102, 23);
-            txtFrameRangeEnd.TabIndex = 46;
-            txtFrameRangeEnd.Visible = false;
             // 
             // txtFrameRangeStart
             // 
@@ -502,24 +519,6 @@
             lblThrottleRangeSeparator.Size = new Size(28, 27);
             lblThrottleRangeSeparator.TabIndex = 34;
             lblThrottleRangeSeparator.Text = "～";
-            // 
-            // txtThrottleMaxFilter
-            // 
-            txtThrottleMaxFilter.Font = new Font("맑은 고딕", 10F);
-            txtThrottleMaxFilter.Location = new Point(254, 62);
-            txtThrottleMaxFilter.Margin = new Padding(2);
-            txtThrottleMaxFilter.Name = "txtThrottleMaxFilter";
-            txtThrottleMaxFilter.Size = new Size(100, 25);
-            txtThrottleMaxFilter.TabIndex = 33;
-            // 
-            // txtAngleMaxFilter
-            // 
-            txtAngleMaxFilter.Font = new Font("맑은 고딕", 10F);
-            txtAngleMaxFilter.Location = new Point(254, 30);
-            txtAngleMaxFilter.Margin = new Padding(2);
-            txtAngleMaxFilter.Name = "txtAngleMaxFilter";
-            txtAngleMaxFilter.Size = new Size(100, 25);
-            txtAngleMaxFilter.TabIndex = 32;
             // 
             // txtThrottleMinFilter
             // 
@@ -1258,7 +1257,6 @@
             tabPageDataViewer.PerformLayout();
             statusStripDataFooter.ResumeLayout(false);
             statusStripDataFooter.PerformLayout();
-            pnlDataViewerChartHost.ResumeLayout(false);
             grpDataExplorer.ResumeLayout(false);
             grpDataExplorer.PerformLayout();
             grpDataCleaner.ResumeLayout(false);
