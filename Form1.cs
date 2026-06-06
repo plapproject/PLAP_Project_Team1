@@ -3863,17 +3863,17 @@ namespace TeamApp
         {
             double clampedAngle = Math.Max(-1.0, Math.Min(1.0, angle));
             float baseX = bounds.Left + bounds.Width / 2f;
-            float baseY = bounds.Bottom - Math.Max(20f, bounds.Height * 0.20f);
-            float tipX = baseX + (float)(clampedAngle * bounds.Width * 0.25);
-            float tipY = baseY - Math.Max(34f, bounds.Height * 0.44f);
+            float baseY = bounds.Bottom - Math.Max(14f, bounds.Height * 0.12f);
+            float tipX = baseX + (float)(clampedAngle * bounds.Width * 0.22);
+            float tipY = baseY - Math.Max(26f, bounds.Height * 0.34f);
 
-            using var arrowCap = new System.Drawing.Drawing2D.AdjustableArrowCap(4.5f, 6.5f, true);
-            using var pen = new Pen(System.Drawing.Color.FromArgb(230, 255, 193, 7), Math.Max(2.0f, bounds.Width * 0.018f))
+            using var arrowCap = new System.Drawing.Drawing2D.AdjustableArrowCap(3.8f, 5.6f, true);
+            using var pen = new Pen(System.Drawing.Color.FromArgb(230, 255, 193, 7), Math.Max(1.6f, bounds.Width * 0.014f))
             {
                 StartCap = System.Drawing.Drawing2D.LineCap.Round,
                 CustomEndCap = arrowCap
             };
-            using var shadowPen = new Pen(System.Drawing.Color.FromArgb(155, 0, 0, 0), pen.Width + 1.8f)
+            using var shadowPen = new Pen(System.Drawing.Color.FromArgb(145, 0, 0, 0), pen.Width + 1.3f)
             {
                 StartCap = System.Drawing.Drawing2D.LineCap.Round,
                 CustomEndCap = arrowCap
@@ -3881,20 +3881,6 @@ namespace TeamApp
 
             graphics.DrawLine(shadowPen, baseX + 1.2f, baseY + 1.2f, tipX + 1.2f, tipY + 1.2f);
             graphics.DrawLine(pen, baseX, baseY, tipX, tipY);
-
-            string text = $"실제 {angle:0.000}";
-            using var font = new Font("맑은 고딕", Math.Max(4.8f, bounds.Height * 0.052f), System.Drawing.FontStyle.Bold);
-            SizeF textSize = graphics.MeasureString(text, font);
-            var textBox = new RectangleF(
-                Math.Clamp(tipX - textSize.Width / 2f - 4f, bounds.Left + 3f, bounds.Right - textSize.Width - 11f),
-                Math.Max(bounds.Top + 4f, tipY - textSize.Height - 8f),
-                textSize.Width + 8f,
-                textSize.Height + 4f);
-
-            using var backBrush = new SolidBrush(System.Drawing.Color.FromArgb(185, 0, 0, 0));
-            using var textBrush = new SolidBrush(System.Drawing.Color.White);
-            graphics.FillRectangle(backBrush, textBox);
-            graphics.DrawString(text, font, textBrush, textBox.Left + 4f, textBox.Top + 1f);
         }
 
         private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedRectanglePath(RectangleF bounds, float radius)
