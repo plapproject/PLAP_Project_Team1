@@ -94,9 +94,12 @@ namespace TeamApp
         private Button? btnStartPilotServer;
         private Button? btnStopPilotServer;
         private Button? btnLoadValidationDataFolder;
+        private Button? btnShowPredictionMismatchCandidates;
         private RichTextBox? rtbPilotServerLog;
         private Process? _pilotServerProcess;
         private Process? _trainingProcess;
+        private bool _isPrecomputingPilotPredictions;
+        private CancellationTokenSource? _pilotBatchPredictionCts;
         private readonly Dictionary<int, Bitmap> _thumbnailCache = new();
         private int _previousThumbnailHighlightIndex = -1;
         private Button? _btnShowReviewCandidates;
@@ -107,11 +110,14 @@ namespace TeamApp
         private System.Windows.Forms.Label? _lblTrainingSummaryEpoch;
         private System.Windows.Forms.Label? _lblTrainingSummaryProgress;
         private System.Windows.Forms.Label? _lblTrainingSummaryLoss;
+        private Button? _btnOpenTrainedModelValidation;
+        private CheckBox? _chkRestartPilotServerAfterTraining;
         private System.Windows.Forms.Label? _lblCleanupSummary;
         private System.Windows.Forms.Label? _lblCleanupWorkflowHint;
         private System.Windows.Forms.Label? _lblFrameReviewHint;
         private ComboBox? _cmbPlaybackSpeed;
         private ComboBox? _cmbValidationPlaybackSpeed;
+        private readonly ToolTip _buttonToolTip = new ToolTip();
         private Button? btnValidationAutoPlay;
         private Button? btnValidationFirst;
         private Button? btnValidationPrevious;
@@ -202,7 +208,7 @@ namespace TeamApp
             btnStartTrainingProcess.Click += BtnStartTrainingProcess_Click;
             btnStopTrainingProcess.Click += BtnStopTrainingProcess_Click;
             btnSaveTrainingConfig.Click += BtnSaveTrainingConfig_Click;
-            btnSelectTrainingTubPath.Click += (_, _) => SelectFolderInto(txtTrainingTubPath, "Tub 폴더 선택");
+            btnSelectTrainingTubPath.Click += (_, _) => SelectTrainingTubFolder();
             btnSelectTrainingModelPath.Click += BtnSelectTrainingModelPath_Click;
             btnDetectTrainingEnvironment.Click += BtnDetectTrainingEnvironment_Click;
             btnSelectTrainingWslDistro.Click += BtnSelectTrainingWslDistro_Click;
@@ -239,6 +245,7 @@ namespace TeamApp
             InitializeTrainingControls();
             LoadTrainingSettings();
             UpdateStatusLabels();
+            ConfigureButtonToolTips();
             BeginInvoke(new Action(AskFirstUseTutorial));
 
             // 로드 시 폰트 불러오기
@@ -282,6 +289,53 @@ namespace TeamApp
         private void btnGuide_Click(object sender, EventArgs e)
         {
             ShowWorkflowGuide();
+        }
+
+        private void ConfigureButtonToolTips()
+        {
+            _buttonToolTip.AutoPopDelay = 10000;
+            _buttonToolTip.InitialDelay = 450;
+            _buttonToolTip.ReshowDelay = 120;
+            _buttonToolTip.ShowAlways = true;
+
+            SetButtonToolTip(btnOpenDataFolder, "DonkeyCar Tub 데이터 폴더를 선택해서 프레임 목록과 이미지를 불러옵니다.");
+            SetButtonToolTip(btnReloadData, "현재 선택된 데이터 폴더를 다시 읽어 목록과 미리보기를 갱신합니다.");
+            SetButtonToolTip(btnToggleTheme, "화면 테마를 밝은 모드와 어두운 모드로 전환합니다.");
+            SetButtonToolTip(btnGuide, "현재 작업 순서와 주요 기능 설명을 다시 확인합니다.");
+            SetButtonToolTip(btnFirst, "현재 표시 목록의 첫 번째 프레임으로 이동합니다.");
+            SetButtonToolTip(btnPrev, "현재 프레임 바로 이전 프레임으로 이동합니다.");
+            SetButtonToolTip(btnNext, "현재 프레임 바로 다음 프레임으로 이동합니다.");
+            SetButtonToolTip(btnLast, "현재 표시 목록의 마지막 프레임으로 이동합니다.");
+            SetButtonToolTip(btnAutoPlay, "프레임을 선택한 배속으로 자동 재생하거나 일시정지합니다.");
+            SetButtonToolTip(btnApplyFrameFilter, "입력한 방향값, 속도값, 주행 방식, 상황 조건으로 프레임을 검색합니다.");
+            SetButtonToolTip(btnClearFrameFilter, "검색 조건을 해제하고 전체 프레임 목록으로 돌아갑니다.");
+            SetButtonToolTip(btnExcludeSelectedFrames, "선택한 프레임을 학습에서 제외합니다. 원본 파일은 삭제하지 않습니다.");
+            SetButtonToolTip(btnRestoreFrames, "제외 처리된 프레임을 다시 학습 사용 상태로 복원합니다.");
+            SetButtonToolTip(btnSaveCleanupState, "현재 제외/복원 상태를 메타 파일로 저장합니다.");
+            SetButtonToolTip(btnExportCleanDataset, "제외 프레임을 뺀 학습용 Clean 폴더를 새로 만듭니다.");
+            SetButtonToolTip(btnStartTrainingProcess, "선택한 Tub 데이터와 설정으로 DonkeyCar 모델 학습을 시작합니다.");
+            SetButtonToolTip(btnStopTrainingProcess, "실행 중인 학습 프로세스를 중지합니다. 기존 최종 모델은 유지됩니다.");
+            SetButtonToolTip(btnSaveTrainingConfig, "현재 학습 경로와 환경 설정을 저장합니다.");
+            SetButtonToolTip(btnDetectTrainingEnvironment, "WSL, Conda, DonkeyCar 프로젝트와 Python 환경을 자동으로 찾습니다.");
+            SetButtonToolTip(btnLoadValidationDataFolder, "추론/검증에 사용할 데이터 폴더를 데이터 확인 탭에도 불러옵니다.");
+            SetButtonToolTip(btnDetectValidationEnvironment, "데이터 폴더와 모델 파일을 기준으로 추론 서버 실행 환경을 확인합니다.");
+            SetButtonToolTip(btnStartPilotServer, "선택한 모델 파일로 Python 추론 서버를 시작합니다.");
+            SetButtonToolTip(btnStopPilotServer, "현재 실행 중인 Python 추론 서버를 중지합니다.");
+            SetButtonToolTip(btnPilotHealthCheck, "추론 서버가 응답하는지 확인합니다.");
+            SetButtonToolTip(btnValidationFirst, "추론/검증 프레임을 처음으로 이동합니다.");
+            SetButtonToolTip(btnValidationPrevious, "추론/검증 프레임을 이전으로 이동합니다.");
+            SetButtonToolTip(btnValidationNext, "추론/검증 프레임을 다음으로 이동합니다.");
+            SetButtonToolTip(btnValidationLast, "추론/검증 프레임을 마지막으로 이동합니다.");
+            SetButtonToolTip(btnValidationAutoPlay, "추론/검증 프레임을 선택한 배속으로 자동 재생합니다.");
+            SetButtonToolTip(btnShowPredictionMismatchCandidates, "실제 방향/속도값과 모델 예측값 차이가 큰 프레임만 모아 표시합니다.");
+            SetButtonToolTip(_btnOpenTrainedModelValidation, "방금 학습한 모델을 추론/검증 탭으로 연결하고 서버를 시작합니다.");
+            SetButtonToolTip(_chkRestartPilotServerAfterTraining, "학습이 성공하면 추론 서버를 새 모델 기준으로 다시 시작합니다.");
+        }
+
+        private void SetButtonToolTip(Control? control, string description)
+        {
+            if (control == null) return;
+            _buttonToolTip.SetToolTip(control, description);
         }
 
         private void ShowWorkflowGuide()
@@ -431,7 +485,7 @@ namespace TeamApp
             };
 
             string? selectedSection = null;
-            var sections = new[] { "데이터 보기", "정리", "학습", "그래프" };
+            var sections = new[] { "데이터 보기", "정리", "학습", "추론/검증", "그래프" };
             for (int i = 0; i < sections.Length; i++)
             {
                 string section = sections[i];
@@ -469,7 +523,7 @@ namespace TeamApp
                 new TutorialStep("데이터 보기", "다음 프레임", "현재 프레임 바로 다음 프레임으로 이동합니다.", btnNext, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "마지막으로", "현재 필터 결과의 마지막 프레임으로 이동합니다.", btnLast, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "자동 재생", "프레임을 지정한 간격으로 자동 재생합니다. 재생 중에는 버튼이 일시정지로 바뀝니다.", btnAutoPlay, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "재생 속도", "자동 재생 속도를 배속으로 조절합니다. 1.00x는 기본 속도이고, 숫자가 클수록 더 빠르게 넘어갑니다.", numPlaybackIntervalMs, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "재생 속도", "자동 재생 속도를 1배부터 10배까지 선택합니다. 숫자가 클수록 프레임이 더 빠르게 넘어갑니다.", _cmbPlaybackSpeed, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "프레임 위치 슬라이더", "현재 프레임 위치를 빠르게 이동하거나, 드래그해서 시작~끝 프레임 범위를 선택할 수 있습니다.", trkFrameTimeline, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "조향값", "선택한 프레임의 Angle 값을 표시합니다. 왼쪽/오른쪽 조향 상태를 확인할 때 봅니다.", lblAngleValue, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "스로틀값", "선택한 프레임의 Throttle 값을 표시합니다. 전진/정지/후진 정도를 확인할 때 봅니다.", lblThrottleValue, tabPageDataViewer),
@@ -486,7 +540,14 @@ namespace TeamApp
                 new TutorialStep("정리", "클린 폴더 추출", "제외 표시된 프레임을 빼고 학습에 사용할 수 있는 Clean 폴더를 새로 만듭니다. 원본 폴더는 변경하지 않습니다.", btnExportCleanDataset, tabPageDataViewer),
                 new TutorialStep("그래프", "그래프/통계", "필터와 제외 상태를 반영한 조향값/스로틀값 분포 그래프를 확인합니다.", tabControlMain, tabGraphStats),
                 new TutorialStep("학습", "학습 설정", "Python 환경, DonkeyCar 작업 폴더, 학습 데이터 폴더, 모델 저장 경로와 학습 횟수를 확인합니다.", grpTrainingConfig, tabTrainingMonitor),
-                new TutorialStep("학습", "학습 로그", "학습 실행 과정의 로그를 표시할 영역입니다.", grpTrainingOutput, tabTrainingMonitor)
+                new TutorialStep("학습", "학습 로그", "학습 실행 과정의 로그를 표시할 영역입니다.", grpTrainingOutput, tabTrainingMonitor),
+                new TutorialStep("추론/검증", "추론/검증 사용 순서", "1. 데이터 폴더와 모델 파일을 선택합니다.\n2. 자동 감지로 WSL, Conda, Python 환경을 확인합니다.\n3. 서버 시작 후 프레임을 선택하면 실제 주행값과 모델 예측값을 비교합니다.", tabPageModelValidation, tabPageModelValidation),
+                new TutorialStep("추론/검증", "데이터 폴더", "검증할 Tub 폴더를 선택합니다. 데이터 확인 탭에서 선택한 폴더와 다르게 지정할 수도 있습니다.", txtValidationDataFolderPath, tabPageModelValidation),
+                new TutorialStep("추론/검증", "모델 파일", "비교할 DonkeyCar 모델 파일(.keras 또는 .h5)을 선택합니다. 이 모델의 예측값이 실제 주행값과 비교됩니다.", txtValidationModelPath, tabPageModelValidation),
+                new TutorialStep("추론/검증", "자동 감지", "서버 시작 전에 WSL, Conda, Python 환경, DonkeyCar 의존성이 준비됐는지 확인합니다.", btnDetectValidationEnvironment, tabPageModelValidation),
+                new TutorialStep("추론/검증", "서버 시작", "선택한 모델을 Python 추론 서버로 실행합니다. 서버가 정상일 때 프레임별 예측값을 받을 수 있습니다.", btnStartPilotServer, tabPageModelValidation),
+                new TutorialStep("추론/검증", "프레임 검증", "현재 프레임 이미지 위에 실제 조향 방향과 모델 예측 방향을 함께 표시합니다. 값 차이가 크면 해당 구간을 검토 후보로 볼 수 있습니다.", picValidationPreview, tabPageModelValidation),
+                new TutorialStep("추론/검증", "검증 재생", "처음/이전/다음/끝 버튼과 자동 재생, 배속 선택으로 검증 프레임을 빠르게 훑어볼 수 있습니다.", btnValidationAutoPlay, tabPageModelValidation)
             };
         }
 
@@ -900,11 +961,11 @@ namespace TeamApp
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 16,
+                RowCount = 17,
                 Padding = new Padding(14),
                 BackColor = System.Drawing.Color.White
             };
-            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));
             sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
@@ -919,9 +980,10 @@ namespace TeamApp
             sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
             sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            sidePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             sidePanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-            sidePanel.Controls.Add(CreateValidationLabel("추론/검증 설정", bold: true), 0, 0);
+            sidePanel.Controls.Add(CreateValidationWorkflowHeader(), 0, 0);
 
             txtValidationDataFolderPath = new TextBox
             {
@@ -958,7 +1020,7 @@ namespace TeamApp
             btnDetectValidationEnvironment = CreateValidationButton("자동 감지");
             btnDetectValidationEnvironment.Click += async (_, _) => await DetectValidationEnvironmentAsync(showMessage: true);
             btnStartPilotServer = CreateValidationButton("서버 시작");
-            btnStartPilotServer.Click += async (_, _) => await StartPilotServerAsync();
+            btnStartPilotServer.Click += async (_, _) => await StartPilotServerAsync(showErrorMessage: true);
             btnStartPilotServer.Enabled = false;
             btnStopPilotServer = CreateValidationButton("서버 중지");
             btnStopPilotServer.Click += (_, _) => StopPilotServer(showMessage: true);
@@ -990,6 +1052,10 @@ namespace TeamApp
             btnPilotHealthCheck.Click += async (_, _) => await CheckPilotServerHealthAsync();
             sidePanel.Controls.Add(btnPilotHealthCheck, 0, 12);
 
+            btnShowPredictionMismatchCandidates = CreateValidationButton("예측 차이 후보");
+            btnShowPredictionMismatchCandidates.Click += (_, _) => ShowPredictionMismatchCandidates();
+            sidePanel.Controls.Add(btnShowPredictionMismatchCandidates, 0, 13);
+
             btnValidationFirst = CreateValidationButton("처음");
             btnValidationFirst.Click += (_, _) => MoveToFirstFrame();
             btnValidationPrevious = CreateValidationButton("이전");
@@ -998,7 +1064,7 @@ namespace TeamApp
             btnValidationNext.Click += (_, _) => MoveToNextFrame();
             btnValidationLast = CreateValidationButton("끝");
             btnValidationLast.Click += (_, _) => MoveToLastFrame();
-            sidePanel.Controls.Add(CreateValidationNavigationRow(), 0, 13);
+            sidePanel.Controls.Add(CreateValidationNavigationRow(), 0, 14);
 
             btnValidationAutoPlay = CreateValidationButton("자동 재생");
             btnValidationAutoPlay.Click += (_, _) => TogglePlayPause();
@@ -1009,7 +1075,7 @@ namespace TeamApp
                 if (_isPlaybackRunning)
                     _playbackTimer.Interval = GetPlaybackIntervalFromSpeed();
             };
-            sidePanel.Controls.Add(CreateValidationPlaybackRow(btnValidationAutoPlay, _cmbValidationPlaybackSpeed), 0, 14);
+            sidePanel.Controls.Add(CreateValidationPlaybackRow(btnValidationAutoPlay, _cmbValidationPlaybackSpeed), 0, 15);
 
             rtbPilotServerLog = new RichTextBox
             {
@@ -1022,7 +1088,7 @@ namespace TeamApp
                 Font = new Font("Consolas", 9.5F),
                 Text = "사용 순서: 데이터 폴더 선택 -> 모델 파일 선택 -> 자동 감지 -> 서버 시작 -> 프레임 선택\r\n"
             };
-            sidePanel.Controls.Add(rtbPilotServerLog, 0, 15);
+            sidePanel.Controls.Add(rtbPilotServerLog, 0, 16);
             UpdateValidationActionButtons();
 
             root.Controls.Add(picValidationPreview, 0, 0);
@@ -1043,6 +1109,45 @@ namespace TeamApp
                 TextAlign = ContentAlignment.MiddleLeft,
                 Font = new Font("맑은 고딕", bold ? 10.5F : 9.5F, bold ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular)
             };
+        }
+
+        private Control CreateValidationWorkflowHeader()
+        {
+            var panel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2,
+                Margin = new Padding(0, 0, 0, 6),
+                BackColor = System.Drawing.Color.FromArgb(236, 244, 255),
+                Padding = new Padding(10, 6, 10, 6)
+            };
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 42F));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 58F));
+
+            var title = new System.Windows.Forms.Label
+            {
+                Text = "추론/검증 설정",
+                Dock = DockStyle.Fill,
+                AutoSize = false,
+                Font = new Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = System.Drawing.Color.FromArgb(20, 32, 48)
+            };
+
+            var workflow = new System.Windows.Forms.Label
+            {
+                Text = "1. 자동 감지  ->  2. 서버 시작  ->  3. 프레임 검증",
+                Dock = DockStyle.Fill,
+                AutoSize = false,
+                Font = new Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = System.Drawing.Color.FromArgb(0, 86, 179)
+            };
+
+            panel.Controls.Add(title, 0, 0);
+            panel.Controls.Add(workflow, 0, 1);
+            return panel;
         }
 
         private Button CreateValidationButton(string text)
@@ -1253,7 +1358,7 @@ namespace TeamApp
             _ = LoadCatalogAsync(folderPath);
         }
 
-        private async Task DetectValidationEnvironmentAsync(bool showMessage)
+        private async Task<bool> DetectValidationEnvironmentAsync(bool showMessage)
         {
             if (!ValidationDataFolderExists() || !ValidationModelFileExists())
             {
@@ -1261,7 +1366,7 @@ namespace TeamApp
                 UpdateValidationActionButtons();
                 MessageBox.Show("데이터 폴더와 모델 파일을 모두 선택한 뒤 자동 감지를 실행해 주세요.",
                     "추론/검증 자동 감지", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                return false;
             }
 
             if (lblValidationEnvironmentStatus != null)
@@ -1289,6 +1394,8 @@ namespace TeamApp
                     MessageBoxButtons.OK,
                     detected ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
             }
+
+            return detected;
         }
 
         private void DgvFrameCatalog_MouseDown(object? sender, MouseEventArgs e)
@@ -3048,12 +3155,15 @@ namespace TeamApp
                 : url.TrimEnd('/') + "/health";
         }
 
-        private async Task StartPilotServerAsync()
+        private async Task StartPilotServerAsync(bool showErrorMessage = true)
         {
             if (_pilotServerProcess is { HasExited: false })
             {
-                MessageBox.Show("이미 추론 서버가 실행 중입니다.",
-                    "추론 서버", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                if (showErrorMessage)
+                {
+                    MessageBox.Show("이미 추론 서버가 실행 중입니다.",
+                        "추론 서버", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
                 return;
             }
 
@@ -3148,9 +3258,16 @@ namespace TeamApp
                 if (lblPilotStatus != null)
                     lblPilotStatus.Text = "상태: 서버 시작 실패";
 
-                MessageBox.Show(
-                    GetPilotServerFailureMessage(ex),
-                    "추론 서버 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (showErrorMessage)
+                {
+                    MessageBox.Show(
+                        GetPilotServerFailureMessage(ex),
+                        "추론 서버 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                else
+                {
+                    AppendPilotServerLog("[서버] 자동 후보 계산용 서버 시작 실패: " + ex.Message);
+                }
             }
         }
 
@@ -3623,6 +3740,49 @@ namespace TeamApp
             }
         }
 
+        private void ShowPredictionMismatchCandidates()
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+            {
+                MessageBox.Show("먼저 검증할 데이터 폴더를 불러와 주세요.",
+                    "예측 차이 후보", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var candidates = _allFrames
+                .Where(frame => !frame.IsDeleted && frame.HasPilotPredictionMismatch)
+                .OrderByDescending(frame => frame.PilotPredictionDifferenceScore)
+                .ToList();
+
+            if (candidates.Count == 0)
+            {
+                int predictedCount = _allFrames.Count(frame => frame.PilotAngle.HasValue && frame.PilotThrottle.HasValue);
+                MessageBox.Show(
+                    predictedCount == 0
+                        ? "아직 예측값이 계산된 프레임이 없습니다.\n서버 시작 후 자동 재생으로 프레임을 훑은 다음 다시 눌러 주세요."
+                        : "실제값과 예측값 차이가 큰 후보가 없습니다.",
+                    "예측 차이 후보",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            _visibleFrames = candidates;
+            _isFrameFilterActive = true;
+            RefreshFrameView();
+            RenderDataViewerFrameChart();
+            RenderFrameChart();
+            SetIndex(0);
+
+            MessageBox.Show(
+                $"예측 차이 후보 {candidates.Count}개만 표시합니다.\n\n" +
+                "기준: 조향 차이 0.35 이상 또는 속도 차이 0.25 이상\n" +
+                "후보를 확인한 뒤 필요하면 선택 제외로 학습 데이터에서 제외하세요.",
+                "예측 차이 후보",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
         private void MaybeRequestPilotPredictionForCurrentFrame()
         {
             if (tabPageModelValidation == null || tabControlMain.SelectedTab != tabPageModelValidation)
@@ -3648,51 +3808,91 @@ namespace TeamApp
         }
 
         /// <summary>
-        /// 미리보기 이미지 위에 작은 주행 방향 화살표와 상태 텍스트를 그립니다.
+        /// 미리보기 이미지 위에 주행 방향 화살표와 상태 텍스트를 선명하게 그립니다.
         /// 사용자가 사진과 조향값이 서로 맞는지 빠르게 비교할 수 있게 하는 보조 표시입니다.
         /// </summary>
         private void DrawDriveOverlay(Bitmap bitmap, FrameData frame)
         {
             using Graphics graphics = Graphics.FromImage(bitmap);
             graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
             graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
             graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
 
-            float scale = Math.Max(0.4f, bitmap.Width / 640f);
-            float arrowLength = Math.Max(12f, bitmap.Height * 0.075f);
-            float arrowWidth = Math.Max(5f, bitmap.Width * 0.010f);
-            float centerX = bitmap.Width / 2f;
-            float centerY = bitmap.Height - Math.Max(32f, bitmap.Height * 0.16f);
-            float directionOffset = (float)Math.Max(-1.0, Math.Min(1.0, frame.Angle)) * arrowLength * 0.7f;
-
-            PointF tip = new PointF(centerX + directionOffset, centerY - arrowLength);
-            PointF baseLeft = new PointF(centerX - arrowWidth, centerY);
-            PointF baseRight = new PointF(centerX + arrowWidth, centerY);
-
-            using var arrowBrush = new SolidBrush(System.Drawing.Color.FromArgb(185, 255, 193, 7));
-            using var arrowPen = new Pen(System.Drawing.Color.FromArgb(210, 60, 45, 0), Math.Max(1f, 1.2f * scale));
-            PointF[] arrow = { tip, baseRight, new PointF(centerX + arrowWidth * 0.35f, centerY), new PointF(centerX + arrowWidth * 0.35f, centerY + arrowLength * 0.45f), new PointF(centerX - arrowWidth * 0.35f, centerY + arrowLength * 0.45f), new PointF(centerX - arrowWidth * 0.35f, centerY), baseLeft };
-            graphics.FillPolygon(arrowBrush, arrow);
-            graphics.DrawPolygon(arrowPen, arrow);
+            DrawDataViewerDriveArrow(graphics, new Rectangle(0, 0, bitmap.Width, bitmap.Height), frame.Angle);
 
             string overlayText = $"{frame.SteeringText} / {frame.ThrottleText}";
             if (frame.NeedsReview)
                 overlayText += " / 검토";
 
-            using var font = new System.Drawing.Font("resource/PretendardVariable.ttf", Math.Max(5.2f, 5.6f * scale), System.Drawing.FontStyle.Bold);
+            float fontSize = Math.Max(4.8f, Math.Min(6.2f, bitmap.Height * 0.055f));
+            using var font = new System.Drawing.Font("맑은 고딕", fontSize, System.Drawing.FontStyle.Bold);
             SizeF textSize = graphics.MeasureString(overlayText, font);
-            float boxWidth = textSize.Width + 12;
-            float boxHeight = textSize.Height + 7;
-            var textBox = new RectangleF((bitmap.Width - boxWidth) / 2f, 6, boxWidth, boxHeight);
-            using var boxBrush = new SolidBrush(System.Drawing.Color.FromArgb(165, 0, 0, 0));
-            using var outlineBrush = new SolidBrush(System.Drawing.Color.FromArgb(180, 40, 30, 0));
-            using var textBrush = new SolidBrush(frame.NeedsReview ? System.Drawing.Color.Gold : System.Drawing.Color.White);
-            graphics.FillRectangle(boxBrush, textBox);
-            float textX = textBox.Left + 6;
-            float textY = textBox.Top + 3;
-            graphics.DrawString(overlayText, font, outlineBrush, textX + 0.8f, textY + 0.8f);
+            float paddingX = Math.Max(4f, bitmap.Width * 0.025f);
+            float paddingY = Math.Max(2.5f, bitmap.Height * 0.018f);
+            var textBox = new RectangleF(
+                (bitmap.Width - textSize.Width - paddingX * 2f) / 2f,
+                Math.Max(4f, bitmap.Height * 0.035f),
+                textSize.Width + paddingX * 2f,
+                textSize.Height + paddingY * 2f);
+
+            using var boxPath = CreateRoundedRectanglePath(textBox, Math.Max(3f, bitmap.Height * 0.025f));
+            using var boxBrush = new SolidBrush(System.Drawing.Color.FromArgb(190, 16, 18, 24));
+            using var boxPen = new Pen(System.Drawing.Color.FromArgb(210, 255, 196, 20), Math.Max(0.8f, bitmap.Width * 0.004f));
+            using var shadowBrush = new SolidBrush(System.Drawing.Color.FromArgb(105, 0, 0, 0));
+            using var textShadowBrush = new SolidBrush(System.Drawing.Color.FromArgb(210, 0, 0, 0));
+            using var textBrush = new SolidBrush(frame.NeedsReview ? System.Drawing.Color.FromArgb(255, 255, 225, 80) : System.Drawing.Color.White);
+
+            using (var shadowPath = CreateRoundedRectanglePath(
+                       new RectangleF(textBox.X + 2f, textBox.Y + 2f, textBox.Width, textBox.Height),
+                       Math.Max(3f, bitmap.Height * 0.025f)))
+            {
+                graphics.FillPath(shadowBrush, shadowPath);
+            }
+
+            graphics.FillPath(boxBrush, boxPath);
+            graphics.DrawPath(boxPen, boxPath);
+
+            float textX = textBox.Left + paddingX;
+            float textY = textBox.Top + paddingY - 1f;
+            graphics.DrawString(overlayText, font, textShadowBrush, textX + 1.2f, textY + 1.2f);
             graphics.DrawString(overlayText, font, textBrush, textX, textY);
+        }
+
+        private void DrawDataViewerDriveArrow(Graphics graphics, Rectangle bounds, double angle)
+        {
+            double clampedAngle = Math.Max(-1.0, Math.Min(1.0, angle));
+            float baseX = bounds.Left + bounds.Width / 2f;
+            float baseY = bounds.Bottom - Math.Max(14f, bounds.Height * 0.12f);
+            float tipX = baseX + (float)(clampedAngle * bounds.Width * 0.22);
+            float tipY = baseY - Math.Max(26f, bounds.Height * 0.34f);
+
+            using var arrowCap = new System.Drawing.Drawing2D.AdjustableArrowCap(3.8f, 5.6f, true);
+            using var pen = new Pen(System.Drawing.Color.FromArgb(230, 255, 193, 7), Math.Max(1.6f, bounds.Width * 0.014f))
+            {
+                StartCap = System.Drawing.Drawing2D.LineCap.Round,
+                CustomEndCap = arrowCap
+            };
+            using var shadowPen = new Pen(System.Drawing.Color.FromArgb(145, 0, 0, 0), pen.Width + 1.3f)
+            {
+                StartCap = System.Drawing.Drawing2D.LineCap.Round,
+                CustomEndCap = arrowCap
+            };
+
+            graphics.DrawLine(shadowPen, baseX + 1.2f, baseY + 1.2f, tipX + 1.2f, tipY + 1.2f);
+            graphics.DrawLine(pen, baseX, baseY, tipX, tipY);
+        }
+
+        private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedRectanglePath(RectangleF bounds, float radius)
+        {
+            float diameter = Math.Max(1f, radius * 2f);
+            var path = new System.Drawing.Drawing2D.GraphicsPath();
+            path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
         }
 
         private void PicValidationPreview_Paint(object? sender, PaintEventArgs e)
@@ -4319,18 +4519,21 @@ namespace TeamApp
                     $"학습용 Clean 폴더가 생성되었습니다.\n\n경로: {cleanFolder}\n삭제된 이미지: {deletedImageCount}개\n정제된 카탈로그: {cleanedCatalogCount}개",
                     "클린 폴더 추출 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
+                SyncDatasetPathsForTrainingAndValidation(cleanFolder, updateTrainingTubPath: true);
+
                 var useForTraining = MessageBox.Show(
                     "방금 만든 Clean 폴더를 학습 데이터 폴더로 사용할까요?\n\n" +
-                    "예를 누르면 학습 실행 탭으로 이동하고 학습 데이터 경로가 자동으로 입력됩니다.",
+                    "이미 학습 실행/추론 검증 경로는 Clean 폴더 기준으로 자동 변경되었습니다.\n" +
+                    "예를 누르면 학습 실행 탭으로 이동합니다.",
                     "학습 경로 연결",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
 
                 if (useForTraining == DialogResult.Yes)
                 {
-                    txtTrainingTubPath.Text = cleanFolder;
                     tabControlMain.SelectedTab = tabTrainingMonitor;
-                    AppendTrainingLog("[안내] Clean 폴더가 Tub 경로로 설정되었습니다. 자동 감지를 눌러 WSL, conda, 프로젝트 경로를 확인한 뒤 학습을 시작하세요.");
+                    AppendTrainingLog("[안내] Clean 폴더가 학습 데이터 경로와 추론/검증 데이터 경로로 설정되었습니다.");
+                    AppendTrainingLog("[안내] 모델 저장 경로: " + txtTrainingModelPath.Text);
                 }
             }
             catch (Exception ex)
@@ -4616,6 +4819,33 @@ namespace TeamApp
                 Math.Abs(Throttle) <= 0.03 ||
                 NormalizeDisplayValue(Scenario).Contains("out_of_bound");
 
+            /// <summary>
+            /// 실제 조향값과 모델 예측 조향값의 차이입니다.
+            /// 예측값이 아직 없으면 0으로 처리해 일반 검토 후보에 섞이지 않게 합니다.
+            /// </summary>
+            public double PilotAngleDifference => PilotAngle.HasValue ? Math.Abs(Angle - PilotAngle.Value) : 0.0;
+
+            /// <summary>
+            /// 실제 속도값과 모델 예측 속도값의 차이입니다.
+            /// 예측값이 아직 없으면 0으로 처리합니다.
+            /// </summary>
+            public double PilotThrottleDifference => PilotThrottle.HasValue ? Math.Abs(Throttle - PilotThrottle.Value) : 0.0;
+
+            /// <summary>
+            /// 예측 차이 후보를 큰 순서로 정렬하기 위한 간단한 점수입니다.
+            /// 값이 클수록 실제 데이터와 모델 예측이 더 다릅니다.
+            /// </summary>
+            public double PilotPredictionDifferenceScore => PilotAngleDifference + PilotThrottleDifference;
+
+            /// <summary>
+            /// 모델 예측값이 실제 조작값과 많이 다른 프레임입니다.
+            /// 조향 차이는 0.35 이상, 속도 차이는 0.25 이상이면 발표 데모에서 검토할 후보로 봅니다.
+            /// </summary>
+            public bool HasPilotPredictionMismatch =>
+                PilotAngle.HasValue &&
+                PilotThrottle.HasValue &&
+                (PilotAngleDifference >= 0.35 || PilotThrottleDifference >= 0.25);
+
             public string ReviewHint
             {
                 get
@@ -4626,6 +4856,8 @@ namespace TeamApp
                     if (Math.Abs(Angle) >= 0.85) reasons.Add("급조향");
                     if (Math.Abs(Throttle) <= 0.03) reasons.Add("정지에 가까운 속도");
                     if (NormalizeDisplayValue(Scenario).Contains("out_of_bound")) reasons.Add("차선 이탈 상황");
+                    if (HasPilotPredictionMismatch)
+                        reasons.Add($"예측 차이(방향 {PilotAngleDifference:0.000}, 속도 {PilotThrottleDifference:0.000})");
 
                     return reasons.Count == 0 ? "정상" : string.Join(", ", reasons);
                 }
@@ -4851,6 +5083,7 @@ namespace TeamApp
             SetLoadingState(true);
             try
             {
+                string normalizedFolder = Path.GetFullPath(folder);
                 var frames = await Task.Run(() => LoadTubData(folder));
 
                 if (frames.Count == 0)
@@ -4869,7 +5102,10 @@ namespace TeamApp
                 // 초기 로드: 전체 프레임을 표시합니다.
                 RefreshFrameBinding();  // _visibleFrames 설정과 RefreshFrameView 호출
 
-                stsDataPath.Text = "경로: " + folder;
+                _currentDataFolderPath = normalizedFolder;
+                SyncDatasetPathsForTrainingAndValidation(normalizedFolder, updateTrainingTubPath: true);
+
+                stsDataPath.Text = "경로: " + normalizedFolder;
                 _isChartDirty = true;
                 SetIndex(0);
             }
@@ -4910,6 +5146,7 @@ namespace TeamApp
             stsTrainingStatus.Text = "학습 상태: 대기";
 
             ConfigureTrainingSummaryLabels();
+            ConfigureTrainingPostActionControls();
             ApplyTrainingControlStyle();
             LayoutTrainingTab();
             grpTrainingConfig.Resize += (_, _) => LayoutTrainingTab();
@@ -4925,15 +5162,74 @@ namespace TeamApp
             return Path.Combine(modelFolder, "pilot.keras");
         }
 
+        private string GetTrainingModelPathForDataset(string datasetFolder)
+        {
+            string datasetName = GetSafeDatasetFolderName(datasetFolder);
+            string modelFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "donkeycar_models",
+                datasetName);
+
+            Directory.CreateDirectory(modelFolder);
+            return Path.Combine(modelFolder, "pilot.keras");
+        }
+
+        private string GetSafeDatasetFolderName(string datasetFolder)
+        {
+            string name = Path.GetFileName(datasetFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrWhiteSpace(name))
+                name = "donkeycar_data";
+
+            foreach (char invalidChar in Path.GetInvalidFileNameChars())
+                name = name.Replace(invalidChar, '_');
+
+            return name;
+        }
+
+        private void SyncDatasetPathsForTrainingAndValidation(string datasetFolder, bool updateTrainingTubPath)
+        {
+            if (string.IsNullOrWhiteSpace(datasetFolder) || !Directory.Exists(datasetFolder))
+                return;
+
+            string normalizedFolder = Path.GetFullPath(datasetFolder);
+            string modelPath = GetTrainingModelPathForDataset(normalizedFolder);
+
+            if (updateTrainingTubPath)
+                txtTrainingTubPath.Text = normalizedFolder;
+
+            txtTrainingModelPath.Text = modelPath;
+
+            if (txtValidationDataFolderPath != null)
+                txtValidationDataFolderPath.Text = normalizedFolder;
+
+            if (txtValidationModelPath != null)
+                txtValidationModelPath.Text = modelPath;
+
+            _isValidationEnvironmentReady = false;
+            UpdateValidationActionButtons();
+        }
+
         private void NormalizeTrainingPathsForDisplay()
         {
             txtTrainingTubPath.Text = NormalizeWindowsTrainingPath(
                 txtTrainingTubPath.Text,
                 Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
 
+            if (Directory.Exists(txtTrainingTubPath.Text))
+            {
+                txtTrainingModelPath.Text = GetTrainingModelPathForDataset(txtTrainingTubPath.Text);
+            }
+            else
+            {
             txtTrainingModelPath.Text = NormalizeWindowsTrainingPath(
                 txtTrainingModelPath.Text,
                 Path.GetDirectoryName(GetDefaultTrainingModelPath()) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+            }
+
+            if (txtValidationDataFolderPath != null)
+                txtValidationDataFolderPath.Text = txtTrainingTubPath.Text;
+            if (txtValidationModelPath != null)
+                txtValidationModelPath.Text = txtTrainingModelPath.Text;
         }
 
         private string NormalizeWindowsTrainingPath(string path, string baseFolder)
@@ -4959,6 +5255,34 @@ namespace TeamApp
             _lblTrainingSummaryEpoch ??= CreateTrainingSummaryLabel("lblTrainingSummaryEpoch", "학습 횟수: -", false);
             _lblTrainingSummaryProgress ??= CreateTrainingSummaryLabel("lblTrainingSummaryProgress", "진행률: -", false);
             _lblTrainingSummaryLoss ??= CreateTrainingSummaryLabel("lblTrainingSummaryLoss", "점수(높을수록 좋음): -", false);
+        }
+
+        private void ConfigureTrainingPostActionControls()
+        {
+            if (_btnOpenTrainedModelValidation == null)
+            {
+                _btnOpenTrainedModelValidation = new Button
+                {
+                    Name = "btnOpenTrainedModelValidation",
+                    Text = "이 모델로 추론/검증",
+                    Enabled = false,
+                    UseVisualStyleBackColor = true
+                };
+                _btnOpenTrainedModelValidation.Click += async (_, _) => await OpenTrainedModelValidationAsync(startServer: true);
+                grpTrainingConfig.Controls.Add(_btnOpenTrainedModelValidation);
+            }
+
+            if (_chkRestartPilotServerAfterTraining == null)
+            {
+                _chkRestartPilotServerAfterTraining = new CheckBox
+                {
+                    Name = "chkRestartPilotServerAfterTraining",
+                    Text = "학습 완료 후 추론 서버 자동 재시작",
+                    AutoSize = false,
+                    Checked = false
+                };
+                grpTrainingConfig.Controls.Add(_chkRestartPilotServerAfterTraining);
+            }
         }
 
         private System.Windows.Forms.Label CreateTrainingSummaryLabel(string name, string text, bool bold)
@@ -5066,6 +5390,20 @@ namespace TeamApp
             PlaceTrainingSummaryLabel(_lblTrainingSummaryProgress, summaryX + summaryTitleWidth + summaryGap + (summaryItemWidth + summaryGap) * 2, summaryY, summaryItemWidth, buttonHeight);
             PlaceTrainingSummaryLabel(_lblTrainingSummaryLoss, summaryX + summaryTitleWidth + summaryGap + (summaryItemWidth + summaryGap) * 3, summaryY, summaryItemWidth, buttonHeight);
 
+            if (_btnOpenTrainedModelValidation != null)
+            {
+                _btnOpenTrainedModelValidation.Location = new Point(buttonX - actionWidth - 24, summaryY + buttonHeight + 10);
+                _btnOpenTrainedModelValidation.Size = new Size(actionWidth + 24, buttonHeight);
+                _btnOpenTrainedModelValidation.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            }
+
+            if (_chkRestartPilotServerAfterTraining != null)
+            {
+                _chkRestartPilotServerAfterTraining.Location = new Point(inputX, summaryY + buttonHeight + 12);
+                _chkRestartPilotServerAfterTraining.Size = new Size(Math.Max(320, inputWidth / 2), buttonHeight);
+                _chkRestartPilotServerAfterTraining.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            }
+
             grpTrainingOutput.Location = new Point(margin, grpTrainingConfig.Bottom + 16);
             grpTrainingOutput.Size = new Size(groupWidth, Math.Max(50, tabTrainingMonitor.ClientSize.Height - grpTrainingOutput.Top - 42));
             grpTrainingOutput.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -5137,6 +5475,7 @@ namespace TeamApp
             }
 
             NormalizeTrainingPathsForDisplay();
+            if (!PrepareTrainingModelOutputPath()) return;
             if (!TryBuildTrainingCommand(out var arguments, out string displayArguments)) return;
 
             btnStartTrainingProcess.Enabled = false;
@@ -5182,6 +5521,15 @@ namespace TeamApp
                 AppendTrainingLog($"학습 프로세스가 종료되었습니다. 종료 코드: {_trainingProcess.ExitCode}");
                 UpdateTrainingSummary(status: _trainingProcess.ExitCode == 0 ? "완료" : "오류");
                 stsTrainingStatus.Text = $"학습 상태: 종료 코드 {_trainingProcess.ExitCode}";
+                if (_trainingProcess.ExitCode == 0)
+                {
+                    AppendTrainingCompletionExplanation();
+
+                    if (_btnOpenTrainedModelValidation != null)
+                        _btnOpenTrainedModelValidation.Enabled = true;
+
+                    await PrepareValidationAfterSuccessfulTrainingAsync();
+                }
             }
             catch (Exception ex)
             {
@@ -5198,6 +5546,44 @@ namespace TeamApp
                 btnStartTrainingProcess.Enabled = true;
                 btnStopTrainingProcess.Enabled = false;
             }
+        }
+
+        /// <summary>
+        /// DonkeyCar는 검증 loss가 더 좋아지지 않으면 MAX_EPOCHS 전에 정상 종료할 수 있습니다.
+        /// 사용자가 "왜 100회 전에 끝났지?"라고 혼동하지 않도록 학습 완료 직후 로그로 설명합니다.
+        /// </summary>
+        private void AppendTrainingCompletionExplanation()
+        {
+            int requestedEpochs = Math.Max(1, (int)numTrainingEpochs.Value);
+            if (!TryGetCompletedEpochInfo(out int completedEpochs, out int totalEpochs))
+                return;
+
+            int configuredTotal = Math.Max(requestedEpochs, totalEpochs);
+            if (completedEpochs >= configuredTotal)
+                return;
+
+            AppendTrainingLog(
+                $"[안내] 학습이 {completedEpochs}/{configuredTotal}회에서 정상 완료되었습니다. " +
+                "DonkeyCar 설정의 조기 종료(Early Stopping)가 켜져 있으면 검증 loss 개선이 멈출 때 최대 횟수 전에 자동 종료됩니다.");
+            AppendTrainingLog(
+                "[안내] 현재 기본 설정은 USE_EARLY_STOP=True, EARLY_STOP_PATIENCE=5, MIN_DELTA=0.0005 기준일 수 있습니다. " +
+                "더 오래 학습하려면 mycar 설정에서 조기 종료를 끄거나 patience 값을 늘리면 됩니다.");
+        }
+
+        private bool TryGetCompletedEpochInfo(out int completedEpochs, out int totalEpochs)
+        {
+            completedEpochs = 0;
+            totalEpochs = 0;
+
+            string text = _lblTrainingSummaryEpoch?.Text ?? string.Empty;
+            Match match = Regex.Match(text, @"(\d+)\s*/\s*(\d+)");
+            if (!match.Success)
+                return false;
+
+            return int.TryParse(match.Groups[1].Value, out completedEpochs) &&
+                   int.TryParse(match.Groups[2].Value, out totalEpochs) &&
+                   completedEpochs > 0 &&
+                   totalEpochs > 0;
         }
 
         private void BtnStopTrainingProcess_Click(object? sender, EventArgs e)
@@ -5607,6 +5993,304 @@ namespace TeamApp
             {
                 AddTrainingLossPoint(lossMatch.Groups["loss"].Value, isValidation: false);
                 UpdateTrainingSummary(loss: FormatTrainingScore(lossMatch.Groups["loss"].Value));
+            }
+        }
+
+        private bool PrepareTrainingModelOutputPath()
+        {
+            try
+            {
+                string modelPath = txtTrainingModelPath.Text.Trim();
+                if (string.IsNullOrWhiteSpace(modelPath))
+                {
+                    MessageBox.Show("모델 저장 경로를 확인할 수 없습니다.",
+                        "모델 저장 경로", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                string? modelFolder = Path.GetDirectoryName(modelPath);
+                if (string.IsNullOrWhiteSpace(modelFolder))
+                {
+                    MessageBox.Show("모델 저장 폴더를 확인할 수 없습니다.\n\n" + modelPath,
+                        "모델 저장 경로", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                if (IsManagedDonkeyModelFolder(modelFolder))
+                {
+                    // 앱이 자동으로 만든 "문서/donkeycar_models/데이터폴더명" 폴더는 같은 이름으로 다시 학습할 때 덮어씁니다.
+                    if (Directory.Exists(modelFolder) && Directory.EnumerateFileSystemEntries(modelFolder).Any())
+                    {
+                        DialogResult backupAnswer = MessageBox.Show(
+                            "같은 데이터 폴더명으로 저장된 기존 모델 폴더가 있습니다.\n\n" +
+                            "기존 모델을 백업한 뒤 새 모델로 덮어쓸까요?\n\n" +
+                            "예: 백업 후 덮어쓰기\n" +
+                            "아니요: 백업 없이 덮어쓰기\n" +
+                            "취소: 학습 시작 취소",
+                            "모델 폴더 덮어쓰기",
+                            MessageBoxButtons.YesNoCancel,
+                            MessageBoxIcon.Question);
+
+                        if (backupAnswer == DialogResult.Cancel)
+                            return false;
+
+                        if (backupAnswer == DialogResult.Yes)
+                        {
+                            string backupFolder = CreateModelFolderBackup(modelFolder);
+                            AppendTrainingLog("[안내] 기존 모델 폴더를 백업했습니다: " + backupFolder);
+                        }
+                    }
+
+                    if (Directory.Exists(modelFolder))
+                        Directory.Delete(modelFolder, recursive: true);
+                    Directory.CreateDirectory(modelFolder);
+                }
+                else
+                {
+                    Directory.CreateDirectory(modelFolder);
+                    if (File.Exists(modelPath))
+                        File.Delete(modelPath);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("모델 저장 경로를 준비하지 못했습니다.\n\n" + ex.Message,
+                    "모델 저장 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+        }
+
+        private bool IsManagedDonkeyModelFolder(string modelFolder)
+        {
+            try
+            {
+                string root = Path.GetFullPath(Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "donkeycar_models"));
+                string folder = Path.GetFullPath(modelFolder);
+                return folder.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private string CreateModelFolderBackup(string modelFolder)
+        {
+            string parentFolder = Directory.GetParent(modelFolder)?.FullName
+                ?? Path.GetDirectoryName(modelFolder)
+                ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            string modelFolderName = Path.GetFileName(modelFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+            string backupFolder = Path.Combine(parentFolder, modelFolderName + "_backup_" + timestamp);
+
+            CopyDirectory(modelFolder, backupFolder);
+            return backupFolder;
+        }
+
+        private void SyncValidationPathsAfterTraining()
+        {
+            string tubPath = txtTrainingTubPath.Text.Trim();
+            string modelPath = txtTrainingModelPath.Text.Trim();
+
+            if (txtValidationDataFolderPath != null && Directory.Exists(tubPath))
+                txtValidationDataFolderPath.Text = tubPath;
+            if (txtValidationModelPath != null && !string.IsNullOrWhiteSpace(modelPath))
+                txtValidationModelPath.Text = modelPath;
+
+            _isValidationEnvironmentReady = false;
+            UpdateValidationActionButtons();
+            AppendTrainingLog("[안내] 학습 완료 모델이 추론/검증 탭의 모델 파일 경로로 연결되었습니다.");
+        }
+
+        private async Task OpenTrainedModelValidationAsync(bool startServer)
+        {
+            SyncValidationPathsAfterTraining();
+            if (tabPageModelValidation != null)
+                tabControlMain.SelectedTab = tabPageModelValidation;
+
+            if (!File.Exists(txtTrainingModelPath.Text.Trim()))
+            {
+                MessageBox.Show(
+                    "학습 완료 모델 파일을 찾을 수 없습니다.\n\n" + txtTrainingModelPath.Text.Trim(),
+                    "추론/검증 시작", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            bool detected = await DetectValidationEnvironmentAsync(showMessage: false);
+            if (!detected)
+            {
+                MessageBox.Show(
+                    "추론/검증 환경 자동 감지에 실패했습니다.\n추론/검증 탭의 서버 로그를 확인해 주세요.",
+                    "추론/검증 시작", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (!startServer)
+                return;
+
+            if (_pilotServerProcess is { HasExited: false })
+            {
+                StopPilotServer(showMessage: false);
+                await Task.Delay(600);
+            }
+
+            await StartPilotServerAsync(showErrorMessage: true);
+        }
+
+        /// <summary>
+        /// 학습 성공 직후 추론/검증 탭에서 바로 검토할 수 있도록 모델 경로, 데이터 경로, 예측 후보를 준비합니다.
+        /// 학습 완료 후 사용자가 곧바로 발표 데모를 할 수 있게 만드는 후처리 흐름입니다.
+        /// </summary>
+        private async Task PrepareValidationAfterSuccessfulTrainingAsync()
+        {
+            SyncValidationPathsAfterTraining();
+
+            bool shouldRestartServer = _chkRestartPilotServerAfterTraining?.Checked == true;
+            if (shouldRestartServer && _pilotServerProcess is { HasExited: false })
+            {
+                StopPilotServer(showMessage: false);
+                await Task.Delay(600);
+            }
+
+            _isValidationEnvironmentReady = HasTrainingEnvironmentInputs() &&
+                                            ValidationDataFolderExists() &&
+                                            ValidationModelFileExists();
+            UpdateValidationActionButtons();
+            if (!_isValidationEnvironmentReady)
+                return;
+
+            string tubPath = txtTrainingTubPath.Text.Trim();
+            if (Directory.Exists(tubPath) &&
+                !IsSameFullPath(tubPath, _currentDataFolderPath))
+            {
+                await LoadCatalogAsync(tubPath);
+            }
+
+            if (!await EnsurePilotServerReadyAsync(showErrorMessage: false))
+                return;
+
+            await PrecomputePilotPredictionCandidatesAsync();
+        }
+
+        private static bool IsSameFullPath(string pathA, string? pathB)
+        {
+            if (string.IsNullOrWhiteSpace(pathA) || string.IsNullOrWhiteSpace(pathB))
+                return false;
+
+            try
+            {
+                return string.Equals(
+                    Path.GetFullPath(pathA),
+                    Path.GetFullPath(pathB),
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 전체 프레임 예측을 하기 전에 추론 서버가 살아 있는지 확인하고, 없으면 시작합니다.
+        /// StartPilotServerAsync는 사용자 메시지를 직접 처리하므로 여기서는 성공 여부만 다시 확인합니다.
+        /// </summary>
+        private async Task<bool> EnsurePilotServerReadyAsync(bool showErrorMessage)
+        {
+            if (_pilotServerProcess is { HasExited: false } && await VerifyPilotServerHealthAsync(showMessage: false))
+                return true;
+
+            await StartPilotServerAsync(showErrorMessage);
+            return _pilotServerProcess is { HasExited: false } && await VerifyPilotServerHealthAsync(showMessage: false);
+        }
+
+        /// <summary>
+        /// 학습 완료 모델로 전체 프레임을 순회하며 예측값을 미리 계산합니다.
+        /// 이 결과를 바탕으로 '예측 차이 후보' 버튼이 즉시 후보를 보여줄 수 있습니다.
+        /// </summary>
+        private async Task PrecomputePilotPredictionCandidatesAsync()
+        {
+            if (_isPrecomputingPilotPredictions)
+                return;
+
+            if (_allFrames == null || _allFrames.Count == 0)
+                return;
+
+            _isPrecomputingPilotPredictions = true;
+            _pilotBatchPredictionCts?.Cancel();
+            _pilotBatchPredictionCts?.Dispose();
+            _pilotBatchPredictionCts = new CancellationTokenSource();
+            CancellationToken cancellationToken = _pilotBatchPredictionCts.Token;
+
+            var frames = _allFrames.Where(frame => !frame.IsDeleted).ToList();
+            int successCount = 0;
+            int failCount = 0;
+
+            try
+            {
+                AppendPilotServerLog($"[검증] 전체 프레임 예측 후보 계산을 시작합니다. 대상: {frames.Count}개");
+
+                foreach (FrameData frame in frames)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    string imagePath = ResolveImagePath(frame.Name);
+                    if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
+                    {
+                        frame.PilotAngle = null;
+                        frame.PilotThrottle = null;
+                        frame.PilotPredictionError = "이미지 없음";
+                        failCount++;
+                        continue;
+                    }
+
+                    try
+                    {
+                        var prediction = await GetPilotPredictionAsync(imagePath, cancellationToken);
+                        frame.PilotAngle = prediction.angle;
+                        frame.PilotThrottle = prediction.throttle;
+                        frame.PilotPredictionError = string.Empty;
+                        successCount++;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        frame.PilotAngle = null;
+                        frame.PilotThrottle = null;
+                        frame.PilotPredictionError = "추론 실패: " + ex.Message;
+                        failCount++;
+                    }
+
+                    int processed = successCount + failCount;
+                    if (processed % 100 == 0 || processed == frames.Count)
+                    {
+                        int percent = frames.Count == 0 ? 100 : (int)Math.Round(processed * 100.0 / frames.Count);
+                        AppendPilotServerLog($"[검증] 예측 후보 계산 중... {processed}/{frames.Count} ({percent}%)");
+                        await Task.Yield();
+                    }
+                }
+
+                int mismatchCount = frames.Count(frame => frame.HasPilotPredictionMismatch);
+                AppendPilotServerLog($"[검증] 예측 후보 계산 완료: 후보 {mismatchCount}개 / 성공 {successCount}개 / 실패 {failCount}개");
+
+                if (_visibleFrames != null && _currentFrameIndex >= 0 && _currentFrameIndex < _visibleFrames.Count)
+                    UpdateModelValidationView(_visibleFrames[_currentFrameIndex]);
+                RenderDataViewerFrameChart();
+                RenderFrameChart();
+            }
+            catch (OperationCanceledException)
+            {
+                AppendPilotServerLog("[검증] 예측 후보 계산이 취소되었습니다.");
+            }
+            finally
+            {
+                _isPrecomputingPilotPredictions = false;
             }
         }
 
@@ -6241,7 +6925,31 @@ namespace TeamApp
             };
 
             if (dialog.ShowDialog(this) == DialogResult.OK)
+            {
                 txtTrainingModelPath.Text = dialog.FileName;
+                if (txtValidationModelPath != null)
+                {
+                    txtValidationModelPath.Text = dialog.FileName;
+                    _isValidationEnvironmentReady = false;
+                    UpdateValidationActionButtons();
+                }
+            }
+        }
+
+        private void SelectTrainingTubFolder()
+        {
+            using var dialog = new FolderBrowserDialog
+            {
+                Description = "Tub 폴더 선택",
+                SelectedPath = Directory.Exists(txtTrainingTubPath.Text)
+                    ? txtTrainingTubPath.Text
+                    : Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            SyncDatasetPathsForTrainingAndValidation(dialog.SelectedPath, updateTrainingTubPath: true);
         }
 
         private void BtnSaveTrainingConfig_Click(object? sender, EventArgs e)
