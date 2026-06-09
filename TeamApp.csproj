@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <RepositoryUrl>https://github.com/plapproject/PLAP_Project_Team1.git</RepositoryUrl>
+    <PackageIcon>icon.png</PackageIcon>
+    <ApplicationIcon>resource\icon.ico</ApplicationIcon>
+    <AssemblyName>DonkeyManager</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="resource\icon.ico" />
     <Content Include="resource\JetBrainsMono-Medium.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -32,6 +37,10 @@
     </None>
     <None Update="member4.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="resource\icon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
     </None>
   </ItemGroup>
 

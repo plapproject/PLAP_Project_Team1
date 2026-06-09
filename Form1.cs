@@ -4675,8 +4675,8 @@ namespace TeamApp
                 _hasUnsavedCleanupChanges ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular);
 
             Text = _hasUnsavedCleanupChanges
-                ? "Data Manager *"
-                : "Data Manager";
+                ? "Donkey Manager *"
+                : "Donkey Manager";
         }
 
         private bool ConfirmUnsavedCleanupBeforeDataChange(string actionName)

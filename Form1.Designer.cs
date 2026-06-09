@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             menuStripMain = new MenuStrip();
             mnuFile = new ToolStripMenuItem();
             mnuFileOpenDataFolder = new ToolStripMenuItem();
@@ -1245,10 +1246,11 @@
             ClientSize = new Size(1600, 1000);
             Controls.Add(tabControlMain);
             Controls.Add(menuStripMain);
+            Icon = (Icon)resources.GetObject("$this.Icon");
             MainMenuStrip = menuStripMain;
             MinimumSize = new Size(1000, 650);
             Name = "Form1";
-            Text = "Data Manager";
+            Text = "Donkey Manager";
             Load += Form1_Load;
             menuStripMain.ResumeLayout(false);
             menuStripMain.PerformLayout();
