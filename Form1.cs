@@ -43,6 +43,7 @@ namespace TeamApp
         private const int TimelineVisibleFrameWindow = 100;
         private int _timelineViewStart = 0;
         private bool _isSyncingTimelineScrollBar = false;
+        private bool _isTimelineViewLockedByUser = false;
         private bool _showDeletedOnGraph = true;
         private HScrollBar? _filmstripScrollBar;
         private Button? _btnReturnFilmstripToCurrent;
@@ -51,14 +52,21 @@ namespace TeamApp
         private bool _isFilmstripViewLockedByUser = false;
         private Panel? _pnlMacroTimeline;
         private readonly List<int> _cutPoints = new();
+        private readonly Dictionary<int, Rectangle> _cutDeleteButtonRects = new();
         private readonly Dictionary<int, Bitmap> _macroTimelineThumbnailCache = new();
         private Button? _btnToggleMacroTimeline;
         private Button? _btnReturnTimelineToCurrent;
+        private Button? _btnUndoEdit;
+        private Button? _btnRedoEdit;
         private readonly ToolTip _timelineHoverToolTip = new ToolTip { InitialDelay = 1500, ReshowDelay = 1500, AutoPopDelay = 5000, ShowAlways = true };
         private System.Windows.Forms.Timer? _timelineHoverTimer;
         private Control? _timelineHoverControl;
         private Point _timelineHoverPoint = Point.Empty;
         private string _timelineHoverText = string.Empty;
+        private Point _lastMacroTimelineClickPoint = Point.Empty;
+        private DateTime _lastMacroTimelineClickUtc = DateTime.MinValue;
+        private Point _lastDataViewerChartClickPoint = Point.Empty;
+        private DateTime _lastDataViewerChartClickUtc = DateTime.MinValue;
         private bool _isDraggingMacroTimelineResize = false;
         private Control? _macroTimelineResizeCaptureControl;
         private int _macroTimelineDragStartY = 0;
@@ -76,6 +84,7 @@ namespace TeamApp
         private int _lastSelectedFrameIndex = -1;
         private bool _catalogDragMoved = false;
         private int _lastCatalogDragIndex = -1;
+        private bool _catalogMouseDownWasSelected = false;
         private int _dragPreviewSelectionStartIndex = -1;
         private int _dragPreviewSelectionEndIndex = -1;
         private DateTime _lastDragChartRenderUtc = DateTime.MinValue;
@@ -89,9 +98,13 @@ namespace TeamApp
         private int _timelineRangeStartIndex = -1;
         private bool _hasUnsavedCleanupChanges = false;
         private bool _showDriveOverlay = true;
+        private int _previewImageRequestVersion = 0;
+        private CancellationTokenSource? _previewImageLoadCts;
         private bool _hasAutoDetectedTrainingTab = false;
         private bool _isValidationEnvironmentReady = false;
         private readonly HttpClient _pilotHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        private readonly Stack<EditSnapshot> _undoStack = new();
+        private readonly Stack<EditSnapshot> _redoStack = new();
         private CancellationTokenSource? _pilotPredictionCts;
         private int _pilotPredictionRequestVersion = 0;
         private TabPage? tabPageModelValidation;
@@ -155,6 +168,8 @@ namespace TeamApp
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
         private static readonly Regex AnsiEscapeRegex = new(@"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", RegexOptions.Compiled);
+        private const string ScottPlotKoreanFontAlias = "TeamAppPretendard";
+        private static bool _isScottPlotKoreanFontRegistered = false;
 
         // 외부 폰트 콜렉션 추가
         PrivateFontCollection mainFonts = new PrivateFontCollection();
@@ -244,6 +259,7 @@ namespace TeamApp
             FormClosing += Form1_FormClosing;
 
             ConfigureFrameCatalogGrid();
+            ConfigureScottPlotKoreanFont();
             ApplyDataManagerUiStyle();
             ConfigurePlaybackSpeedComboBox();
             ConfigureModelValidationTab();
@@ -737,6 +753,7 @@ namespace TeamApp
                 "구간 제외 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (confirm != DialogResult.Yes) return;
 
+            PushUndoSnapshot();
             SetDeletedByRange(from, to, true);
             FinishDataStateChange();
         }
@@ -756,6 +773,7 @@ namespace TeamApp
                 "선택 프레임 제외", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (confirm != DialogResult.Yes) return;
 
+            PushUndoSnapshot();
             foreach (var frame in selectedFrames)
                 frame.IsDeleted = true;
 
@@ -771,6 +789,7 @@ namespace TeamApp
                     "구간 복원", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (rangeConfirm != DialogResult.Yes) return;
 
+                PushUndoSnapshot();
                 SetDeletedByRange(from, to, false);
                 FinishDataStateChange();
                 return;
@@ -782,6 +801,7 @@ namespace TeamApp
                 "선택 프레임 복원", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (selectedConfirm != DialogResult.Yes) return;
 
+            PushUndoSnapshot();
             foreach (var frame in selectedFrames)
                 frame.IsDeleted = false;
 
@@ -801,7 +821,7 @@ namespace TeamApp
             if (idx >= 0 && idx < _visibleFrames.Count)
             {
                 _lastSelectedFrameIndex = idx;
-                DisplayFrameAtIndex(idx);
+                DisplayFrameAtIndex(idx, forceTimelineFocus: true);
                 RefreshSelectionVisuals();
             }
         }
@@ -814,7 +834,7 @@ namespace TeamApp
                 if (_isDraggingTimelineRange)
                     SelectFrameGridRange(_timelineRangeStartIndex, idx);
                 else
-                    SetIndex(idx);
+                    SetIndex(idx, forceTimelineFocus: true);
             }
         }
 
@@ -826,25 +846,25 @@ namespace TeamApp
         private void MoveToFirstFrame()
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
-            SetIndex(0);
+            SetIndex(0, forceTimelineFocus: true);
         }
 
         private void MoveToPreviousFrame()
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
-            SetIndex(Math.Max(0, _currentFrameIndex - 1));
+            SetIndex(Math.Max(0, _currentFrameIndex - 1), forceTimelineFocus: true);
         }
 
         private void MoveToNextFrame()
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
-            SetIndex(Math.Min(_visibleFrames.Count - 1, _currentFrameIndex + 1));
+            SetIndex(Math.Min(_visibleFrames.Count - 1, _currentFrameIndex + 1), forceTimelineFocus: true);
         }
 
         private void MoveToLastFrame()
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
-            SetIndex(_visibleFrames.Count - 1);
+            SetIndex(_visibleFrames.Count - 1, forceTimelineFocus: true);
         }
 
         // 자동 재생 타이머 처리
@@ -868,10 +888,44 @@ namespace TeamApp
         // 키보드 단축키 처리
         private void Form1_KeyDown(object? sender, KeyEventArgs e)
         {
+            if (tabControlMain.SelectedTab == tabPageDataViewer && !IsTextInputFocused())
+            {
+                if (e.Control && e.KeyCode == Keys.Z)
+                {
+                    UndoEdit();
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                    return;
+                }
+
+                if (e.Control && e.KeyCode == Keys.Y)
+                {
+                    RedoEdit();
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                    return;
+                }
+
+            }
+
             switch (e.KeyCode)
             {
-                case Keys.Right: btnNext_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.Left: btnPrev_Click(this, EventArgs.Empty); e.Handled = true; break;
+                case Keys.Right:
+                    btnNext_Click(this, EventArgs.Empty);
+                    e.Handled = true;
+                    break;
+                case Keys.Left:
+                    btnPrev_Click(this, EventArgs.Empty);
+                    e.Handled = true;
+                    break;
+                case Keys.Down:
+                    btnNext_Click(this, EventArgs.Empty);
+                    e.Handled = true;
+                    break;
+                case Keys.Up:
+                    btnPrev_Click(this, EventArgs.Empty);
+                    e.Handled = true;
+                    break;
                 case Keys.Space: TogglePlayPause(); e.Handled = true; break;
                 case Keys.Home: btnFirst_Click(this, EventArgs.Empty); e.Handled = true; break;
                 case Keys.End: btnLast_Click(this, EventArgs.Empty); e.Handled = true; break;
@@ -906,6 +960,46 @@ namespace TeamApp
                 focused = container.ActiveControl;
 
             return focused is TextBoxBase || focused is ComboBox || focused is NumericUpDown;
+        }
+
+        private string GetScottPlotKoreanFontName()
+        {
+            ConfigureScottPlotKoreanFont();
+            return _isScottPlotKoreanFontRegistered
+                ? ScottPlotKoreanFontAlias
+                : "맑은 고딕";
+        }
+
+        private void ConfigureScottPlotKoreanFont()
+        {
+            if (_isScottPlotKoreanFontRegistered)
+                return;
+
+            string[] candidates =
+            {
+                Path.Combine(AppContext.BaseDirectory, "resource", "PretendardVariable.ttf"),
+                Path.Combine(Application.StartupPath, "resource", "PretendardVariable.ttf"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "resource", "PretendardVariable.ttf"),
+                Path.Combine(Environment.CurrentDirectory, "resource", "PretendardVariable.ttf")
+            };
+
+            foreach (string fontPath in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!File.Exists(fontPath))
+                    continue;
+
+                try
+                {
+                    ScottPlot.Fonts.AddFontFile(fontPath, ScottPlotKoreanFontAlias, bold: false, italic: false);
+                    ScottPlot.Fonts.AddFontFile(fontPath, ScottPlotKoreanFontAlias, bold: true, italic: false);
+                    _isScottPlotKoreanFontRegistered = true;
+                    return;
+                }
+                catch
+                {
+                    // 시스템 폰트로 fallback합니다.
+                }
+            }
         }
 
         /// <summary>
@@ -1444,6 +1538,7 @@ namespace TeamApp
             _isDraggingFrameRows = true;
             _catalogDragMoved = false;
             _lastCatalogDragIndex = rowIndex;
+            _catalogMouseDownWasSelected = dgvFrameCatalog.Rows[rowIndex].Selected;
         }
 
         private void DgvFrameCatalog_MouseMove(object? sender, MouseEventArgs e)
@@ -1470,13 +1565,14 @@ namespace TeamApp
                     rowIndex = _dragStartFrameRowIndex;
 
                 if (rowIndex >= 0 && rowIndex < _visibleFrames.Count)
-                    ApplyFrameSelection(rowIndex, System.Windows.Forms.Keys.None);
+                    ApplyFrameSelection(rowIndex, ModifierKeys, ctrlSelectedBefore: _catalogMouseDownWasSelected);
             }
 
             _isDraggingFrameRows = false;
             _dragStartFrameRowIndex = -1;
             _catalogDragMoved = false;
             _lastCatalogDragIndex = -1;
+            _catalogMouseDownWasSelected = false;
         }
 
         private void TrkFrameTimeline_MouseDown(object? sender, MouseEventArgs e)
@@ -1598,17 +1694,24 @@ namespace TeamApp
             if (updateFilmstripNow)
                 SetDragSelectionPreview(from, to);
 
-            _isFrameSelectionUpdating = true;
-            dgvFrameCatalog.ClearSelection();
-            for (int rowIndex = from; rowIndex <= to; rowIndex++)
-                dgvFrameCatalog.Rows[rowIndex].Selected = true;
-            InvalidateFrameCatalogRows(from, to);
-
             int focusRowIndex = Math.Clamp(endRowIndex, from, to);
-            dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[focusRowIndex].Cells[0];
-            if (centerCatalog)
-                ScrollCatalogToFrame(focusRowIndex);
-            _isFrameSelectionUpdating = false;
+
+            _isFrameSelectionUpdating = true;
+            try
+            {
+                dgvFrameCatalog.ClearSelection();
+                for (int rowIndex = from; rowIndex <= to; rowIndex++)
+                    dgvFrameCatalog.Rows[rowIndex].Selected = true;
+                InvalidateFrameCatalogRows(from, to);
+
+                dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[focusRowIndex].Cells[0];
+                if (centerCatalog)
+                    ScrollCatalogToFrame(focusRowIndex);
+            }
+            finally
+            {
+                _isFrameSelectionUpdating = false;
+            }
 
             if (updateFilmstripNow)
                 RefreshSelectionVisuals(renderChart: false, updateFilmstripNow: true);
@@ -1626,13 +1729,18 @@ namespace TeamApp
         }
 
         private void ApplyFrameSelectionFromFilmstrip(int clickedIndex)
-            => ApplyFrameSelection(clickedIndex, ModifierKeys, removeRangeOnShift: true);
+            => ApplyFrameSelection(
+                clickedIndex,
+                ModifierKeys,
+                removeRangeOnShift: false,
+                ctrlSelectedBefore: IsVisibleIndexSelected(clickedIndex));
 
         private void ApplyFrameSelection(
             int clickedIndex,
             Keys modifiers,
             bool removeRangeOnShift = false,
-            bool? ctrlSelectedBefore = null)
+            bool? ctrlSelectedBefore = null,
+            bool forceTimelineFocus = true)
         {
             if (_visibleFrames == null || clickedIndex < 0 || clickedIndex >= _visibleFrames.Count)
                 return;
@@ -1641,17 +1749,7 @@ namespace TeamApp
 
             try
             {
-                if ((modifiers & Keys.Shift) == Keys.Shift && _lastSelectedFrameIndex >= 0)
-                {
-                    int from = Math.Min(_lastSelectedFrameIndex, clickedIndex);
-                    int to = Math.Max(_lastSelectedFrameIndex, clickedIndex);
-                    if (!removeRangeOnShift)
-                        dgvFrameCatalog.ClearSelection();
-
-                    for (int i = from; i <= to && i < dgvFrameCatalog.Rows.Count; i++)
-                        dgvFrameCatalog.Rows[i].Selected = !removeRangeOnShift;
-                }
-                else if ((modifiers & Keys.Control) == Keys.Control)
+                if ((modifiers & Keys.Control) == Keys.Control)
                 {
                     if (clickedIndex < dgvFrameCatalog.Rows.Count)
                     {
@@ -1678,8 +1776,15 @@ namespace TeamApp
             }
 
             _lastSelectedFrameIndex = clickedIndex;
-            DisplayFrameAtIndex(clickedIndex);
+            DisplayFrameAtIndex(clickedIndex, forceTimelineFocus);
             RefreshSelectionVisuals();
+        }
+
+        private bool IsVisibleIndexSelected(int index)
+        {
+            return dgvFrameCatalog.Rows.Count > index &&
+                   index >= 0 &&
+                   dgvFrameCatalog.Rows[index].Selected;
         }
 
         private void ScrollCatalogToFrame(int rowIndex)
@@ -1733,7 +1838,7 @@ namespace TeamApp
             return true;
         }
 
-        private void InvalidateFrameCatalogRows(int from, int to)
+        private void InvalidateFrameCatalogRows(int from, int to, bool updateImmediately = true)
         {
             if (dgvFrameCatalog.Rows.Count == 0)
                 return;
@@ -1743,7 +1848,8 @@ namespace TeamApp
             for (int rowIndex = Math.Min(from, to); rowIndex <= Math.Max(from, to); rowIndex++)
                 dgvFrameCatalog.InvalidateRow(rowIndex);
 
-            dgvFrameCatalog.Update();
+            if (updateImmediately)
+                dgvFrameCatalog.Update();
         }
 
         /// <summary>
@@ -1845,6 +1951,40 @@ namespace TeamApp
 
         private void ConfigureDeletedGraphToggleButton()
         {
+            if (_btnUndoEdit == null)
+            {
+                _btnUndoEdit = new Button
+                {
+                    Name = "btnUndoEdit",
+                    Text = "↶",
+                    Size = new Size(36, 28),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                    Font = new Font("Segoe UI Symbol", 13F, System.Drawing.FontStyle.Bold),
+                    UseVisualStyleBackColor = false,
+                    BackColor = System.Drawing.Color.FromArgb(240, 244, 248)
+                };
+                _btnUndoEdit.Click += (_, _) => UndoEdit();
+                grpDataExplorer.Controls.Add(_btnUndoEdit);
+                SetButtonToolTip(_btnUndoEdit, "되돌리기");
+            }
+
+            if (_btnRedoEdit == null)
+            {
+                _btnRedoEdit = new Button
+                {
+                    Name = "btnRedoEdit",
+                    Text = "↷",
+                    Size = new Size(36, 28),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                    Font = new Font("Segoe UI Symbol", 13F, System.Drawing.FontStyle.Bold),
+                    UseVisualStyleBackColor = false,
+                    BackColor = System.Drawing.Color.FromArgb(240, 244, 248)
+                };
+                _btnRedoEdit.Click += (_, _) => RedoEdit();
+                grpDataExplorer.Controls.Add(_btnRedoEdit);
+                SetButtonToolTip(_btnRedoEdit, "다시 실행");
+            }
+
             if (_btnToggleDeletedGraph == null)
             {
                 _btnToggleDeletedGraph = new Button
@@ -1857,10 +1997,16 @@ namespace TeamApp
                     BackColor = System.Drawing.Color.FromArgb(255, 238, 238)
                 };
                 _btnToggleDeletedGraph.Click += BtnToggleDeletedGraph_Click;
-                grpDataExplorer.Controls.Add(_btnToggleDeletedGraph);
+                pnlDataViewerChartHost.Controls.Add(_btnToggleDeletedGraph);
+            }
+            else if (_btnToggleDeletedGraph.Parent != pnlDataViewerChartHost)
+            {
+                _btnToggleDeletedGraph.Parent?.Controls.Remove(_btnToggleDeletedGraph);
+                pnlDataViewerChartHost.Controls.Add(_btnToggleDeletedGraph);
             }
 
             UpdateDeletedGraphToggleButton();
+            UpdateUndoRedoButtons();
             _btnToggleDeletedGraph.BringToFront();
         }
 
@@ -1882,6 +2028,7 @@ namespace TeamApp
             _btnToggleDeletedGraph.BackColor = _showDeletedOnGraph
                 ? System.Drawing.Color.FromArgb(255, 238, 238)
                 : System.Drawing.Color.FromArgb(240, 244, 248);
+            UpdateDeletedGraphToggleChartPosition();
         }
 
         private void HideRangeCleanupControls()
@@ -2020,12 +2167,16 @@ namespace TeamApp
                 toolbarButtons[i].Location = new Point(margin + i * (toolbarButtonWidth + toolbarGap), toolbarY);
                 toolbarButtons[i].Size = new Size(toolbarButtonWidth, toolbarButtonHeight);
             }
-            if (_btnToggleDeletedGraph != null)
+            if (_btnUndoEdit != null && _btnRedoEdit != null)
             {
-                _btnToggleDeletedGraph.Location = new Point(
-                    Math.Max(btnGuide.Right + toolbarGap, width - margin - 124),
-                    toolbarY);
-                _btnToggleDeletedGraph.Size = new Size(124, toolbarButtonHeight);
+                int redoLeft = width - margin - 36;
+                int undoLeft = redoLeft - 40;
+                _btnUndoEdit.Location = new Point(Math.Max(btnGuide.Right + toolbarGap, undoLeft), toolbarY);
+                _btnRedoEdit.Location = new Point(Math.Max(_btnUndoEdit.Right + 4, redoLeft), toolbarY);
+                _btnUndoEdit.Size = new Size(36, toolbarButtonHeight);
+                _btnRedoEdit.Size = new Size(36, toolbarButtonHeight);
+                _btnUndoEdit.BringToFront();
+                _btnRedoEdit.BringToFront();
             }
 
             int contentTop = toolbarY + toolbarButtonHeight + 12;
@@ -2133,10 +2284,12 @@ namespace TeamApp
             EnableDoubleBuffering(_pnlMacroTimeline);
             _pnlMacroTimeline.Paint -= PnlMacroTimeline_Paint;
             _pnlMacroTimeline.MouseDown -= PnlMacroTimeline_MouseDown;
+            _pnlMacroTimeline.MouseDoubleClick -= PnlMacroTimeline_MouseDoubleClick;
             _pnlMacroTimeline.MouseMove -= PnlMacroTimeline_MouseMove;
             _pnlMacroTimeline.MouseUp -= PnlMacroTimeline_MouseUp;
             _pnlMacroTimeline.Paint += PnlMacroTimeline_Paint;
             _pnlMacroTimeline.MouseDown += PnlMacroTimeline_MouseDown;
+            _pnlMacroTimeline.MouseDoubleClick += PnlMacroTimeline_MouseDoubleClick;
             _pnlMacroTimeline.MouseMove += PnlMacroTimeline_MouseMove;
             _pnlMacroTimeline.MouseUp += PnlMacroTimeline_MouseUp;
             _pnlMacroTimeline.MouseLeave += (_, _) => HideTimelineHoverToolTip();
@@ -2881,10 +3034,10 @@ namespace TeamApp
 
         private void EnsureMacroTimelineCutPoints()
         {
-            int lastIndex = (_allFrames?.Count ?? 0) - 1;
-            _cutPoints.RemoveAll(point => point < 0 || point > lastIndex);
+            int frameCount = _allFrames?.Count ?? 0;
+            _cutPoints.RemoveAll(point => point < 0 || point > frameCount);
 
-            if (lastIndex < 0)
+            if (frameCount <= 0)
             {
                 _cutPoints.Clear();
                 return;
@@ -2892,8 +3045,8 @@ namespace TeamApp
 
             if (!_cutPoints.Contains(0))
                 _cutPoints.Add(0);
-            if (!_cutPoints.Contains(lastIndex))
-                _cutPoints.Add(lastIndex);
+            if (!_cutPoints.Contains(frameCount))
+                _cutPoints.Add(frameCount);
 
             _cutPoints.Sort();
             for (int i = _cutPoints.Count - 2; i >= 0; i--)
@@ -2952,6 +3105,7 @@ namespace TeamApp
 
         private void PnlMacroTimeline_Paint(object? sender, PaintEventArgs e)
         {
+            _cutDeleteButtonRects.Clear();
             e.Graphics.Clear(System.Drawing.Color.FromArgb(22, 24, 29));
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
@@ -2974,7 +3128,7 @@ namespace TeamApp
             using var trackBorderPen = new Pen(System.Drawing.Color.FromArgb(82, 90, 104));
             using var normalBrush = new SolidBrush(System.Drawing.Color.FromArgb(78, 112, 160));
             using var alternateBrush = new SolidBrush(System.Drawing.Color.FromArgb(68, 96, 136));
-            using var deletedBrush = new SolidBrush(System.Drawing.Color.FromArgb(92, 145, 58, 58));
+            using var deletedOverlayBrush = new SolidBrush(System.Drawing.Color.FromArgb(145, 220, 55, 55));
             using var selectedSegmentPen = new Pen(System.Drawing.Color.FromArgb(0, 245, 150), 3.2f);
             using var cutPen = new Pen(System.Drawing.Color.FromArgb(255, 241, 196, 15), 1.7f)
             {
@@ -2983,6 +3137,8 @@ namespace TeamApp
             using var playheadPen = new Pen(System.Drawing.Color.FromArgb(245, 255, 45, 45), 2.2f);
             using var labelFont = new Font("맑은 고딕", 7.5F, System.Drawing.FontStyle.Bold);
             using var labelBrush = new SolidBrush(System.Drawing.Color.FromArgb(225, 235, 240, 248));
+            using var deleteBackBrush = new SolidBrush(System.Drawing.Color.FromArgb(230, 42, 46, 54));
+            using var deleteBorderPen = new Pen(System.Drawing.Color.FromArgb(255, 241, 196, 15), 1.2f);
 
             e.Graphics.FillRectangle(trackBackBrush, trackRect);
             e.Graphics.DrawRectangle(trackBorderPen, trackRect);
@@ -2992,11 +3148,12 @@ namespace TeamApp
             for (int segmentIndex = 0; segmentIndex < _cutPoints.Count - 1; segmentIndex++)
             {
                 var (start, end) = GetMacroTimelineSegmentBounds(segmentIndex);
+                var (_, endExclusive) = GetMacroTimelineSegmentRange(segmentIndex);
                 if (start < 0 || end < start)
                     continue;
 
                 int left = MacroTimelineIndexToX(start, trackRect);
-                int right = MacroTimelineIndexToX(end, trackRect);
+                int right = MacroTimelineIndexToX(endExclusive, trackRect);
                 if (right <= left)
                     right = left + 1;
 
@@ -3006,19 +3163,17 @@ namespace TeamApp
                     Math.Clamp(right, trackRect.Left + 1, trackRect.Right),
                     trackRect.Bottom - 4);
 
-                bool hasDeleted = HasDeletedFrameInOriginalRange(start, end);
                 bool hasSelected = selectedOriginalIndices.Any(index => index >= start && index <= end);
-                Brush fillBrush = hasDeleted
-                    ? deletedBrush
-                    : segmentIndex % 2 == 0 ? normalBrush : alternateBrush;
+                Brush fillBrush = segmentIndex % 2 == 0 ? normalBrush : alternateBrush;
 
                 e.Graphics.FillRectangle(fillBrush, segmentRect);
-                DrawMacroTimelineSegmentThumbnails(e.Graphics, start, end, segmentRect);
+                DrawDeletedRangesInMacroTimelineSegment(e.Graphics, start, end, segmentRect, deletedOverlayBrush, trackRect);
+                int drawnThumbnailCount = DrawMacroTimelineSegmentThumbnails(e.Graphics, start, end, segmentRect);
                 e.Graphics.DrawRectangle(trackBorderPen, segmentRect);
                 if (hasSelected || segmentIndex == currentSegmentIndex)
                     e.Graphics.DrawRectangle(selectedSegmentPen, Rectangle.Inflate(segmentRect, 2, 2));
 
-                if (segmentRect.Width >= 44)
+                if (drawnThumbnailCount == 0 && segmentRect.Width >= 44)
                 {
                     string label = $"{start}-{end}";
                     TextRenderer.DrawText(
@@ -3035,6 +3190,25 @@ namespace TeamApp
             {
                 int cutX = MacroTimelineIndexToX(cut, trackRect);
                 e.Graphics.DrawLine(cutPen, cutX, trackRect.Top - 5, cutX, trackRect.Bottom + 5);
+
+                var deleteRect = new Rectangle(
+                    cutX - 8,
+                    Math.Min(trackRect.Bottom - 15, (_pnlMacroTimeline?.ClientSize.Height ?? trackRect.Bottom) - 19),
+                    16,
+                    16);
+                if (deleteRect.Left >= trackRect.Left - 8 && deleteRect.Right <= trackRect.Right + 8)
+                {
+                    _cutDeleteButtonRects[cut] = deleteRect;
+                    e.Graphics.FillRectangle(deleteBackBrush, deleteRect);
+                    e.Graphics.DrawRectangle(deleteBorderPen, deleteRect);
+                    TextRenderer.DrawText(
+                        e.Graphics,
+                        "×",
+                        labelFont,
+                        deleteRect,
+                        System.Drawing.Color.White,
+                        TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                }
             }
 
             int playheadX = MacroTimelineIndexToX(GetCurrentAllFrameIndex(), trackRect);
@@ -3054,16 +3228,22 @@ namespace TeamApp
 
         private (int Start, int End) GetMacroTimelineSegmentBounds(int segmentIndex)
         {
+            var (start, endExclusive) = GetMacroTimelineSegmentRange(segmentIndex);
+            if (start < 0 || endExclusive <= start)
+                return (-1, -1);
+
+            return (start, endExclusive - 1);
+        }
+
+        private (int Start, int EndExclusive) GetMacroTimelineSegmentRange(int segmentIndex)
+        {
             EnsureMacroTimelineCutPoints();
             if (segmentIndex < 0 || segmentIndex >= _cutPoints.Count - 1)
                 return (-1, -1);
 
             int start = _cutPoints[segmentIndex];
-            int nextCut = _cutPoints[segmentIndex + 1];
-            int end = segmentIndex == _cutPoints.Count - 2
-                ? nextCut
-                : Math.Max(start, nextCut - 1);
-            return (start, end);
+            int endExclusive = _cutPoints[segmentIndex + 1];
+            return (start, endExclusive);
         }
 
         private int GetCutSegmentIndexForOriginalIndex(int originalIndex)
@@ -3071,8 +3251,8 @@ namespace TeamApp
             EnsureMacroTimelineCutPoints();
             for (int i = 0; i < _cutPoints.Count - 1; i++)
             {
-                var (start, end) = GetMacroTimelineSegmentBounds(i);
-                if (originalIndex >= start && originalIndex <= end)
+                var (start, endExclusive) = GetMacroTimelineSegmentRange(i);
+                if (originalIndex >= start && originalIndex < endExclusive)
                     return i;
             }
 
@@ -3135,6 +3315,62 @@ namespace TeamApp
             return false;
         }
 
+        private void DrawDeletedRangesInMacroTimelineSegment(
+            Graphics graphics,
+            int start,
+            int end,
+            Rectangle segmentRect,
+            Brush deletedOverlayBrush,
+            Rectangle trackRect)
+        {
+            if (_allFrames == null || _allFrames.Count == 0 || start < 0 || end < start)
+                return;
+
+            start = Math.Clamp(start, 0, _allFrames.Count - 1);
+            end = Math.Clamp(end, 0, _allFrames.Count - 1);
+
+            int deletedStart = -1;
+            for (int index = start; index <= end; index++)
+            {
+                if (_allFrames[index].IsDeleted)
+                {
+                    if (deletedStart < 0)
+                        deletedStart = index;
+                    continue;
+                }
+
+                if (deletedStart >= 0)
+                {
+                    DrawDeletedRangeOverlay(graphics, deletedStart, index - 1, segmentRect, deletedOverlayBrush, trackRect);
+                    deletedStart = -1;
+                }
+            }
+
+            if (deletedStart >= 0)
+                DrawDeletedRangeOverlay(graphics, deletedStart, end, segmentRect, deletedOverlayBrush, trackRect);
+        }
+
+        private void DrawDeletedRangeOverlay(
+            Graphics graphics,
+            int deletedStart,
+            int deletedEnd,
+            Rectangle segmentRect,
+            Brush deletedOverlayBrush,
+            Rectangle trackRect)
+        {
+            int left = Math.Clamp(MacroTimelineIndexToX(deletedStart, trackRect), segmentRect.Left, segmentRect.Right);
+            int right = Math.Clamp(MacroTimelineIndexToX(deletedEnd + 1, trackRect), segmentRect.Left + 1, segmentRect.Right);
+            if (right <= left)
+                right = Math.Min(segmentRect.Right, left + 2);
+
+            var overlayRect = Rectangle.FromLTRB(
+                left,
+                segmentRect.Top + 2,
+                right,
+                segmentRect.Bottom - 2);
+            graphics.FillRectangle(deletedOverlayBrush, overlayRect);
+        }
+
         private HashSet<int> GetSelectedOriginalIndexSet()
         {
             var selected = new HashSet<int>();
@@ -3154,17 +3390,17 @@ namespace TeamApp
             return selected;
         }
 
-        private void DrawMacroTimelineSegmentThumbnails(Graphics graphics, int startOriginalIndex, int endOriginalIndex, Rectangle segmentRect)
+        private int DrawMacroTimelineSegmentThumbnails(Graphics graphics, int startOriginalIndex, int endOriginalIndex, Rectangle segmentRect)
         {
             int thumbnailCount = GetMacroTimelineThumbnailCount(segmentRect.Width);
             if (thumbnailCount <= 0)
-                return;
+                return 0;
 
             var indices = GetRepresentativeOriginalIndices(startOriginalIndex, endOriginalIndex, thumbnailCount).ToList();
             if (indices.Count == 0)
-                return;
+                return 0;
 
-            int thumbnailHeight = Math.Min(26, Math.Max(14, segmentRect.Height - 8));
+            int thumbnailHeight = Math.Min(24, Math.Max(14, segmentRect.Height - 24));
             int thumbnailWidth = Math.Clamp(segmentRect.Width / Math.Max(1, thumbnailCount * 2), 14, 42);
             int y = segmentRect.Top + 4;
             int safeLeft = segmentRect.Left + 4;
@@ -3173,6 +3409,8 @@ namespace TeamApp
             int start = Math.Min(startOriginalIndex, endOriginalIndex);
             int end = Math.Max(startOriginalIndex, endOriginalIndex);
             double range = Math.Max(1, end - start);
+            using var numberFont = new Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
+            int drawnCount = 0;
 
             foreach (int index in indices)
             {
@@ -3188,9 +3426,32 @@ namespace TeamApp
                 if (thumbnail != null)
                 {
                     graphics.DrawImage(thumbnail, thumbRect);
+                    DrawMacroTimelineThumbnailNumber(graphics, thumbRect, index, numberFont);
                     drawnRects.Add(thumbRect);
+                    drawnCount++;
                 }
             }
+
+            return drawnCount;
+        }
+
+        private void DrawMacroTimelineThumbnailNumber(Graphics graphics, Rectangle thumbRect, int originalIndex, Font font)
+        {
+            string text = _allFrames != null &&
+                          originalIndex >= 0 &&
+                          originalIndex < _allFrames.Count &&
+                          _allFrames[originalIndex].ImageNumber >= 0
+                ? _allFrames[originalIndex].ImageNumber.ToString(CultureInfo.InvariantCulture)
+                : originalIndex.ToString(CultureInfo.InvariantCulture);
+
+            var labelRect = new Rectangle(thumbRect.Left - 4, thumbRect.Bottom + 1, thumbRect.Width + 8, 12);
+            TextRenderer.DrawText(
+                graphics,
+                text,
+                font,
+                labelRect,
+                System.Drawing.Color.White,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
         }
 
         private int GetMacroTimelineThumbnailCount(int segmentWidth)
@@ -3257,7 +3518,6 @@ namespace TeamApp
                 }
 
                 _macroTimelineThumbnailCache[originalIndex] = thumbnail;
-                TrimMacroTimelineThumbnailCache();
                 return thumbnail;
             }
             catch
@@ -3302,11 +3562,12 @@ namespace TeamApp
 
             EnsureMacroTimelineCutPoints();
             int cutIndex = GetCurrentAllFrameIndex();
-            if (cutIndex <= 0 || cutIndex >= _allFrames.Count - 1)
+            if (cutIndex <= 0 || cutIndex >= _allFrames.Count)
                 return;
 
             if (!_cutPoints.Contains(cutIndex))
             {
+                PushUndoSnapshot();
                 _cutPoints.Add(cutIndex);
                 _cutPoints.Sort();
             }
@@ -3335,12 +3596,107 @@ namespace TeamApp
                 return;
             }
 
+            if (TryDeleteMacroTimelineCutAt(e.Location))
+                return;
+
+            Rectangle trackRect = GetMacroTimelineTrackRect();
+            if (!trackRect.Contains(e.Location))
+                return;
+
+            int originalIndex = MacroTimelineXToIndex(e.X, trackRect);
+            bool isDoubleClick = IsMacroTimelineDoubleClick(e.Location, e.Clicks);
+            _lastMacroTimelineClickPoint = e.Location;
+            _lastMacroTimelineClickUtc = DateTime.UtcNow;
+
+            if (isDoubleClick)
+                SelectMacroTimelineSegmentAt(originalIndex);
+            else
+                MoveToOriginalFrameIndex(originalIndex);
+        }
+
+        private void PnlMacroTimeline_MouseDoubleClick(object? sender, MouseEventArgs e)
+        {
+            HideTimelineHoverToolTip();
+            if (e.Button != MouseButtons.Left || _allFrames == null || _allFrames.Count == 0)
+                return;
+
             Rectangle trackRect = GetMacroTimelineTrackRect();
             if (!trackRect.Contains(e.Location))
                 return;
 
             int originalIndex = MacroTimelineXToIndex(e.X, trackRect);
             SelectMacroTimelineSegmentAt(originalIndex);
+        }
+
+        private bool TryDeleteMacroTimelineCutAt(Point point)
+        {
+            if (_allFrames == null || _allFrames.Count == 0 || _cutDeleteButtonRects.Count == 0)
+                return false;
+
+            foreach (var pair in _cutDeleteButtonRects.ToList())
+            {
+                if (!pair.Value.Contains(point))
+                    continue;
+
+                DeleteMacroTimelineCutPoint(pair.Key);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void DeleteMacroTimelineCutPoint(int cutPoint)
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+                return;
+
+            EnsureMacroTimelineCutPoints();
+            if (cutPoint <= 0 || cutPoint >= _allFrames.Count)
+                return;
+
+            if (!_cutPoints.Contains(cutPoint))
+                return;
+
+            PushUndoSnapshot();
+            _cutPoints.Remove(cutPoint);
+            InvalidateMacroTimeline();
+            pnlFrameThumbnailStrip.Invalidate();
+            RenderDataViewerFrameChart();
+            RefreshSelectionVisuals();
+        }
+
+        private bool IsMacroTimelineDoubleClick(Point point, int clickCount)
+        {
+            if (clickCount >= 2)
+            {
+                int tolerance = Math.Max(4, SystemInformation.DoubleClickSize.Width / 2);
+                return Math.Abs(point.X - _lastMacroTimelineClickPoint.X) <= tolerance &&
+                       Math.Abs(point.Y - _lastMacroTimelineClickPoint.Y) <= tolerance;
+            }
+
+            double elapsedMs = (DateTime.UtcNow - _lastMacroTimelineClickUtc).TotalMilliseconds;
+            int fallbackTolerance = Math.Max(4, SystemInformation.DoubleClickSize.Width / 2);
+            return elapsedMs > 0 &&
+                   elapsedMs <= SystemInformation.DoubleClickTime &&
+                   Math.Abs(point.X - _lastMacroTimelineClickPoint.X) <= fallbackTolerance &&
+                   Math.Abs(point.Y - _lastMacroTimelineClickPoint.Y) <= fallbackTolerance;
+        }
+
+        private void MoveToOriginalFrameIndex(int originalIndex)
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+                return;
+
+            originalIndex = Math.Clamp(originalIndex, 0, _allFrames.Count - 1);
+            int visibleIndex = FindVisibleIndexByOriginalIndex(originalIndex);
+            if (visibleIndex < 0)
+            {
+                ClearFrameFilter();
+                visibleIndex = FindVisibleIndexByOriginalIndex(originalIndex);
+            }
+
+            if (visibleIndex >= 0)
+                SetIndex(visibleIndex, forceTimelineFocus: true);
         }
 
         private void PnlMacroTimeline_MouseMove(object? sender, MouseEventArgs e)
@@ -3374,30 +3730,30 @@ namespace TeamApp
             if (_visibleFrames == null || _visibleFrames.Count == 0 || originalIndex < 0)
                 return;
 
-            EnsureMacroTimelineCutPoints();
-            int segmentIndex = 0;
-            for (int i = 0; i < _cutPoints.Count - 1; i++)
+            int segmentIndex = GetCutSegmentIndexForOriginalIndex(originalIndex);
+            if (segmentIndex < 0)
             {
-                var (start, end) = GetMacroTimelineSegmentBounds(i);
-                if (originalIndex >= start && originalIndex <= end)
-                {
-                    segmentIndex = i;
-                    break;
-                }
+                MoveToOriginalFrameIndex(originalIndex);
+                return;
             }
 
-            var bounds = GetMacroTimelineSegmentBounds(segmentIndex);
-            SelectVisibleFramesByOriginalRange(bounds.Start, bounds.End);
+            var range = GetMacroTimelineSegmentRange(segmentIndex);
+            SelectVisibleFramesByOriginalRange(range.Start, range.EndExclusive, originalIndex);
         }
 
-        private void SelectVisibleFramesByOriginalRange(int startOriginalIndex, int endOriginalIndex)
+        private void SelectVisibleFramesByOriginalRange(
+            int startOriginalIndex,
+            int endExclusiveOriginalIndex,
+            int? focusOriginalIndex = null,
+            bool forceTimelineFocus = true)
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0 || dgvFrameCatalog.Rows.Count == 0)
                 return;
 
-            int from = Math.Min(startOriginalIndex, endOriginalIndex);
-            int to = Math.Max(startOriginalIndex, endOriginalIndex);
+            int from = Math.Min(startOriginalIndex, endExclusiveOriginalIndex);
+            int toExclusive = Math.Max(startOriginalIndex, endExclusiveOriginalIndex);
             var selectedRows = new List<int>();
+            int focusRow = -1;
 
             _isFrameSelectionUpdating = true;
             try
@@ -3409,15 +3765,23 @@ namespace TeamApp
                         continue;
 
                     int originalIndex = frame.OriginalIndex >= 0 ? frame.OriginalIndex : rowIndex;
-                    if (originalIndex < from || originalIndex > to)
+                    if (originalIndex < from || originalIndex >= toExclusive)
                         continue;
 
                     dgvFrameCatalog.Rows[rowIndex].Selected = true;
                     selectedRows.Add(rowIndex);
+                    if (focusOriginalIndex.HasValue && originalIndex == focusOriginalIndex.Value)
+                        focusRow = rowIndex;
                 }
 
                 if (selectedRows.Count > 0)
-                    dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[selectedRows[0]].Cells[0];
+                {
+                    if (focusRow < 0)
+                        focusRow = selectedRows[0];
+                    dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[focusRow].Cells[0];
+                    foreach (int rowIndex in selectedRows)
+                        dgvFrameCatalog.Rows[rowIndex].Selected = true;
+                }
             }
             finally
             {
@@ -3427,10 +3791,9 @@ namespace TeamApp
             if (selectedRows.Count == 0)
                 return;
 
-            int focusRow = selectedRows[0];
             _lastSelectedFrameIndex = focusRow;
             ScrollCatalogToFrame(focusRow);
-            DisplayFrameAtIndex(focusRow);
+            DisplayFrameAtIndex(focusRow, forceTimelineFocus);
             RefreshSelectionVisuals();
         }
 
@@ -3896,7 +4259,7 @@ namespace TeamApp
             RefreshFrameView();
         }
 
-        private void SetIndex(int idx)
+        private void SetIndex(int idx, bool forceTimelineFocus = false)
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
             idx = Math.Max(0, Math.Min(_visibleFrames.Count - 1, idx));
@@ -3917,11 +4280,11 @@ namespace TeamApp
             if (trkFrameTimeline.Value != idx)
                 trkFrameTimeline.Value = idx;
 
-            DisplayFrameAtIndex(idx);
+            DisplayFrameAtIndex(idx, forceTimelineFocus);
             RefreshSelectionVisuals();
         }
 
-        private void DisplayFrameAtIndex(int idx)
+        private void DisplayFrameAtIndex(int idx, bool forceTimelineFocus = false)
         {
             if (_visibleFrames == null || idx < 0 || idx >= _visibleFrames.Count) return;
 
@@ -3929,7 +4292,7 @@ namespace TeamApp
 
             if (trkFrameTimeline.Value != idx)
                 trkFrameTimeline.Value = idx;
-            UpdateDataViewerTimelinePlayhead(autoScroll: _isPlaybackRunning);
+            UpdateDataViewerTimelinePlayhead(autoScroll: _isPlaybackRunning, forceFocus: forceTimelineFocus);
 
             var frame = _visibleFrames[idx];
 
@@ -4448,27 +4811,87 @@ namespace TeamApp
             }
         }
 
-        private void UpdatePreviewImage(string path, FrameData? frame = null)
+        private async void UpdatePreviewImage(string path, FrameData? frame = null)
         {
+            int requestVersion = Interlocked.Increment(ref _previewImageRequestVersion);
+            _previewImageLoadCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _previewImageLoadCts = cts;
+            CancellationToken token = cts.Token;
+
             try
             {
                 if (string.IsNullOrEmpty(path) || !File.Exists(path))
                 {
-                    picFramePreview.Image?.Dispose();
-                    picFramePreview.Image = null;
+                    if (requestVersion == _previewImageRequestVersion)
+                    {
+                        picFramePreview.Image?.Dispose();
+                        picFramePreview.Image = null;
+                    }
                     return;
                 }
-                using var fs = File.OpenRead(path);
-                using var img = System.Drawing.Image.FromStream(fs);
-                var bmp = new Bitmap(img);
-                if (frame != null && _showDriveOverlay)
-                    DrawDriveOverlay(bmp, frame);
+
+                bool drawOverlay = _showDriveOverlay;
+                Size previewSize = picFramePreview.ClientSize;
+                Bitmap? bmp = await Task.Run(
+                    () => LoadPreviewBitmap(path, frame, drawOverlay, previewSize, token),
+                    token);
+
+                if (token.IsCancellationRequested || requestVersion != _previewImageRequestVersion)
+                {
+                    bmp?.Dispose();
+                    return;
+                }
+
+                if (bmp == null)
+                    return;
 
                 var old = picFramePreview.Image;
                 picFramePreview.Image = bmp;
                 old?.Dispose();
             }
-            catch { /* 이미지 로드 실패는 미리보기만 비우고 무시합니다. */ }
+            catch (OperationCanceledException)
+            {
+            }
+            catch
+            {
+                if (requestVersion == _previewImageRequestVersion)
+                {
+                    picFramePreview.Image?.Dispose();
+                    picFramePreview.Image = null;
+                }
+            }
+        }
+
+        private Bitmap? LoadPreviewBitmap(string path, FrameData? frame, bool drawOverlay, Size previewSize, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                using var fs = File.OpenRead(path);
+                using var img = System.Drawing.Image.FromStream(fs);
+                int maxWidth = Math.Max(320, previewSize.Width);
+                int maxHeight = Math.Max(180, previewSize.Height);
+                float scale = Math.Min(1f, Math.Min(maxWidth / (float)img.Width, maxHeight / (float)img.Height));
+                int width = Math.Max(1, (int)Math.Round(img.Width * scale));
+                int height = Math.Max(1, (int)Math.Round(img.Height * scale));
+                var bmp = new Bitmap(width, height);
+                using (Graphics graphics = Graphics.FromImage(bmp))
+                {
+                    graphics.Clear(System.Drawing.Color.Black);
+                    graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    graphics.DrawImage(img, 0, 0, width, height);
+                }
+                cancellationToken.ThrowIfCancellationRequested();
+                if (frame != null && drawOverlay)
+                    DrawDriveOverlay(bmp, frame);
+
+                return bmp;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private void UpdateModelValidationView(FrameData? frame)
@@ -5305,6 +5728,8 @@ namespace TeamApp
         private void ClearPreviewSelection()
         {
             _currentFrameIndex = -1;
+            Interlocked.Increment(ref _previewImageRequestVersion);
+            _previewImageLoadCts?.Cancel();
             dgvFrameCatalog.ClearSelection();
             picFramePreview.Image?.Dispose();
             picFramePreview.Image = null;
@@ -5574,6 +5999,8 @@ namespace TeamApp
         private void Form1_FormClosing(object? sender, FormClosingEventArgs e)
         {
             _pilotPredictionCts?.Cancel();
+            _previewImageLoadCts?.Cancel();
+            _previewImageLoadCts?.Dispose();
             StopPilotServer(showMessage: false);
             ClearMacroTimelineThumbnailCache();
 
@@ -5594,6 +6021,120 @@ namespace TeamApp
             if (answer == DialogResult.Yes && !SaveCleanupState(showSuccessMessage: false))
                 e.Cancel = true;
         }
+
+        private void PushUndoSnapshot()
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+                return;
+
+            _undoStack.Push(CaptureEditSnapshot());
+            _redoStack.Clear();
+            UpdateUndoRedoButtons();
+        }
+
+        private EditSnapshot CaptureEditSnapshot()
+        {
+            bool[] deletedStates = _allFrames?.Select(frame => frame.IsDeleted).ToArray() ?? Array.Empty<bool>();
+            var selectedOriginalIndices = GetSelectedOriginalIndexSet().ToList();
+            return new EditSnapshot(
+                deletedStates,
+                _cutPoints.ToList(),
+                GetCurrentAllFrameIndex(),
+                selectedOriginalIndices);
+        }
+
+        private void UndoEdit()
+        {
+            if (_undoStack.Count == 0)
+                return;
+
+            _redoStack.Push(CaptureEditSnapshot());
+            RestoreEditSnapshot(_undoStack.Pop());
+        }
+
+        private void RedoEdit()
+        {
+            if (_redoStack.Count == 0)
+                return;
+
+            _undoStack.Push(CaptureEditSnapshot());
+            RestoreEditSnapshot(_redoStack.Pop());
+        }
+
+        private void RestoreEditSnapshot(EditSnapshot snapshot)
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+                return;
+
+            int count = Math.Min(_allFrames.Count, snapshot.DeletedStates.Length);
+            for (int i = 0; i < count; i++)
+                _allFrames[i].IsDeleted = snapshot.DeletedStates[i];
+
+            _cutPoints.Clear();
+            _cutPoints.AddRange(snapshot.CutPoints);
+            EnsureMacroTimelineCutPoints();
+
+            _isChartDirty = true;
+            MarkCleanupStateChanged();
+            RefreshFrameView();
+
+            int targetOriginalIndex = Math.Clamp(snapshot.CurrentOriginalIndex, 0, Math.Max(0, _allFrames.Count - 1));
+            int visibleIndex = FindVisibleIndexByOriginalIndex(targetOriginalIndex);
+            if (visibleIndex >= 0)
+                SetIndex(visibleIndex, forceTimelineFocus: true);
+            else if (_visibleFrames.Count > 0)
+                SetIndex(0, forceTimelineFocus: true);
+
+            RestoreSelectedOriginalIndices(snapshot.SelectedOriginalIndices);
+            if (visibleIndex >= 0)
+                _lastSelectedFrameIndex = visibleIndex;
+
+            InvalidateMacroTimeline();
+            pnlFrameThumbnailStrip.Invalidate();
+            RenderDataViewerFrameChart();
+            RenderFrameChart();
+            UpdateUndoRedoButtons();
+        }
+
+        private void RestoreSelectedOriginalIndices(IReadOnlyCollection<int> originalIndices)
+        {
+            if (_visibleFrames == null || dgvFrameCatalog.Rows.Count == 0 || originalIndices.Count == 0)
+                return;
+
+            var selected = originalIndices.ToHashSet();
+            _isFrameSelectionUpdating = true;
+            try
+            {
+                dgvFrameCatalog.ClearSelection();
+                foreach (DataGridViewRow row in dgvFrameCatalog.Rows)
+                {
+                    if (row.DataBoundItem is not FrameData frame)
+                        continue;
+
+                    int originalIndex = frame.OriginalIndex >= 0 ? frame.OriginalIndex : row.Index;
+                    if (selected.Contains(originalIndex))
+                        row.Selected = true;
+                }
+            }
+            finally
+            {
+                _isFrameSelectionUpdating = false;
+            }
+        }
+
+        private void UpdateUndoRedoButtons()
+        {
+            if (_btnUndoEdit != null)
+                _btnUndoEdit.Enabled = _undoStack.Count > 0;
+            if (_btnRedoEdit != null)
+                _btnRedoEdit.Enabled = _redoStack.Count > 0;
+        }
+
+        private sealed record EditSnapshot(
+            bool[] DeletedStates,
+            List<int> CutPoints,
+            int CurrentOriginalIndex,
+            List<int> SelectedOriginalIndices);
 
         // FrameData 데이터 모델
 
@@ -8010,14 +8551,18 @@ namespace TeamApp
 
             private static void ConfigureLossPlotStyle(Plot plot)
             {
+                string fontName = _isScottPlotKoreanFontRegistered ? ScottPlotKoreanFontAlias : "맑은 고딕";
                 plot.Title("model loss");
                 plot.XLabel("epoch");
                 plot.YLabel("loss");
-                plot.Axes.Title.Label.FontName = "Malgun Gothic";
-                plot.Axes.Bottom.Label.FontName = "Malgun Gothic";
-                plot.Axes.Left.Label.FontName = "Malgun Gothic";
+                plot.Axes.Title.Label.FontName = fontName;
+                plot.Axes.Bottom.Label.FontName = fontName;
+                plot.Axes.Left.Label.FontName = fontName;
+                plot.Axes.Bottom.TickLabelStyle.FontName = fontName;
+                plot.Axes.Left.TickLabelStyle.FontName = fontName;
                 plot.Legend.IsVisible = true;
                 plot.Legend.Alignment = Alignment.UpperRight;
+                plot.Legend.FontName = fontName;
             }
         }
 
@@ -8129,6 +8674,7 @@ namespace TeamApp
             };
             _dataViewerFrameChart.UserInputProcessor.Disable();
             _dataViewerFrameChart.MouseDown += DataViewerFrameChart_MouseDown;
+            _dataViewerFrameChart.MouseDoubleClick += DataViewerFrameChart_MouseDoubleClick;
             _dataViewerFrameChart.MouseMove += DataViewerFrameChart_MouseMove;
             _dataViewerFrameChart.MouseLeave += (_, _) => HideTimelineHoverToolTip();
             _dataViewerFrameChart.MouseWheel += DataViewerFrameChart_MouseWheel;
@@ -8168,7 +8714,11 @@ namespace TeamApp
                 };
                 _btnReturnTimelineToCurrent.Click += (_, _) => CenterTimelineOnCurrentFrame();
                 pnlDataViewerChartHost.Controls.Add(_btnReturnTimelineToCurrent);
-                pnlDataViewerChartHost.Resize += (_, _) => UpdateTimelineReturnButton();
+                pnlDataViewerChartHost.Resize += (_, _) =>
+                {
+                    UpdateTimelineReturnButton();
+                    UpdateDeletedGraphToggleChartPosition();
+                };
             }
             else if (_btnReturnTimelineToCurrent.Parent != pnlDataViewerChartHost)
             {
@@ -8176,28 +8726,98 @@ namespace TeamApp
             }
 
             UpdateTimelineReturnButton();
+            UpdateDeletedGraphToggleChartPosition();
+        }
+
+        private void UpdateDeletedGraphToggleChartPosition()
+        {
+            if (_btnToggleDeletedGraph == null || pnlDataViewerChartHost == null)
+                return;
+
+            if (_btnToggleDeletedGraph.Parent != pnlDataViewerChartHost)
+            {
+                _btnToggleDeletedGraph.Parent?.Controls.Remove(_btnToggleDeletedGraph);
+                pnlDataViewerChartHost.Controls.Add(_btnToggleDeletedGraph);
+            }
+
+            _btnToggleDeletedGraph.Size = new Size(124, 24);
+            _btnToggleDeletedGraph.Location = new Point(
+                Math.Max(8, pnlDataViewerChartHost.ClientSize.Width - _btnToggleDeletedGraph.Width - 8),
+                8);
+            _btnToggleDeletedGraph.BringToFront();
         }
 
         private void DataViewerFrameChart_MouseDown(object? sender, MouseEventArgs e)
         {
             HideTimelineHoverToolTip();
-            if (e.Button != MouseButtons.Left || _dataViewerFrameChart == null || _allFrames.Count == 0)
+            if (e.Button != MouseButtons.Left ||
+                _dataViewerFrameChart == null ||
+                _allFrames.Count == 0 ||
+                _visibleFrames == null ||
+                _visibleFrames.Count == 0)
                 return;
 
             Coordinates coordinates = GetDataViewerChartCoordinates(e.Location);
             int targetIndex = GetNearestVisibleFrameIndexByImageNumber(coordinates.X);
-            if (e.Clicks >= 2)
+            bool isDoubleClick = IsDataViewerChartDoubleClick(e.Location, e.Clicks);
+            _lastDataViewerChartClickPoint = e.Location;
+            _lastDataViewerChartClickUtc = DateTime.UtcNow;
+
+            if (isDoubleClick)
             {
-                int originalIndex = _visibleFrames[targetIndex].OriginalIndex >= 0
-                    ? _visibleFrames[targetIndex].OriginalIndex
-                    : targetIndex;
-                int segmentIndex = GetCutSegmentIndexForOriginalIndex(originalIndex);
-                var (start, end) = GetMacroTimelineSegmentBounds(segmentIndex);
-                SelectVisibleFramesByOriginalRange(start, end);
+                SelectDataViewerChartCutSegmentAt(targetIndex);
                 return;
             }
 
-            ApplyFrameSelection(targetIndex, ModifierKeys);
+            ApplyFrameSelection(
+                targetIndex,
+                ModifierKeys,
+                ctrlSelectedBefore: IsVisibleIndexSelected(targetIndex),
+                forceTimelineFocus: false);
+        }
+
+        private void DataViewerFrameChart_MouseDoubleClick(object? sender, MouseEventArgs e)
+        {
+            HideTimelineHoverToolTip();
+            if (e.Button != MouseButtons.Left ||
+                _dataViewerFrameChart == null ||
+                _allFrames.Count == 0 ||
+                _visibleFrames == null ||
+                _visibleFrames.Count == 0)
+                return;
+
+            Coordinates coordinates = GetDataViewerChartCoordinates(e.Location);
+            int targetIndex = GetNearestVisibleFrameIndexByImageNumber(coordinates.X);
+            SelectDataViewerChartCutSegmentAt(targetIndex);
+        }
+
+        private void SelectDataViewerChartCutSegmentAt(int visibleIndex)
+        {
+            if (_visibleFrames == null || visibleIndex < 0 || visibleIndex >= _visibleFrames.Count)
+                return;
+
+            int originalIndex = _visibleFrames[visibleIndex].OriginalIndex >= 0
+                ? _visibleFrames[visibleIndex].OriginalIndex
+                : visibleIndex;
+            int segmentIndex = GetCutSegmentIndexForOriginalIndex(originalIndex);
+            var (start, endExclusive) = GetMacroTimelineSegmentRange(segmentIndex);
+            SelectVisibleFramesByOriginalRange(start, endExclusive, originalIndex, forceTimelineFocus: false);
+        }
+
+        private bool IsDataViewerChartDoubleClick(Point point, int clickCount)
+        {
+            int tolerance = Math.Max(5, SystemInformation.DoubleClickSize.Width / 2);
+            if (clickCount >= 2)
+            {
+                return Math.Abs(point.X - _lastDataViewerChartClickPoint.X) <= tolerance &&
+                       Math.Abs(point.Y - _lastDataViewerChartClickPoint.Y) <= tolerance;
+            }
+
+            double elapsedMs = (DateTime.UtcNow - _lastDataViewerChartClickUtc).TotalMilliseconds;
+            return elapsedMs > 0 &&
+                   elapsedMs <= SystemInformation.DoubleClickTime &&
+                   Math.Abs(point.X - _lastDataViewerChartClickPoint.X) <= tolerance &&
+                   Math.Abs(point.Y - _lastDataViewerChartClickPoint.Y) <= tolerance;
         }
 
         private Coordinates GetDataViewerChartCoordinates(Point point)
@@ -8255,6 +8875,7 @@ namespace TeamApp
                 wheelSteps = e.Delta > 0 ? 1 : -1;
 
             int panStep = Math.Max(1, TimelineVisibleFrameWindow / 10);
+            _isTimelineViewLockedByUser = true;
             SetTimelineViewStart(_timelineViewStart - wheelSteps * panStep, syncScrollBar: true, refresh: true);
         }
 
@@ -8298,6 +8919,7 @@ namespace TeamApp
         private void TimelineScrollBar_Scroll(object? sender, ScrollEventArgs e)
         {
             if (_isSyncingTimelineScrollBar) return;
+            _isTimelineViewLockedByUser = true;
             SetTimelineViewStart(e.NewValue, syncScrollBar: false, refresh: true);
         }
 
@@ -8333,6 +8955,7 @@ namespace TeamApp
                 _currentFrameIndex - TimelineVisibleFrameWindow / 2,
                 0,
                 GetMaxTimelineViewStart());
+            _isTimelineViewLockedByUser = false;
             SetTimelineViewStart(targetStart, syncScrollBar: true, refresh: true);
             UpdateTimelineReturnButton();
         }
@@ -8343,10 +8966,14 @@ namespace TeamApp
                 return;
 
             int count = GetTimelineFrameCount();
+            int centeredStart = _currentFrameIndex >= 0
+                ? Math.Clamp(_currentFrameIndex - TimelineVisibleFrameWindow / 2, 0, GetMaxTimelineViewStart())
+                : 0;
             bool shouldShow = count > 0 &&
                               _currentFrameIndex >= 0 &&
                               (_currentFrameIndex < _timelineViewStart ||
-                               _currentFrameIndex > _timelineViewStart + TimelineVisibleFrameWindow);
+                               _currentFrameIndex > _timelineViewStart + TimelineVisibleFrameWindow ||
+                               (_isTimelineViewLockedByUser && _timelineViewStart != centeredStart));
 
             _btnReturnTimelineToCurrent.Visible = shouldShow;
             if (!shouldShow)
@@ -8406,15 +9033,26 @@ namespace TeamApp
             }
         }
 
-        private void UpdateDataViewerTimelinePlayhead(bool autoScroll)
+        private void UpdateDataViewerTimelinePlayhead(bool autoScroll, bool forceFocus = false)
         {
             if (_dataViewerFrameChart == null || _dataViewerPlayheadLine == null || _currentFrameIndex < 0)
                 return;
 
-            if (autoScroll && _currentFrameIndex > _timelineViewStart + TimelineVisibleFrameWindow / 2)
-                SetTimelineViewStart(_currentFrameIndex - TimelineVisibleFrameWindow / 2, syncScrollBar: true, refresh: false);
-            else if (_currentFrameIndex < _timelineViewStart)
-                SetTimelineViewStart(_currentFrameIndex, syncScrollBar: true, refresh: false);
+            if (!_isTimelineViewLockedByUser)
+            {
+                if (forceFocus)
+                {
+                    SetTimelineViewStart(_currentFrameIndex - TimelineVisibleFrameWindow / 2, syncScrollBar: true, refresh: false);
+                }
+                else if (autoScroll && _currentFrameIndex > _timelineViewStart + TimelineVisibleFrameWindow / 2)
+                {
+                    SetTimelineViewStart(_currentFrameIndex - TimelineVisibleFrameWindow / 2, syncScrollBar: true, refresh: false);
+                }
+                else if (_currentFrameIndex < _timelineViewStart)
+                {
+                    SetTimelineViewStart(_currentFrameIndex, syncScrollBar: true, refresh: false);
+                }
+            }
 
             _dataViewerPlayheadLine.X = GetTimelineXForVisibleIndex(_currentFrameIndex);
             ApplyDataViewerTimelineAxisLimits(refresh: true);
@@ -8488,7 +9126,7 @@ namespace TeamApp
 
                 var span = plot.Add.HorizontalSpan(start, end,
                     ScottPlot.Color.FromSDColor(System.Drawing.Color.FromArgb(50, System.Drawing.Color.Red)));
-                span.LegendText = "Excluded";
+                span.LegendText = "제외 구간";
                 span.LineColor = ScottPlot.Color.FromSDColor(System.Drawing.Color.FromArgb(120, System.Drawing.Color.Red));
                 span.LineWidth = 1;
                 span.EnableAutoscale = false;
@@ -8515,14 +9153,15 @@ namespace TeamApp
         private void RenderFrameChartTo(FormsPlot chart, bool compact)
         {
             var plot = chart.Plot;
+            string koreanFontName = GetScottPlotKoreanFontName();
 
             // 한글 폰트를 지정해 차트 라벨이 깨지지 않도록 합니다.
-            chart.Plot.Axes.Title.Label.FontName = "Malgun Gothic";
-            chart.Plot.Axes.Bottom.Label.FontName = "Malgun Gothic";
-            chart.Plot.Axes.Left.Label.FontName = "Malgun Gothic";
-            chart.Plot.Axes.Bottom.TickLabelStyle.FontName = "Malgun Gothic";
-            chart.Plot.Axes.Left.TickLabelStyle.FontName = "Malgun Gothic";
-            plot.Legend.FontName = "Malgun Gothic";
+            chart.Plot.Axes.Title.Label.FontName = koreanFontName;
+            chart.Plot.Axes.Bottom.Label.FontName = koreanFontName;
+            chart.Plot.Axes.Left.Label.FontName = koreanFontName;
+            chart.Plot.Axes.Bottom.TickLabelStyle.FontName = koreanFontName;
+            chart.Plot.Axes.Left.TickLabelStyle.FontName = koreanFontName;
+            plot.Legend.FontName = koreanFontName;
             plot.Legend.FontSize = compact ? 9 : 13;
             plot.Legend.FontColor = ScottPlot.Color.FromHex("#222222");
             plot.Legend.BackgroundColor = ScottPlot.Color.FromHex("#F7F7F7");
@@ -8540,7 +9179,7 @@ namespace TeamApp
 
             if (chartFrames.Count == 0)
             {
-                plot.Title("No valid frames");
+                plot.Title("표시할 프레임이 없습니다");
                 chart.Refresh();
                 return;
             }
@@ -8558,7 +9197,7 @@ namespace TeamApp
             zeroLine.Color = ScottPlot.Color.FromHex("#9E9E9E");
             zeroLine.LineWidth = 1.2f;
             zeroLine.MarkerSize = 0;
-            zeroLine.LegendText = "Zero";
+            zeroLine.LegendText = "기준선";
 
             if (_isFrameFilterActive)
             {
@@ -8566,25 +9205,25 @@ namespace TeamApp
                 angleScatter.Color = ScottPlot.Color.FromHex("#4FC3F7");
                 angleScatter.LineWidth = 0;
                 angleScatter.MarkerSize = 6;
-                angleScatter.LegendText = "Steering";
+                angleScatter.LegendText = "조향";
 
                 var throttleScatter = plot.Add.Scatter(xs, throttleYs);
                 throttleScatter.Color = ScottPlot.Color.FromHex("#81C784");
                 throttleScatter.LineWidth = 0;
                 throttleScatter.MarkerSize = 6;
-                throttleScatter.LegendText = "Speed";
+                throttleScatter.LegendText = "스로틀";
             }
             else
             {
                 var sigAngle = plot.Add.SignalXY(xs, angleYs);
                 sigAngle.Color = ScottPlot.Color.FromHex("#4FC3F7");
                 sigAngle.LineWidth = 1.5f;
-                sigAngle.LegendText = "Steering";
+                sigAngle.LegendText = "조향";
 
                 var sigThrottle = plot.Add.SignalXY(xs, throttleYs);
                 sigThrottle.Color = ScottPlot.Color.FromHex("#81C784");
                 sigThrottle.LineWidth = 1.5f;
-                sigThrottle.LegendText = "Speed";
+                sigThrottle.LegendText = "스로틀";
             }
 
             if (compact)
@@ -8602,7 +9241,7 @@ namespace TeamApp
                     double endX = GetFrameXAxisValue(chartFrames[Math.Clamp(end, 0, chartFrames.Count - 1)], end);
                     var selectedSpan = plot.Add.HorizontalSpan(Math.Min(startX, endX), Math.Max(startX, endX),
                         ScottPlot.Color.FromHex("#4A90E2").WithOpacity(0.24));
-                    selectedSpan.LegendText = "Selected";
+                    selectedSpan.LegendText = "선택 구간";
                     selectedSpan.LineColor = ScottPlot.Color.FromHex("#4A90E2").WithOpacity(0.75);
                     selectedSpan.LineWidth = 1.2f;
                     selectedSpan.EnableAutoscale = false;
@@ -8610,17 +9249,17 @@ namespace TeamApp
             }
 
             // 축 라벨과 제목
-            plot.XLabel("Image number");
-            plot.YLabel(compact ? "" : "Value (-1 ~ 1)");
+            plot.XLabel("이미지 번호");
+            plot.YLabel(compact ? "" : "값 (-1 ~ 1)");
             plot.Title(compact
-                ? $"Steering / Speed   shown {n} / total {_allFrames.Count}"
+                ? $"조향 / 스로틀   표시 {n} / 전체 {_allFrames.Count}"
                 : _isFrameFilterActive
-                    ? $"Filtered distribution [shown: {n} / total: {_allFrames.Count}]"
-                    : $"Steering/Speed flow [train: {n} / total: {_allFrames.Count} / excluded: {_allFrames.Count(f => f.IsDeleted)}]");
+                    ? $"필터 결과 분포 [표시: {n} / 전체: {_allFrames.Count}]"
+                    : $"조향/스로틀 흐름 [학습: {n} / 전체: {_allFrames.Count} / 제외: {_allFrames.Count(f => f.IsDeleted)}]");
             if (compact)
             {
                 _dataViewerPlayheadLine = plot.Add.VerticalLine(GetTimelineXForVisibleIndex(_currentFrameIndex), 2.5f, ScottPlot.Color.FromHex("#FF2D2D"));
-                _dataViewerPlayheadLine.LegendText = "Playhead";
+                _dataViewerPlayheadLine.LegendText = "현재 프레임";
                 _dataViewerPlayheadLine.IsDraggable = false;
                 ApplyDataViewerTimelineAxisLimits(refresh: false);
             }
