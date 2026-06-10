@@ -74,6 +74,8 @@ namespace TeamApp
         private int _filmstripDragStartIndex = -1;
         private int _lastFilmstripDragIndex = -1;
         private int _lastSelectedFrameIndex = -1;
+        private int _rangeSelectionAnchorIndex = -1;
+        private readonly Stack<CleanupUndoSnapshot> _cleanupUndoStack = new();
         private bool _catalogDragMoved = false;
         private int _lastCatalogDragIndex = -1;
         private int _dragPreviewSelectionStartIndex = -1;
@@ -153,6 +155,7 @@ namespace TeamApp
         private int _currentTrainingTotalStepsForGraph = 0;
         private bool _isTrainingAutoDetectRunning = false;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
+        private const string CutPointsMetaFileName = "cut_points_meta.txt";
         private const string TrainingSettingsFileName = "training_settings.json";
         private static readonly Regex AnsiEscapeRegex = new(@"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", RegexOptions.Compiled);
 
@@ -291,7 +294,7 @@ namespace TeamApp
 
         private void BtnReloadData_Click(object sender, EventArgs e)
         {
-            if (!ConfirmUnsavedCleanupBeforeDataChange("현재 데이터 다시 불러오기")) return;
+            if (!ConfirmUnsavedCleanupBeforeDataChange("현재 데이터 초기화")) return;
 
             string path = _currentDataFolderPath;
             if (string.IsNullOrEmpty(path))
@@ -318,7 +321,7 @@ namespace TeamApp
             _buttonToolTip.ShowAlways = true;
 
             SetButtonToolTip(btnOpenDataFolder, "DonkeyCar Tub 데이터 폴더를 선택해서 프레임 목록과 이미지를 불러옵니다.");
-            SetButtonToolTip(btnReloadData, "현재 선택된 데이터 폴더를 다시 읽어 목록과 미리보기를 갱신합니다.");
+            SetButtonToolTip(btnReloadData, "현재 선택된 데이터 폴더를 다시 읽어 목록과 미리보기를 초기 상태로 갱신합니다.");
             SetButtonToolTip(btnToggleTheme, "화면 테마를 밝은 모드와 어두운 모드로 전환합니다.");
             SetButtonToolTip(btnGuide, "현재 작업 순서와 주요 기능 설명을 다시 확인합니다.");
             SetButtonToolTip(btnFirst, "현재 표시 목록의 첫 번째 프레임으로 이동합니다.");
@@ -532,7 +535,7 @@ namespace TeamApp
             return new List<TutorialStep>
             {
                 new TutorialStep("데이터 보기", "데이터 폴더 열기", "DonkeyCar tub 또는 mock data 폴더를 선택합니다. 이미지와 catalog_0.catalog를 읽어 프레임 목록을 만듭니다.", btnOpenDataFolder, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "다시 불러오기", "현재 선택된 데이터 폴더를 다시 읽습니다. 파일을 추가하거나 catalog를 수정한 뒤 갱신할 때 사용합니다.", btnReloadData, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "초기화", "현재 선택된 데이터 폴더를 다시 읽어 목록, 미리보기, 선택 상태를 초기 상태로 갱신합니다.", btnReloadData, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "테마 전환", "화면 색상을 밝은 테마와 어두운 테마로 전환합니다.", btnToggleTheme, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "단계별 가이드", "이 튜토리얼을 다시 실행합니다. 기능을 잊었을 때 언제든 다시 누르면 됩니다.", btnGuide, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "프레임 목록", "왼쪽 목록에서 프레임을 선택합니다. 제외된 프레임은 다른 색과 [XXXX] 표시로 구분됩니다.", dgvFrameCatalog, tabPageDataViewer),
@@ -737,6 +740,7 @@ namespace TeamApp
                 "구간 제외 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (confirm != DialogResult.Yes) return;
 
+            PushCleanupUndoSnapshot();
             SetDeletedByRange(from, to, true);
             FinishDataStateChange();
         }
@@ -746,9 +750,27 @@ namespace TeamApp
             var selectedFrames = GetSelectedFrames();
             if (selectedFrames.Count == 0)
             {
-                MessageBox.Show("제외할 프레임을 하나 이상 선택해 주세요.",
-                    "선택 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                if (_isFrameFilterActive && _visibleFrames.Count > 0)
+                {
+                    var filterConfirm = MessageBox.Show(
+                        $"선택된 프레임이 없습니다.\n현재 필터링된 {_visibleFrames.Count}개 프레임을 모두 제외하시겠습니까?",
+                        "필터 결과 전체 제외", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    if (filterConfirm != DialogResult.Yes) return;
+
+                    selectedFrames = _visibleFrames.Where(frame => !frame.IsDeleted).ToList();
+                    if (selectedFrames.Count == 0)
+                    {
+                        MessageBox.Show("필터링된 프레임이 모두 이미 제외 상태입니다.",
+                            "제외할 프레임 없음", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("제외할 프레임을 하나 이상 선택해 주세요.",
+                        "선택 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
             }
 
             var confirm = MessageBox.Show(
@@ -756,6 +778,7 @@ namespace TeamApp
                 "선택 프레임 제외", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (confirm != DialogResult.Yes) return;
 
+            PushCleanupUndoSnapshot();
             foreach (var frame in selectedFrames)
                 frame.IsDeleted = true;
 
@@ -771,6 +794,7 @@ namespace TeamApp
                     "구간 복원", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (rangeConfirm != DialogResult.Yes) return;
 
+                PushCleanupUndoSnapshot();
                 SetDeletedByRange(from, to, false);
                 FinishDataStateChange();
                 return;
@@ -782,6 +806,7 @@ namespace TeamApp
                 "선택 프레임 복원", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (selectedConfirm != DialogResult.Yes) return;
 
+            PushCleanupUndoSnapshot();
             foreach (var frame in selectedFrames)
                 frame.IsDeleted = false;
 
@@ -806,6 +831,18 @@ namespace TeamApp
             }
         }
 
+        /// <summary>
+        /// 버튼이나 콤보박스가 포커스를 가져간 상태에서도 데이터 확인 탭 단축키가 먼저 동작하도록 처리합니다.
+        /// TextBox에서는 사용자가 값을 입력하거나 커서를 움직이는 일을 방해하지 않습니다.
+        /// </summary>
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (HandleDataViewerShortcut(keyData))
+                return true;
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
         private void TrkFrameTimeline_Scroll(object sender, EventArgs e)
         {
             int idx = trkFrameTimeline.Value;
@@ -826,7 +863,8 @@ namespace TeamApp
         private void MoveToFirstFrame()
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
-            SetIndex(0);
+            var bounds = GetCurrentVisibleCutSegmentBounds();
+            SetIndex(bounds.Start);
         }
 
         private void MoveToPreviousFrame()
@@ -844,7 +882,116 @@ namespace TeamApp
         private void MoveToLastFrame()
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
-            SetIndex(_visibleFrames.Count - 1);
+            var bounds = GetCurrentVisibleCutSegmentBounds();
+            SetIndex(bounds.End);
+        }
+
+        private (int Start, int End) GetCurrentVisibleCutSegmentBounds()
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return (0, 0);
+
+            EnsureMacroTimelineCutPoints();
+            int currentOriginalIndex = GetCurrentAllFrameIndex();
+            int segmentIndex = GetCutSegmentIndexForOriginalIndex(currentOriginalIndex);
+            var originalBounds = GetMacroTimelineSegmentBounds(segmentIndex);
+
+            int startVisible = FindFirstVisibleIndexInOriginalRange(originalBounds.Start, originalBounds.End);
+            int endVisible = FindLastVisibleIndexInOriginalRange(originalBounds.Start, originalBounds.End);
+
+            if (startVisible < 0 || endVisible < 0)
+                return (0, _visibleFrames.Count - 1);
+
+            return (startVisible, endVisible);
+        }
+
+        private int FindFirstVisibleIndexInOriginalRange(int startOriginalIndex, int endOriginalIndex)
+        {
+            if (_visibleFrames == null) return -1;
+
+            int from = Math.Min(startOriginalIndex, endOriginalIndex);
+            int to = Math.Max(startOriginalIndex, endOriginalIndex);
+            for (int i = 0; i < _visibleFrames.Count; i++)
+            {
+                int originalIndex = _visibleFrames[i].OriginalIndex >= 0 ? _visibleFrames[i].OriginalIndex : i;
+                if (originalIndex >= from && originalIndex <= to)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        private int FindLastVisibleIndexInOriginalRange(int startOriginalIndex, int endOriginalIndex)
+        {
+            if (_visibleFrames == null) return -1;
+
+            int from = Math.Min(startOriginalIndex, endOriginalIndex);
+            int to = Math.Max(startOriginalIndex, endOriginalIndex);
+            for (int i = _visibleFrames.Count - 1; i >= 0; i--)
+            {
+                int originalIndex = _visibleFrames[i].OriginalIndex >= 0 ? _visibleFrames[i].OriginalIndex : i;
+                if (originalIndex >= from && originalIndex <= to)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        private void ExtendSelectionWithArrow(int direction)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0) return;
+
+            int current = _currentFrameIndex >= 0 ? _currentFrameIndex : 0;
+            int next = Math.Clamp(current + direction, 0, _visibleFrames.Count - 1);
+            if (_rangeSelectionAnchorIndex < 0)
+                _rangeSelectionAnchorIndex = current;
+
+            SelectFrameGridRange(_rangeSelectionAnchorIndex, next);
+        }
+
+        private void MovePreviewFocusByShortcut(int direction)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return;
+
+            int current = _currentFrameIndex >= 0 ? _currentFrameIndex : 0;
+            int next = Math.Clamp(current + direction, 0, _visibleFrames.Count - 1);
+            MovePreviewFocusToFrame(next);
+        }
+
+        /// <summary>
+        /// A/D, 방향키 이동 전용입니다.
+        /// SetIndex처럼 선택을 초기화하지 않고 현재 프레임 미리보기만 이동합니다.
+        /// </summary>
+        private void MovePreviewFocusToFrame(int index)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return;
+
+            index = Math.Clamp(index, 0, _visibleFrames.Count - 1);
+            _currentFrameIndex = index;
+            _lastSelectedFrameIndex = index;
+            _rangeSelectionAnchorIndex = index;
+
+            _isFrameSelectionUpdating = true;
+            try
+            {
+                if (index >= 0 && index < dgvFrameCatalog.Rows.Count)
+                {
+                    dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[index].Cells[0];
+                    ScrollCatalogToFrame(index);
+                }
+            }
+            finally
+            {
+                _isFrameSelectionUpdating = false;
+            }
+
+            if (trkFrameTimeline.Value != index)
+                trkFrameTimeline.Value = index;
+
+            DisplayFrameAtIndex(index);
+            RefreshSelectionVisuals();
         }
 
         // 자동 재생 타이머 처리
@@ -868,35 +1015,84 @@ namespace TeamApp
         // 키보드 단축키 처리
         private void Form1_KeyDown(object? sender, KeyEventArgs e)
         {
-            switch (e.KeyCode)
+            e.Handled = HandleDataViewerShortcut(e.KeyData);
+        }
+
+        private bool HandleDataViewerShortcut(Keys keyData)
+        {
+            if (tabControlMain.SelectedTab != tabPageDataViewer)
+                return false;
+
+            Keys keyCode = keyData & Keys.KeyCode;
+            bool isShiftPressed = (keyData & Keys.Shift) == Keys.Shift;
+            bool isCtrlPressed = (keyData & Keys.Control) == Keys.Control;
+
+            if (isCtrlPressed && keyCode == Keys.Z)
             {
-                case Keys.Right: btnNext_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.Left: btnPrev_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.Space: TogglePlayPause(); e.Handled = true; break;
-                case Keys.Home: btnFirst_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.End: btnLast_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.Delete:
-                    if (tabControlMain.SelectedTab == tabPageDataViewer)
-                    {
-                        BtnExcludeSelectedFrames_Click(this, EventArgs.Empty);
-                        e.Handled = true;
-                    }
-                    break;
-                case Keys.S:
-                    if (e.Control && tabControlMain.SelectedTab == tabPageDataViewer)
-                    {
-                        BtnSaveCleanupState_Click(this, EventArgs.Empty);
-                        e.Handled = true;
-                    }
-                    break;
-                case Keys.C:
-                    if (tabControlMain.SelectedTab == tabPageDataViewer && !IsTextInputFocused())
-                    {
-                        AddMacroTimelineCutAtCurrentFrame();
-                        e.Handled = true;
-                    }
-                    break;
+                RestoreLastCleanupUndoSnapshot();
+                return true;
             }
+
+            if (isCtrlPressed && keyCode == Keys.S)
+            {
+                BtnSaveCleanupState_Click(this, EventArgs.Empty);
+                return true;
+            }
+
+            bool textInputFocused = IsTextInputFocused();
+            if (textInputFocused && IsTextEditingKey(keyCode))
+                return false;
+
+            switch (keyCode)
+            {
+                case Keys.Right:
+                case Keys.D:
+                    if (isShiftPressed) ExtendSelectionWithArrow(1);
+                    else MovePreviewFocusByShortcut(1);
+                    return true;
+
+                case Keys.Left:
+                case Keys.A:
+                    if (isShiftPressed) ExtendSelectionWithArrow(-1);
+                    else MovePreviewFocusByShortcut(-1);
+                    return true;
+
+                case Keys.Space:
+                    TogglePlayPause();
+                    return true;
+
+                case Keys.Enter:
+                    AddCurrentFrameToSelection();
+                    return true;
+
+                case Keys.Escape:
+                    ClearCurrentFrameSelection();
+                    return true;
+
+                case Keys.Home:
+                    MoveToFirstFrame();
+                    return true;
+
+                case Keys.End:
+                    MoveToLastFrame();
+                    return true;
+
+                case Keys.Delete:
+                    BtnExcludeSelectedFrames_Click(this, EventArgs.Empty);
+                    return true;
+
+                case Keys.C:
+                    AddMacroTimelineCutAtCurrentFrame();
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsTextEditingKey(Keys keyCode)
+        {
+            return keyCode is Keys.Left or Keys.Right or Keys.Home or Keys.End or Keys.Delete
+                or Keys.Back or Keys.Enter or Keys.A or Keys.C or Keys.D or Keys.Space;
         }
 
         private bool IsTextInputFocused()
@@ -905,7 +1101,194 @@ namespace TeamApp
             while (focused is ContainerControl container && container.ActiveControl != null)
                 focused = container.ActiveControl;
 
-            return focused is TextBoxBase || focused is ComboBox || focused is NumericUpDown;
+            return focused is TextBoxBase;
+        }
+
+        /// <summary>
+        /// Enter 단축키용 동작입니다.
+        /// 현재 보고 있는 프레임을 기존 선택에 추가해서 여러 구간을 천천히 검토할 수 있게 합니다.
+        /// </summary>
+        private void AddCurrentFrameToSelection()
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0 || _currentFrameIndex < 0)
+                return;
+
+            int rowIndex = Math.Clamp(_currentFrameIndex, 0, dgvFrameCatalog.Rows.Count - 1);
+            if (rowIndex < 0 || rowIndex >= dgvFrameCatalog.Rows.Count)
+                return;
+
+            if (dgvFrameCatalog.Rows[rowIndex].Selected)
+                return;
+
+            PushCleanupUndoSnapshot();
+            _isFrameSelectionUpdating = true;
+            try
+            {
+                dgvFrameCatalog.Rows[rowIndex].Selected = true;
+                dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[rowIndex].Cells[0];
+                _lastSelectedFrameIndex = rowIndex;
+                _rangeSelectionAnchorIndex = rowIndex;
+            }
+            finally
+            {
+                _isFrameSelectionUpdating = false;
+            }
+
+            RefreshSelectionVisuals();
+        }
+
+        /// <summary>
+        /// Esc 단축키용 동작입니다.
+        /// 선택된 프레임과 드래그 중인 범위 표시를 모두 해제합니다.
+        /// </summary>
+        private void ClearCurrentFrameSelection()
+        {
+            if (dgvFrameCatalog.SelectedRows.Count == 0 &&
+                _dragPreviewSelectionStartIndex < 0 &&
+                _dragPreviewSelectionEndIndex < 0)
+            {
+                return;
+            }
+
+            PushCleanupUndoSnapshot();
+            _isFrameSelectionUpdating = true;
+            try
+            {
+                dgvFrameCatalog.ClearSelection();
+                _rangeSelectionAnchorIndex = _currentFrameIndex;
+                ClearDragSelectionPreview();
+            }
+            finally
+            {
+                _isFrameSelectionUpdating = false;
+            }
+
+            RefreshSelectionVisuals();
+        }
+
+        private void PushCleanupUndoSnapshot()
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+                return;
+
+            var deletedStates = _allFrames.Select(frame => frame.IsDeleted).ToArray();
+            var selectedOriginalIndexes = GetSelectedFrames()
+                .Select(frame => frame.OriginalIndex)
+                .Where(index => index >= 0)
+                .Distinct()
+                .ToArray();
+
+            int currentOriginalIndex = GetCurrentAllFrameIndex();
+            _cleanupUndoStack.Push(new CleanupUndoSnapshot(
+                deletedStates,
+                selectedOriginalIndexes,
+                currentOriginalIndex));
+
+            const int maxUndoCount = 30;
+            if (_cleanupUndoStack.Count > maxUndoCount)
+            {
+                var recentSnapshots = _cleanupUndoStack.Take(maxUndoCount).Reverse().ToList();
+                _cleanupUndoStack.Clear();
+                foreach (var snapshot in recentSnapshots)
+                    _cleanupUndoStack.Push(snapshot);
+            }
+        }
+
+        private void RestoreLastCleanupUndoSnapshot()
+        {
+            if (_cleanupUndoStack.Count == 0)
+            {
+                MessageBox.Show("되돌릴 선택/삭제/복원 작업이 없습니다.",
+                    "되돌리기 없음", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var snapshot = _cleanupUndoStack.Pop();
+            bool deletedStateChanged = false;
+            int count = Math.Min(_allFrames.Count, snapshot.DeletedStates.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (_allFrames[i].IsDeleted == snapshot.DeletedStates[i])
+                    continue;
+
+                _allFrames[i].IsDeleted = snapshot.DeletedStates[i];
+                deletedStateChanged = true;
+            }
+
+            _isChartDirty = true;
+            RefreshFrameView();
+            RestoreSelectionFromSnapshot(snapshot);
+            RenderFrameChart();
+
+            if (deletedStateChanged)
+                MarkCleanupStateChanged();
+        }
+
+        private void RestoreSelectionFromSnapshot(CleanupUndoSnapshot snapshot)
+        {
+            var selectedSet = snapshot.SelectedOriginalIndexes.ToHashSet();
+            var selectedRows = new List<int>();
+
+            _isFrameSelectionUpdating = true;
+            try
+            {
+                dgvFrameCatalog.ClearSelection();
+                for (int rowIndex = 0; rowIndex < dgvFrameCatalog.Rows.Count; rowIndex++)
+                {
+                    if (dgvFrameCatalog.Rows[rowIndex].DataBoundItem is not FrameData frame)
+                        continue;
+
+                    if (selectedSet.Contains(frame.OriginalIndex))
+                    {
+                        dgvFrameCatalog.Rows[rowIndex].Selected = true;
+                        selectedRows.Add(rowIndex);
+                    }
+                }
+
+                int focusRow = FindVisibleRowByOriginalIndex(snapshot.CurrentOriginalIndex);
+                if (focusRow < 0 && selectedRows.Count > 0)
+                    focusRow = selectedRows[0];
+
+                if (focusRow >= 0 && focusRow < dgvFrameCatalog.Rows.Count)
+                {
+                    dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[focusRow].Cells[0];
+                    _lastSelectedFrameIndex = focusRow;
+                    _rangeSelectionAnchorIndex = focusRow;
+                    ScrollCatalogToFrame(focusRow);
+                    DisplayFrameAtIndex(focusRow);
+                }
+                else if (_visibleFrames.Count > 0)
+                {
+                    SetIndex(0);
+                }
+                else
+                {
+                    ClearPreviewSelection();
+                }
+            }
+            finally
+            {
+                _isFrameSelectionUpdating = false;
+            }
+
+            RefreshSelectionVisuals();
+        }
+
+        private int FindVisibleRowByOriginalIndex(int originalIndex)
+        {
+            if (originalIndex < 0)
+                return -1;
+
+            for (int rowIndex = 0; rowIndex < dgvFrameCatalog.Rows.Count; rowIndex++)
+            {
+                if (dgvFrameCatalog.Rows[rowIndex].DataBoundItem is FrameData frame &&
+                    frame.OriginalIndex == originalIndex)
+                {
+                    return rowIndex;
+                }
+            }
+
+            return -1;
         }
 
         /// <summary>
@@ -1456,9 +1839,12 @@ namespace TeamApp
             if (rowIndex < 0 || _dragStartFrameRowIndex < 0) return;
             if (rowIndex == _lastCatalogDragIndex) return;
 
+            if (!_catalogDragMoved)
+                PushCleanupUndoSnapshot();
+
             _catalogDragMoved = true;
             _lastCatalogDragIndex = rowIndex;
-            SelectFrameGridRange(_dragStartFrameRowIndex, rowIndex, centerCatalog: false);
+            SelectFrameGridRange(_dragStartFrameRowIndex, rowIndex, centerCatalog: false, pushUndo: false);
         }
 
         private void DgvFrameCatalog_MouseUp(object? sender, MouseEventArgs e)
@@ -1470,7 +1856,7 @@ namespace TeamApp
                     rowIndex = _dragStartFrameRowIndex;
 
                 if (rowIndex >= 0 && rowIndex < _visibleFrames.Count)
-                    ApplyFrameSelection(rowIndex, System.Windows.Forms.Keys.None);
+                    ApplyFrameSelection(rowIndex, ModifierKeys);
             }
 
             _isDraggingFrameRows = false;
@@ -1499,7 +1885,7 @@ namespace TeamApp
             if (trkFrameTimeline.Value != currentIndex)
                 trkFrameTimeline.Value = currentIndex;
 
-            SelectFrameGridRange(_timelineRangeStartIndex, currentIndex);
+            SelectFrameGridRange(_timelineRangeStartIndex, currentIndex, pushUndo: false);
         }
 
         private void TrkFrameTimeline_MouseUp(object? sender, MouseEventArgs e)
@@ -1588,9 +1974,13 @@ namespace TeamApp
             int endRowIndex,
             bool centerCatalog = true,
             bool renderChart = true,
-            bool updateFilmstripNow = false)
+            bool updateFilmstripNow = false,
+            bool pushUndo = true)
         {
             if (dgvFrameCatalog.Rows.Count == 0) return;
+
+            if (pushUndo)
+                PushCleanupUndoSnapshot();
 
             int from = Math.Max(0, Math.Min(startRowIndex, endRowIndex));
             int to = Math.Min(dgvFrameCatalog.Rows.Count - 1, Math.Max(startRowIndex, endRowIndex));
@@ -1626,30 +2016,32 @@ namespace TeamApp
         }
 
         private void ApplyFrameSelectionFromFilmstrip(int clickedIndex)
-            => ApplyFrameSelection(clickedIndex, ModifierKeys, removeRangeOnShift: true);
+            => ApplyFrameSelection(clickedIndex, ModifierKeys);
 
         private void ApplyFrameSelection(
             int clickedIndex,
             Keys modifiers,
-            bool removeRangeOnShift = false,
             bool? ctrlSelectedBefore = null)
         {
             if (_visibleFrames == null || clickedIndex < 0 || clickedIndex >= _visibleFrames.Count)
                 return;
 
+            PushCleanupUndoSnapshot();
             _isFrameSelectionUpdating = true;
 
             try
             {
                 if ((modifiers & Keys.Shift) == Keys.Shift && _lastSelectedFrameIndex >= 0)
                 {
-                    int from = Math.Min(_lastSelectedFrameIndex, clickedIndex);
-                    int to = Math.Max(_lastSelectedFrameIndex, clickedIndex);
-                    if (!removeRangeOnShift)
-                        dgvFrameCatalog.ClearSelection();
+                    int anchorIndex = _rangeSelectionAnchorIndex >= 0
+                        ? _rangeSelectionAnchorIndex
+                        : _lastSelectedFrameIndex;
+                    int from = Math.Min(anchorIndex, clickedIndex);
+                    int to = Math.Max(anchorIndex, clickedIndex);
+                    dgvFrameCatalog.ClearSelection();
 
                     for (int i = from; i <= to && i < dgvFrameCatalog.Rows.Count; i++)
-                        dgvFrameCatalog.Rows[i].Selected = !removeRangeOnShift;
+                        dgvFrameCatalog.Rows[i].Selected = true;
                 }
                 else if ((modifiers & Keys.Control) == Keys.Control)
                 {
@@ -1658,12 +2050,16 @@ namespace TeamApp
                         bool wasSelected = ctrlSelectedBefore ?? dgvFrameCatalog.Rows[clickedIndex].Selected;
                         dgvFrameCatalog.Rows[clickedIndex].Selected = !wasSelected;
                     }
+
+                    if (_rangeSelectionAnchorIndex < 0)
+                        _rangeSelectionAnchorIndex = clickedIndex;
                 }
                 else
                 {
                     dgvFrameCatalog.ClearSelection();
                     if (clickedIndex < dgvFrameCatalog.Rows.Count)
                         dgvFrameCatalog.Rows[clickedIndex].Selected = true;
+                    _rangeSelectionAnchorIndex = clickedIndex;
                 }
 
                 if (clickedIndex < dgvFrameCatalog.Rows.Count)
@@ -1761,6 +2157,7 @@ namespace TeamApp
             lblModeFilter.Text = "주행 방식:";
             lblScenarioFilter.Text = "상황:";
             btnOpenDataFolder.Text = "데이터 폴더 열기";
+            btnReloadData.Text = "초기화";
             btnApplyFrameFilter.Text = "검색 적용";
             btnClearFrameFilter.Text = "검색 해제";
             btnExcludeFrameRange.Text = "구간 제외";
@@ -2563,6 +2960,9 @@ namespace TeamApp
             if (index == _lastFilmstripDragIndex)
                 return;
 
+            if (!_filmstripDragMoved)
+                PushCleanupUndoSnapshot();
+
             _lastFilmstripDragIndex = index;
             _filmstripDragMoved = true;
             SelectFrameGridRange(
@@ -2570,7 +2970,8 @@ namespace TeamApp
                 index,
                 centerCatalog: false,
                 renderChart: ShouldRenderDragChart(),
-                updateFilmstripNow: true);
+                updateFilmstripNow: true,
+                pushUndo: false);
         }
 
         private void PnlFrameThumbnailStrip_MouseUp(object? sender, MouseEventArgs e)
@@ -2597,10 +2998,23 @@ namespace TeamApp
                         releaseIndex,
                         centerCatalog: false,
                         renderChart: true,
-                        updateFilmstripNow: true);
+                        updateFilmstripNow: true,
+                        pushUndo: false);
                 }
 
                 _suppressNextFilmstripClick = true;
+            }
+            else
+            {
+                int releaseIndex = GetFilmstripIndexAt(e.X);
+                if (releaseIndex < 0)
+                    releaseIndex = GetNearestFilmstripIndexAt(e.X);
+
+                if (releaseIndex >= 0 && releaseIndex < _visibleFrames.Count)
+                {
+                    ApplyFrameSelectionFromFilmstrip(releaseIndex);
+                    _suppressNextFilmstripClick = true;
+                }
             }
 
             ClearDragSelectionPreview();
@@ -3309,6 +3723,7 @@ namespace TeamApp
             {
                 _cutPoints.Add(cutIndex);
                 _cutPoints.Sort();
+                MarkCleanupStateChanged();
             }
 
             if (_pnlMacroTimeline != null && !_pnlMacroTimeline.Visible)
@@ -3399,6 +3814,7 @@ namespace TeamApp
             int to = Math.Max(startOriginalIndex, endOriginalIndex);
             var selectedRows = new List<int>();
 
+            PushCleanupUndoSnapshot();
             _isFrameSelectionUpdating = true;
             try
             {
@@ -3902,6 +4318,7 @@ namespace TeamApp
             idx = Math.Max(0, Math.Min(_visibleFrames.Count - 1, idx));
             _currentFrameIndex = idx;
             _lastSelectedFrameIndex = idx;
+            _rangeSelectionAnchorIndex = idx;
 
             // 선택 변경 이벤트가 중복 실행되지 않도록 잠시 막습니다.
             _isFrameSelectionUpdating = true;
@@ -5339,6 +5756,7 @@ namespace TeamApp
                     .ToList();
 
                 File.WriteAllLines(metaPath, deletedNames, Encoding.UTF8);
+                SaveMacroTimelineCutPoints();
                 _hasUnsavedCleanupChanges = false;
                 UpdateCleanupSaveUi();
                 if (showSuccessMessage)
@@ -5354,6 +5772,42 @@ namespace TeamApp
                     "저장 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
+        }
+
+        private void SaveMacroTimelineCutPoints()
+        {
+            if (string.IsNullOrWhiteSpace(_currentDataFolderPath) || !Directory.Exists(_currentDataFolderPath))
+                return;
+
+            EnsureMacroTimelineCutPoints();
+
+            string cutMetaPath = Path.Combine(_currentDataFolderPath, CutPointsMetaFileName);
+            var lines = _cutPoints
+                .Distinct()
+                .OrderBy(index => index)
+                .Select(index => index.ToString(CultureInfo.InvariantCulture))
+                .ToList();
+
+            File.WriteAllLines(cutMetaPath, lines, Encoding.UTF8);
+        }
+
+        private void RestoreMacroTimelineCutPoints(string folderPath)
+        {
+            _cutPoints.Clear();
+
+            string cutMetaPath = Path.Combine(folderPath, CutPointsMetaFileName);
+            if (File.Exists(cutMetaPath))
+            {
+                foreach (string line in File.ReadLines(cutMetaPath, Encoding.UTF8))
+                {
+                    if (int.TryParse(line.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int cutIndex))
+                        _cutPoints.Add(cutIndex);
+                }
+            }
+
+            EnsureMacroTimelineCutPoints();
+            ClearMacroTimelineThumbnailCache();
+            _pnlMacroTimeline?.Invalidate();
         }
 
         private void BtnExportCleanDataset_Click(object? sender, EventArgs e)
@@ -5594,6 +6048,11 @@ namespace TeamApp
             if (answer == DialogResult.Yes && !SaveCleanupState(showSuccessMessage: false))
                 e.Cancel = true;
         }
+
+        private sealed record CleanupUndoSnapshot(
+            bool[] DeletedStates,
+            int[] SelectedOriginalIndexes,
+            int CurrentOriginalIndex);
 
         // FrameData 데이터 모델
 
@@ -5977,7 +6436,7 @@ namespace TeamApp
                 _hasUnsavedCleanupChanges = false;
                 _timelineViewStart = 0;
                 _previousThumbnailHighlightIndex = -1;
-                ResetMacroTimelineCuts();
+                RestoreMacroTimelineCutPoints(normalizedFolder);
                 // 초기 로드: 전체 프레임을 표시합니다.
                 RefreshFrameBinding();  // _visibleFrames 설정과 RefreshFrameView 호출
 
@@ -6557,6 +7016,8 @@ namespace TeamApp
                 "cd " + QuotePathForBash(wslMycarPath) + " && " +
                 "if [ ! -f config.py ] && [ ! -f manage.py ]; then echo " +
                 QuoteForBash("[error] Donkey 프로젝트 파일(config.py 또는 manage.py)을 찾을 수 없습니다: " + wslMycarPath) + "; exit 2; fi && " +
+                "mkdir -p /tmp/models && " +
+                "mkdir -p \"$(dirname " + QuotePathForBash(wslModelPath) + ")\" && " +
                 "if [ -f config.py ]; then cp config.py " + QuotePathForBash(wslTrainingConfigPath) + "; else : > " + QuotePathForBash(wslTrainingConfigPath) + "; fi && " +
                 "printf " + QuoteForBash("\n# TeamApp runtime training settings\nMAX_EPOCHS = " + epochCount.ToString(CultureInfo.InvariantCulture) + "\n") +
                 " >> " + QuotePathForBash(wslTrainingConfigPath) + " && " +
