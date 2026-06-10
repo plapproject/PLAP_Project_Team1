@@ -49,6 +49,25 @@ namespace TeamApp
         private int _filmstripViewOffsetPixels = 0;
         private bool _isSyncingFilmstripScrollBar = false;
         private bool _isFilmstripViewLockedByUser = false;
+        private Panel? _pnlMacroTimeline;
+        private readonly List<int> _cutPoints = new();
+        private readonly Dictionary<int, Bitmap> _macroTimelineThumbnailCache = new();
+        private Button? _btnToggleMacroTimeline;
+        private Button? _btnReturnTimelineToCurrent;
+        private readonly ToolTip _timelineHoverToolTip = new ToolTip { InitialDelay = 1500, ReshowDelay = 1500, AutoPopDelay = 5000, ShowAlways = true };
+        private System.Windows.Forms.Timer? _timelineHoverTimer;
+        private Control? _timelineHoverControl;
+        private Point _timelineHoverPoint = Point.Empty;
+        private string _timelineHoverText = string.Empty;
+        private bool _isDraggingMacroTimelineResize = false;
+        private Control? _macroTimelineResizeCaptureControl;
+        private int _macroTimelineDragStartY = 0;
+        private int _macroTimelineDragStartHeight = 0;
+        private const int MacroTimelineCollapsedHeight = 0;
+        private const int MacroTimelineDefaultHeight = 74;
+        private const int MacroTimelineMaxHeight = 132;
+        private const int MacroTimelineResizeHitHeight = 10;
+        private const int MacroTimelineThumbnailCacheLimit = 80;
         private bool _isDraggingFilmstripSelection = false;
         private bool _filmstripDragMoved = false;
         private bool _suppressNextFilmstripClick = false;
@@ -870,7 +889,23 @@ namespace TeamApp
                         e.Handled = true;
                     }
                     break;
+                case Keys.C:
+                    if (tabControlMain.SelectedTab == tabPageDataViewer && !IsTextInputFocused())
+                    {
+                        AddMacroTimelineCutAtCurrentFrame();
+                        e.Handled = true;
+                    }
+                    break;
             }
+        }
+
+        private bool IsTextInputFocused()
+        {
+            Control? focused = ActiveControl;
+            while (focused is ContainerControl container && container.ActiveControl != null)
+                focused = container.ActiveControl;
+
+            return focused is TextBoxBase || focused is ComboBox || focused is NumericUpDown;
         }
 
         /// <summary>
@@ -1876,6 +1911,7 @@ namespace TeamApp
 
             EnsureFrameLabelDockedToGrid();
             ConfigureFrameThumbnailStrip();
+            ConfigureMacroTimeline();
             InitDataViewerFrameChart();
             ApplyDataExplorerAnchors();
 
@@ -1896,6 +1932,8 @@ namespace TeamApp
 
             trkFrameTimeline.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             pnlFrameThumbnailStrip.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            if (_pnlMacroTimeline != null)
+                _pnlMacroTimeline.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
             lblPlayInterval.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             if (_cmbPlaybackSpeed != null)
@@ -1998,7 +2036,10 @@ namespace TeamApp
             int thumbnailHeight = 58;
             int thumbnailScrollHeight = 17;
             int thumbnailY = Math.Max(contentTop + 120, timelineY - thumbnailHeight - thumbnailScrollHeight - 8);
-            int splitHeight = Math.Max(120, thumbnailY - contentTop - 10);
+            int macroHeight = GetMacroTimelineHeight();
+            int macroGap = macroHeight > 0 ? 6 : 0;
+            int macroY = thumbnailY - macroHeight - macroGap;
+            int splitHeight = Math.Max(120, macroY - contentTop - 10);
             int cleanerWidth = Math.Clamp(width / 4, 300, 380);
             int cleanerLeft = width - margin - cleanerWidth;
             int editorLeft = margin;
@@ -2011,6 +2052,8 @@ namespace TeamApp
             splitContainerFramePreview.Location = new Point(editorLeft, contentTop);
             splitContainerFramePreview.Size = new Size(editorWidth, splitHeight);
             KeepFramePreviewSplitterRatio();
+
+            LayoutMacroTimeline(margin, macroY, width - margin * 2, macroHeight);
 
             pnlFrameThumbnailStrip.Location = new Point(margin, thumbnailY);
             pnlFrameThumbnailStrip.Size = new Size(width - margin * 2, thumbnailHeight);
@@ -2064,6 +2107,204 @@ namespace TeamApp
                 splitContainerFramePreview.SplitterDistance = target;
         }
 
+        private void ConfigureMacroTimeline()
+        {
+            ConfigureTimelineHoverToolTip();
+            if (_pnlMacroTimeline == null)
+            {
+                _pnlMacroTimeline = grpDataExplorer.Controls.Find("pnlMacroTimeline", searchAllChildren: false)
+                    .OfType<Panel>()
+                    .FirstOrDefault();
+            }
+
+            if (_pnlMacroTimeline == null)
+            {
+                _pnlMacroTimeline = new Panel
+                {
+                    Name = "pnlMacroTimeline",
+                    Visible = false,
+                    Height = MacroTimelineCollapsedHeight,
+                    BorderStyle = BorderStyle.FixedSingle,
+                    BackColor = System.Drawing.Color.FromArgb(22, 24, 29)
+                };
+                grpDataExplorer.Controls.Add(_pnlMacroTimeline);
+            }
+
+            EnableDoubleBuffering(_pnlMacroTimeline);
+            _pnlMacroTimeline.Paint -= PnlMacroTimeline_Paint;
+            _pnlMacroTimeline.MouseDown -= PnlMacroTimeline_MouseDown;
+            _pnlMacroTimeline.MouseMove -= PnlMacroTimeline_MouseMove;
+            _pnlMacroTimeline.MouseUp -= PnlMacroTimeline_MouseUp;
+            _pnlMacroTimeline.Paint += PnlMacroTimeline_Paint;
+            _pnlMacroTimeline.MouseDown += PnlMacroTimeline_MouseDown;
+            _pnlMacroTimeline.MouseMove += PnlMacroTimeline_MouseMove;
+            _pnlMacroTimeline.MouseUp += PnlMacroTimeline_MouseUp;
+            _pnlMacroTimeline.MouseLeave += (_, _) => HideTimelineHoverToolTip();
+            _pnlMacroTimeline.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+
+            if (_btnToggleMacroTimeline == null)
+            {
+                _btnToggleMacroTimeline = new Button
+                {
+                    Name = "btnToggleMacroTimeline",
+                    Text = "▲",
+                    Size = new Size(28, 24),
+                    UseVisualStyleBackColor = false,
+                    BackColor = System.Drawing.Color.FromArgb(245, 247, 250)
+                };
+                _btnToggleMacroTimeline.Click += (_, _) => ToggleMacroTimeline();
+                grpDataExplorer.Controls.Add(_btnToggleMacroTimeline);
+                _btnToggleMacroTimeline.BringToFront();
+            }
+        }
+
+        private int GetMacroTimelineHeight()
+        {
+            if (_pnlMacroTimeline == null || !_pnlMacroTimeline.Visible)
+                return MacroTimelineCollapsedHeight;
+
+            return Math.Clamp(_pnlMacroTimeline.Height, MacroTimelineDefaultHeight, MacroTimelineMaxHeight);
+        }
+
+        private void LayoutMacroTimeline(int x, int y, int width, int height)
+        {
+            if (_pnlMacroTimeline == null)
+                return;
+
+            _pnlMacroTimeline.SetBounds(x, y, width, Math.Max(0, height));
+            _pnlMacroTimeline.Visible = height > 0;
+            if (_pnlMacroTimeline.Visible)
+            {
+                _pnlMacroTimeline.BringToFront();
+                _pnlMacroTimeline.Invalidate();
+            }
+        }
+
+        private bool IsMacroTimelineDragHandle(MouseEventArgs e)
+            => e.Button == MouseButtons.Left && e.Y <= MacroTimelineResizeHitHeight;
+
+        private void BeginMacroTimelineResize(Control captureControl, int mouseY)
+        {
+            ConfigureMacroTimeline();
+            if (_pnlMacroTimeline == null)
+                return;
+
+            _isDraggingMacroTimelineResize = true;
+            _macroTimelineResizeCaptureControl = captureControl;
+            _macroTimelineDragStartY = mouseY;
+            _macroTimelineDragStartHeight = _pnlMacroTimeline.Visible
+                ? Math.Max(MacroTimelineDefaultHeight, _pnlMacroTimeline.Height)
+                : MacroTimelineCollapsedHeight;
+            captureControl.Capture = true;
+            Cursor = Cursors.HSplit;
+        }
+
+        private void UpdateMacroTimelineResize(int mouseY)
+        {
+            if (!_isDraggingMacroTimelineResize || _pnlMacroTimeline == null)
+                return;
+
+            int delta = _macroTimelineDragStartY - mouseY;
+            int nextHeight = Math.Clamp(_macroTimelineDragStartHeight + delta, MacroTimelineCollapsedHeight, MacroTimelineMaxHeight);
+            if (nextHeight >= 24 && !_pnlMacroTimeline.Visible)
+                _pnlMacroTimeline.Visible = true;
+
+            _pnlMacroTimeline.Height = nextHeight;
+            LayoutDataViewerResponsive();
+        }
+
+        private void EndMacroTimelineResize()
+        {
+            if (!_isDraggingMacroTimelineResize)
+                return;
+
+            _isDraggingMacroTimelineResize = false;
+            if (_macroTimelineResizeCaptureControl != null)
+                _macroTimelineResizeCaptureControl.Capture = false;
+            _macroTimelineResizeCaptureControl = null;
+            Cursor = Cursors.Default;
+
+            if (_pnlMacroTimeline != null)
+            {
+                if (_pnlMacroTimeline.Height < 32)
+                {
+                    _pnlMacroTimeline.Height = MacroTimelineCollapsedHeight;
+                    _pnlMacroTimeline.Visible = false;
+                }
+                else
+                {
+                    _pnlMacroTimeline.Height = Math.Clamp(_pnlMacroTimeline.Height, MacroTimelineDefaultHeight, MacroTimelineMaxHeight);
+                    _pnlMacroTimeline.Visible = true;
+                }
+            }
+
+            LayoutDataViewerResponsive();
+        }
+
+        private void ToggleMacroTimeline()
+        {
+            ConfigureMacroTimeline();
+            if (_pnlMacroTimeline == null)
+                return;
+
+            bool willShow = !_pnlMacroTimeline.Visible;
+            _pnlMacroTimeline.Visible = willShow;
+            _pnlMacroTimeline.Height = willShow ? MacroTimelineDefaultHeight : MacroTimelineCollapsedHeight;
+            if (_btnToggleMacroTimeline != null)
+                _btnToggleMacroTimeline.Text = willShow ? "▼" : "▲";
+
+            LayoutDataViewerResponsive();
+        }
+
+        private void ConfigureTimelineHoverToolTip()
+        {
+            if (_timelineHoverTimer != null)
+                return;
+
+            _timelineHoverTimer = new System.Windows.Forms.Timer
+            {
+                Interval = 1500
+            };
+            _timelineHoverTimer.Tick += (_, _) =>
+            {
+                _timelineHoverTimer.Stop();
+                if (_timelineHoverControl == null || string.IsNullOrWhiteSpace(_timelineHoverText))
+                    return;
+
+                _timelineHoverToolTip.Show(
+                    _timelineHoverText,
+                    _timelineHoverControl,
+                    _timelineHoverPoint.X + 12,
+                    _timelineHoverPoint.Y - 34,
+                    5000);
+            };
+        }
+
+        private void ScheduleTimelineHover(Control control, Point point, string text)
+        {
+            ConfigureTimelineHoverToolTip();
+            if (_timelineHoverControl == control &&
+                Math.Abs(_timelineHoverPoint.X - point.X) <= 2 &&
+                Math.Abs(_timelineHoverPoint.Y - point.Y) <= 2 &&
+                string.Equals(_timelineHoverText, text, StringComparison.Ordinal))
+                return;
+
+            HideTimelineHoverToolTip();
+            _timelineHoverControl = control;
+            _timelineHoverPoint = point;
+            _timelineHoverText = text;
+            _timelineHoverTimer?.Start();
+        }
+
+        private void HideTimelineHoverToolTip()
+        {
+            _timelineHoverTimer?.Stop();
+            if (_timelineHoverControl != null)
+                _timelineHoverToolTip.Hide(_timelineHoverControl);
+            _timelineHoverControl = null;
+            _timelineHoverText = string.Empty;
+        }
+
         private void ConfigureFrameThumbnailStrip()
         {
             pnlFrameThumbnailStrip.AutoScroll = false;
@@ -2076,6 +2317,7 @@ namespace TeamApp
             pnlFrameThumbnailStrip.MouseUp += PnlFrameThumbnailStrip_MouseUp;
             pnlFrameThumbnailStrip.MouseWheel += PnlFrameThumbnailStrip_MouseWheel;
             pnlFrameThumbnailStrip.MouseEnter += (_, _) => pnlFrameThumbnailStrip.Focus();
+            pnlFrameThumbnailStrip.MouseLeave += (_, _) => HideTimelineHoverToolTip();
             pnlFrameThumbnailStrip.Resize += (_, _) =>
             {
                 UpdateThumbnailStripScrollArea();
@@ -2124,6 +2366,17 @@ namespace TeamApp
         {
             if (_filmstripScrollBar != null)
                 _filmstripScrollBar.SetBounds(x, y, width, height);
+
+            if (_btnToggleMacroTimeline != null)
+            {
+                _btnToggleMacroTimeline.SetBounds(
+                    pnlFrameThumbnailStrip.Left + 6,
+                    pnlFrameThumbnailStrip.Top + 4,
+                    28,
+                    24);
+                _btnToggleMacroTimeline.Text = _pnlMacroTimeline?.Visible == true ? "▼" : "▲";
+                _btnToggleMacroTimeline.BringToFront();
+            }
 
             UpdateReturnFilmstripButton();
         }
@@ -2287,6 +2540,15 @@ namespace TeamApp
 
         private void PnlFrameThumbnailStrip_MouseMove(object? sender, MouseEventArgs e)
         {
+            if (_isDraggingMacroTimelineResize)
+            {
+                UpdateMacroTimelineResize(e.Y);
+                return;
+            }
+
+            if (!_isDraggingFilmstripSelection)
+                ScheduleFilmstripHover(e.Location);
+
             if (!_isDraggingFilmstripSelection || e.Button != MouseButtons.Left || _filmstripDragStartIndex < 0)
                 return;
 
@@ -2313,6 +2575,12 @@ namespace TeamApp
 
         private void PnlFrameThumbnailStrip_MouseUp(object? sender, MouseEventArgs e)
         {
+            if (_isDraggingMacroTimelineResize)
+            {
+                EndMacroTimelineResize();
+                return;
+            }
+
             if (!_isDraggingFilmstripSelection)
                 return;
 
@@ -2344,6 +2612,7 @@ namespace TeamApp
 
         private void PnlFrameThumbnailStrip_MouseWheel(object? sender, MouseEventArgs e)
         {
+            HideTimelineHoverToolTip();
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
 
             int wheelSteps = Math.Max(-6, Math.Min(6, e.Delta / 120));
@@ -2352,6 +2621,21 @@ namespace TeamApp
 
             LockFilmstripViewAtCurrentVisualPosition();
             SetFilmstripViewOffset(_filmstripViewOffsetPixels - wheelSteps * 88, syncScrollBar: true);
+        }
+
+        private void ScheduleFilmstripHover(Point point)
+        {
+            int index = GetFilmstripIndexAt(point.X);
+            if (index < 0 || _visibleFrames == null || index >= _visibleFrames.Count)
+            {
+                HideTimelineHoverToolTip();
+                return;
+            }
+
+            int originalIndex = _visibleFrames[index].OriginalIndex >= 0
+                ? _visibleFrames[index].OriginalIndex
+                : index;
+            ScheduleTimelineHover(pnlFrameThumbnailStrip, point, GetCutSegmentInfoText(originalIndex));
         }
 
         private void LockFilmstripViewAtCurrentVisualPosition()
@@ -2526,6 +2810,8 @@ namespace TeamApp
                     e.Graphics.DrawRectangle(selectedPen, Rectangle.Inflate(rect, 2, 2));
             }
 
+            DrawFilmstripCutMarkers(e.Graphics);
+
             Rectangle highlightRect;
             if (_isFilmstripViewLockedByUser || _isDraggingFilmstripSelection)
             {
@@ -2544,6 +2830,38 @@ namespace TeamApp
             }
         }
 
+        private void DrawFilmstripCutMarkers(Graphics graphics)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0 || _cutPoints.Count <= 2)
+                return;
+
+            using var cutPen = new Pen(System.Drawing.Color.FromArgb(255, 241, 196, 15), 4);
+            using var cutGlowPen = new Pen(System.Drawing.Color.FromArgb(120, 241, 196, 15), 8);
+            using var cutBrush = new SolidBrush(System.Drawing.Color.FromArgb(255, 241, 196, 15));
+
+            foreach (int cutPoint in _cutPoints.Skip(1).Take(Math.Max(0, _cutPoints.Count - 2)))
+            {
+                int visibleIndex = FindVisibleIndexByOriginalIndex(cutPoint);
+                if (visibleIndex < 0)
+                    continue;
+
+                Rectangle rect = GetFilmstripItemRect(visibleIndex);
+                int x = rect.Left - 4;
+                if (x < 0 || x > pnlFrameThumbnailStrip.ClientSize.Width)
+                    continue;
+
+                graphics.DrawLine(cutGlowPen, x, rect.Top - 6, x, rect.Bottom + 8);
+                graphics.DrawLine(cutPen, x, rect.Top - 6, x, rect.Bottom + 8);
+                Point[] triangle =
+                {
+                    new Point(x - 5, rect.Top - 7),
+                    new Point(x + 5, rect.Top - 7),
+                    new Point(x, rect.Top)
+                };
+                graphics.FillPolygon(cutBrush, triangle);
+            }
+        }
+
         private void DrawFilmstripImageNumber(Graphics graphics, Rectangle rect, FrameData frame, Brush backBrush, Font font)
         {
             string text = frame.ImageNumber >= 0
@@ -2559,6 +2877,561 @@ namespace TeamApp
                 labelRect,
                 System.Drawing.Color.White,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        }
+
+        private void EnsureMacroTimelineCutPoints()
+        {
+            int lastIndex = (_allFrames?.Count ?? 0) - 1;
+            _cutPoints.RemoveAll(point => point < 0 || point > lastIndex);
+
+            if (lastIndex < 0)
+            {
+                _cutPoints.Clear();
+                return;
+            }
+
+            if (!_cutPoints.Contains(0))
+                _cutPoints.Add(0);
+            if (!_cutPoints.Contains(lastIndex))
+                _cutPoints.Add(lastIndex);
+
+            _cutPoints.Sort();
+            for (int i = _cutPoints.Count - 2; i >= 0; i--)
+            {
+                if (_cutPoints[i] == _cutPoints[i + 1])
+                    _cutPoints.RemoveAt(i + 1);
+            }
+        }
+
+        private void ResetMacroTimelineCuts()
+        {
+            _cutPoints.Clear();
+            EnsureMacroTimelineCutPoints();
+            ClearMacroTimelineThumbnailCache();
+            _pnlMacroTimeline?.Invalidate();
+        }
+
+        private int GetCurrentAllFrameIndex()
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0 || _currentFrameIndex < 0)
+                return 0;
+
+            int visibleIndex = Math.Clamp(_currentFrameIndex, 0, _visibleFrames.Count - 1);
+            int originalIndex = _visibleFrames[visibleIndex].OriginalIndex;
+            return originalIndex >= 0 ? originalIndex : visibleIndex;
+        }
+
+        private int MacroTimelineIndexToX(int originalIndex, Rectangle trackRect)
+        {
+            int lastIndex = Math.Max(1, (_allFrames?.Count ?? 0) - 1);
+            double ratio = Math.Clamp(originalIndex / (double)lastIndex, 0.0, 1.0);
+            return trackRect.Left + (int)Math.Round(ratio * trackRect.Width);
+        }
+
+        private int MacroTimelineXToIndex(int x, Rectangle trackRect)
+        {
+            int count = _allFrames?.Count ?? 0;
+            if (count <= 0 || trackRect.Width <= 0)
+                return -1;
+
+            double ratio = Math.Clamp((x - trackRect.Left) / (double)trackRect.Width, 0.0, 1.0);
+            return Math.Clamp((int)Math.Round(ratio * (count - 1)), 0, count - 1);
+        }
+
+        private Rectangle GetMacroTimelineTrackRect()
+        {
+            if (_pnlMacroTimeline == null)
+                return Rectangle.Empty;
+
+            int left = 12;
+            int top = 18;
+            int width = Math.Max(1, _pnlMacroTimeline.ClientSize.Width - left * 2);
+            int height = Math.Max(20, _pnlMacroTimeline.ClientSize.Height - top - 14);
+            return new Rectangle(left, top, width, height);
+        }
+
+        private void PnlMacroTimeline_Paint(object? sender, PaintEventArgs e)
+        {
+            e.Graphics.Clear(System.Drawing.Color.FromArgb(22, 24, 29));
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+
+            if (_allFrames == null || _allFrames.Count == 0)
+            {
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    "매크로 타임라인",
+                    new Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold),
+                    _pnlMacroTimeline?.ClientRectangle ?? Rectangle.Empty,
+                    System.Drawing.Color.Gainsboro,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                return;
+            }
+
+            EnsureMacroTimelineCutPoints();
+            Rectangle trackRect = GetMacroTimelineTrackRect();
+            using var trackBackBrush = new SolidBrush(System.Drawing.Color.FromArgb(34, 38, 46));
+            using var trackBorderPen = new Pen(System.Drawing.Color.FromArgb(82, 90, 104));
+            using var normalBrush = new SolidBrush(System.Drawing.Color.FromArgb(78, 112, 160));
+            using var alternateBrush = new SolidBrush(System.Drawing.Color.FromArgb(68, 96, 136));
+            using var deletedBrush = new SolidBrush(System.Drawing.Color.FromArgb(92, 145, 58, 58));
+            using var selectedSegmentPen = new Pen(System.Drawing.Color.FromArgb(0, 245, 150), 3.2f);
+            using var cutPen = new Pen(System.Drawing.Color.FromArgb(255, 241, 196, 15), 1.7f)
+            {
+                DashStyle = System.Drawing.Drawing2D.DashStyle.Dash
+            };
+            using var playheadPen = new Pen(System.Drawing.Color.FromArgb(245, 255, 45, 45), 2.2f);
+            using var labelFont = new Font("맑은 고딕", 7.5F, System.Drawing.FontStyle.Bold);
+            using var labelBrush = new SolidBrush(System.Drawing.Color.FromArgb(225, 235, 240, 248));
+
+            e.Graphics.FillRectangle(trackBackBrush, trackRect);
+            e.Graphics.DrawRectangle(trackBorderPen, trackRect);
+
+            var selectedOriginalIndices = GetSelectedOriginalIndexSet();
+            int currentSegmentIndex = GetCutSegmentIndexForOriginalIndex(GetCurrentAllFrameIndex());
+            for (int segmentIndex = 0; segmentIndex < _cutPoints.Count - 1; segmentIndex++)
+            {
+                var (start, end) = GetMacroTimelineSegmentBounds(segmentIndex);
+                if (start < 0 || end < start)
+                    continue;
+
+                int left = MacroTimelineIndexToX(start, trackRect);
+                int right = MacroTimelineIndexToX(end, trackRect);
+                if (right <= left)
+                    right = left + 1;
+
+                var segmentRect = Rectangle.FromLTRB(
+                    Math.Clamp(left, trackRect.Left, trackRect.Right),
+                    trackRect.Top + 4,
+                    Math.Clamp(right, trackRect.Left + 1, trackRect.Right),
+                    trackRect.Bottom - 4);
+
+                bool hasDeleted = HasDeletedFrameInOriginalRange(start, end);
+                bool hasSelected = selectedOriginalIndices.Any(index => index >= start && index <= end);
+                Brush fillBrush = hasDeleted
+                    ? deletedBrush
+                    : segmentIndex % 2 == 0 ? normalBrush : alternateBrush;
+
+                e.Graphics.FillRectangle(fillBrush, segmentRect);
+                DrawMacroTimelineSegmentThumbnails(e.Graphics, start, end, segmentRect);
+                e.Graphics.DrawRectangle(trackBorderPen, segmentRect);
+                if (hasSelected || segmentIndex == currentSegmentIndex)
+                    e.Graphics.DrawRectangle(selectedSegmentPen, Rectangle.Inflate(segmentRect, 2, 2));
+
+                if (segmentRect.Width >= 44)
+                {
+                    string label = $"{start}-{end}";
+                    TextRenderer.DrawText(
+                        e.Graphics,
+                        label,
+                        labelFont,
+                        new Rectangle(segmentRect.Left + 4, segmentRect.Bottom - 16, segmentRect.Width - 8, 14),
+                        System.Drawing.Color.White,
+                        TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+                }
+            }
+
+            foreach (int cut in _cutPoints.Skip(1).Take(Math.Max(0, _cutPoints.Count - 2)))
+            {
+                int cutX = MacroTimelineIndexToX(cut, trackRect);
+                e.Graphics.DrawLine(cutPen, cutX, trackRect.Top - 5, cutX, trackRect.Bottom + 5);
+            }
+
+            int playheadX = MacroTimelineIndexToX(GetCurrentAllFrameIndex(), trackRect);
+            e.Graphics.DrawLine(playheadPen, playheadX, 4, playheadX, _pnlMacroTimeline?.ClientSize.Height - 4 ?? trackRect.Bottom);
+            e.Graphics.FillEllipse(Brushes.Red, playheadX - 4, 5, 8, 8);
+
+            TextRenderer.DrawText(
+                e.Graphics,
+                "Macro Timeline  |  C: 컷 추가  |  블록 클릭: 구간 선택",
+                labelFont,
+                new Rectangle(trackRect.Left, 2, trackRect.Width, 14),
+                System.Drawing.Color.FromArgb(210, 235, 240, 248),
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+
+            TrimMacroTimelineThumbnailCache();
+        }
+
+        private (int Start, int End) GetMacroTimelineSegmentBounds(int segmentIndex)
+        {
+            EnsureMacroTimelineCutPoints();
+            if (segmentIndex < 0 || segmentIndex >= _cutPoints.Count - 1)
+                return (-1, -1);
+
+            int start = _cutPoints[segmentIndex];
+            int nextCut = _cutPoints[segmentIndex + 1];
+            int end = segmentIndex == _cutPoints.Count - 2
+                ? nextCut
+                : Math.Max(start, nextCut - 1);
+            return (start, end);
+        }
+
+        private int GetCutSegmentIndexForOriginalIndex(int originalIndex)
+        {
+            EnsureMacroTimelineCutPoints();
+            for (int i = 0; i < _cutPoints.Count - 1; i++)
+            {
+                var (start, end) = GetMacroTimelineSegmentBounds(i);
+                if (originalIndex >= start && originalIndex <= end)
+                    return i;
+            }
+
+            return Math.Max(0, _cutPoints.Count - 2);
+        }
+
+        private string GetCutSegmentInfoText(int originalIndex)
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+                return string.Empty;
+
+            int segmentIndex = GetCutSegmentIndexForOriginalIndex(originalIndex);
+            var (start, end) = GetMacroTimelineSegmentBounds(segmentIndex);
+            string imageNumber = originalIndex >= 0 && originalIndex < _allFrames.Count && _allFrames[originalIndex].ImageNumber >= 0
+                ? _allFrames[originalIndex].ImageNumber.ToString(CultureInfo.InvariantCulture)
+                : "-";
+
+            return $"컷 구간 {segmentIndex + 1}: {start} ~ {end}\n현재 프레임: {originalIndex}\n이미지 번호: {imageNumber}";
+        }
+
+        private int FindVisibleIndexByOriginalIndex(int originalIndex)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return -1;
+
+            for (int i = 0; i < _visibleFrames.Count; i++)
+            {
+                int visibleOriginal = _visibleFrames[i].OriginalIndex >= 0
+                    ? _visibleFrames[i].OriginalIndex
+                    : i;
+                if (visibleOriginal == originalIndex)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        private double GetTimelineXForOriginalIndex(int originalIndex)
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+                return originalIndex;
+
+            originalIndex = Math.Clamp(originalIndex, 0, _allFrames.Count - 1);
+            return GetFrameXAxisValue(_allFrames[originalIndex], originalIndex);
+        }
+
+        private bool HasDeletedFrameInOriginalRange(int start, int end)
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+                return false;
+
+            start = Math.Clamp(start, 0, _allFrames.Count - 1);
+            end = Math.Clamp(end, 0, _allFrames.Count - 1);
+            for (int i = start; i <= end; i++)
+            {
+                if (_allFrames[i].IsDeleted)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private HashSet<int> GetSelectedOriginalIndexSet()
+        {
+            var selected = new HashSet<int>();
+            if (_visibleFrames == null || dgvFrameCatalog.Rows.Count == 0)
+                return selected;
+
+            foreach (DataGridViewRow row in dgvFrameCatalog.SelectedRows)
+            {
+                if (row.DataBoundItem is not FrameData frame)
+                    continue;
+
+                int originalIndex = frame.OriginalIndex >= 0 ? frame.OriginalIndex : _visibleFrames.IndexOf(frame);
+                if (originalIndex >= 0)
+                    selected.Add(originalIndex);
+            }
+
+            return selected;
+        }
+
+        private void DrawMacroTimelineSegmentThumbnails(Graphics graphics, int startOriginalIndex, int endOriginalIndex, Rectangle segmentRect)
+        {
+            int thumbnailCount = GetMacroTimelineThumbnailCount(segmentRect.Width);
+            if (thumbnailCount <= 0)
+                return;
+
+            var indices = GetRepresentativeOriginalIndices(startOriginalIndex, endOriginalIndex, thumbnailCount).ToList();
+            if (indices.Count == 0)
+                return;
+
+            int thumbnailHeight = Math.Min(26, Math.Max(14, segmentRect.Height - 8));
+            int thumbnailWidth = Math.Clamp(segmentRect.Width / Math.Max(1, thumbnailCount * 2), 14, 42);
+            int y = segmentRect.Top + 4;
+            int safeLeft = segmentRect.Left + 4;
+            int safeRight = segmentRect.Right - 4;
+            var drawnRects = new List<Rectangle>();
+            int start = Math.Min(startOriginalIndex, endOriginalIndex);
+            int end = Math.Max(startOriginalIndex, endOriginalIndex);
+            double range = Math.Max(1, end - start);
+
+            foreach (int index in indices)
+            {
+                double ratio = Math.Clamp((index - start) / range, 0.0, 1.0);
+                int centerX = segmentRect.Left + (int)Math.Round(ratio * segmentRect.Width);
+                int x = Math.Clamp(centerX - thumbnailWidth / 2, safeLeft, Math.Max(safeLeft, safeRight - thumbnailWidth));
+                var thumbRect = new Rectangle(x, y, thumbnailWidth, thumbnailHeight);
+
+                if (drawnRects.Any(rect => rect.IntersectsWith(Rectangle.Inflate(thumbRect, 3, 0))))
+                    continue;
+
+                Bitmap? thumbnail = GetMacroTimelineThumbnail(index);
+                if (thumbnail != null)
+                {
+                    graphics.DrawImage(thumbnail, thumbRect);
+                    drawnRects.Add(thumbRect);
+                }
+            }
+        }
+
+        private int GetMacroTimelineThumbnailCount(int segmentWidth)
+        {
+            if (segmentWidth < 32) return 0;
+            if (segmentWidth < 58) return 1;
+            if (segmentWidth < 96) return 2;
+            if (segmentWidth < 138) return 3;
+            if (segmentWidth < 184) return 4;
+            return 5;
+        }
+
+        private IEnumerable<int> GetRepresentativeOriginalIndices(int startOriginalIndex, int endOriginalIndex, int count)
+        {
+            if (_allFrames == null || _allFrames.Count == 0 || count <= 0)
+                yield break;
+
+            int start = Math.Clamp(Math.Min(startOriginalIndex, endOriginalIndex), 0, _allFrames.Count - 1);
+            int end = Math.Clamp(Math.Max(startOriginalIndex, endOriginalIndex), 0, _allFrames.Count - 1);
+            if (count == 1 || start == end)
+            {
+                yield return start;
+                yield break;
+            }
+
+            var used = new HashSet<int>();
+            for (int i = 0; i < count; i++)
+            {
+                int index = start + (int)Math.Round((end - start) * (i / (double)(count - 1)));
+                if (used.Add(index))
+                    yield return index;
+            }
+        }
+
+        private Bitmap? GetMacroTimelineThumbnail(int originalIndex)
+        {
+            if (_allFrames == null || originalIndex < 0 || originalIndex >= _allFrames.Count)
+                return null;
+
+            if (_macroTimelineThumbnailCache.TryGetValue(originalIndex, out Bitmap? cached))
+                return cached;
+
+            string path = _allFrames[originalIndex].ImagePath;
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                path = ResolveImagePath(_allFrames[originalIndex].Name);
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                return null;
+
+            try
+            {
+                using var fs = File.OpenRead(path);
+                using var image = System.Drawing.Image.FromStream(fs);
+                var thumbnail = new Bitmap(42, 26);
+                using (Graphics graphics = Graphics.FromImage(thumbnail))
+                {
+                    graphics.Clear(System.Drawing.Color.FromArgb(34, 38, 46));
+                    graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    float scale = Math.Min(42f / image.Width, 26f / image.Height);
+                    int drawWidth = Math.Max(1, (int)Math.Round(image.Width * scale));
+                    int drawHeight = Math.Max(1, (int)Math.Round(image.Height * scale));
+                    int x = (42 - drawWidth) / 2;
+                    int y = (26 - drawHeight) / 2;
+                    graphics.DrawImage(image, x, y, drawWidth, drawHeight);
+                }
+
+                _macroTimelineThumbnailCache[originalIndex] = thumbnail;
+                TrimMacroTimelineThumbnailCache();
+                return thumbnail;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void TrimMacroTimelineThumbnailCache()
+        {
+            if (_macroTimelineThumbnailCache.Count <= MacroTimelineThumbnailCacheLimit)
+                return;
+
+            int currentOriginalIndex = GetCurrentAllFrameIndex();
+            foreach (int key in _macroTimelineThumbnailCache.Keys
+                         .OrderByDescending(key => Math.Abs(key - currentOriginalIndex))
+                         .Take(_macroTimelineThumbnailCache.Count - MacroTimelineThumbnailCacheLimit)
+                         .ToList())
+            {
+                _macroTimelineThumbnailCache[key].Dispose();
+                _macroTimelineThumbnailCache.Remove(key);
+            }
+        }
+
+        private void ClearMacroTimelineThumbnailCache()
+        {
+            foreach (Bitmap bitmap in _macroTimelineThumbnailCache.Values)
+                bitmap.Dispose();
+            _macroTimelineThumbnailCache.Clear();
+        }
+
+        private void InvalidateMacroTimeline()
+        {
+            if (_pnlMacroTimeline?.Visible == true && !_pnlMacroTimeline.IsDisposed)
+                _pnlMacroTimeline.Invalidate();
+        }
+
+        private void AddMacroTimelineCutAtCurrentFrame()
+        {
+            if (_allFrames == null || _allFrames.Count == 0)
+                return;
+
+            EnsureMacroTimelineCutPoints();
+            int cutIndex = GetCurrentAllFrameIndex();
+            if (cutIndex <= 0 || cutIndex >= _allFrames.Count - 1)
+                return;
+
+            if (!_cutPoints.Contains(cutIndex))
+            {
+                _cutPoints.Add(cutIndex);
+                _cutPoints.Sort();
+            }
+
+            if (_pnlMacroTimeline != null && !_pnlMacroTimeline.Visible)
+            {
+                _pnlMacroTimeline.Visible = true;
+                _pnlMacroTimeline.Height = MacroTimelineDefaultHeight;
+                LayoutDataViewerResponsive();
+            }
+
+            InvalidateMacroTimeline();
+            pnlFrameThumbnailStrip.Invalidate();
+            RenderDataViewerFrameChart();
+        }
+
+        private void PnlMacroTimeline_MouseDown(object? sender, MouseEventArgs e)
+        {
+            HideTimelineHoverToolTip();
+            if (e.Button != MouseButtons.Left || _allFrames == null || _allFrames.Count == 0)
+                return;
+
+            if (e.Y <= MacroTimelineResizeHitHeight)
+            {
+                BeginMacroTimelineResize(_pnlMacroTimeline ?? pnlFrameThumbnailStrip, e.Y);
+                return;
+            }
+
+            Rectangle trackRect = GetMacroTimelineTrackRect();
+            if (!trackRect.Contains(e.Location))
+                return;
+
+            int originalIndex = MacroTimelineXToIndex(e.X, trackRect);
+            SelectMacroTimelineSegmentAt(originalIndex);
+        }
+
+        private void PnlMacroTimeline_MouseMove(object? sender, MouseEventArgs e)
+        {
+            if (_isDraggingMacroTimelineResize)
+            {
+                UpdateMacroTimelineResize(e.Y);
+                return;
+            }
+
+            Rectangle trackRect = GetMacroTimelineTrackRect();
+            if (!trackRect.Contains(e.Location))
+            {
+                HideTimelineHoverToolTip();
+                return;
+            }
+
+            int originalIndex = MacroTimelineXToIndex(e.X, trackRect);
+            if (originalIndex >= 0)
+                ScheduleTimelineHover(_pnlMacroTimeline ?? pnlFrameThumbnailStrip, e.Location, GetCutSegmentInfoText(originalIndex));
+        }
+
+        private void PnlMacroTimeline_MouseUp(object? sender, MouseEventArgs e)
+        {
+            if (_isDraggingMacroTimelineResize)
+                EndMacroTimelineResize();
+        }
+
+        private void SelectMacroTimelineSegmentAt(int originalIndex)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0 || originalIndex < 0)
+                return;
+
+            EnsureMacroTimelineCutPoints();
+            int segmentIndex = 0;
+            for (int i = 0; i < _cutPoints.Count - 1; i++)
+            {
+                var (start, end) = GetMacroTimelineSegmentBounds(i);
+                if (originalIndex >= start && originalIndex <= end)
+                {
+                    segmentIndex = i;
+                    break;
+                }
+            }
+
+            var bounds = GetMacroTimelineSegmentBounds(segmentIndex);
+            SelectVisibleFramesByOriginalRange(bounds.Start, bounds.End);
+        }
+
+        private void SelectVisibleFramesByOriginalRange(int startOriginalIndex, int endOriginalIndex)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0 || dgvFrameCatalog.Rows.Count == 0)
+                return;
+
+            int from = Math.Min(startOriginalIndex, endOriginalIndex);
+            int to = Math.Max(startOriginalIndex, endOriginalIndex);
+            var selectedRows = new List<int>();
+
+            _isFrameSelectionUpdating = true;
+            try
+            {
+                dgvFrameCatalog.ClearSelection();
+                for (int rowIndex = 0; rowIndex < dgvFrameCatalog.Rows.Count; rowIndex++)
+                {
+                    if (dgvFrameCatalog.Rows[rowIndex].DataBoundItem is not FrameData frame)
+                        continue;
+
+                    int originalIndex = frame.OriginalIndex >= 0 ? frame.OriginalIndex : rowIndex;
+                    if (originalIndex < from || originalIndex > to)
+                        continue;
+
+                    dgvFrameCatalog.Rows[rowIndex].Selected = true;
+                    selectedRows.Add(rowIndex);
+                }
+
+                if (selectedRows.Count > 0)
+                    dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[selectedRows[0]].Cells[0];
+            }
+            finally
+            {
+                _isFrameSelectionUpdating = false;
+            }
+
+            if (selectedRows.Count == 0)
+                return;
+
+            int focusRow = selectedRows[0];
+            _lastSelectedFrameIndex = focusRow;
+            ScrollCatalogToFrame(focusRow);
+            DisplayFrameAtIndex(focusRow);
+            RefreshSelectionVisuals();
         }
 
         private static void EnableDoubleBuffering(Control control)
@@ -3002,6 +3875,8 @@ namespace TeamApp
             ClearThumbnailCache();
             UpdateThumbnailStripScrollArea();
             RefreshFilmstripHighlight(forceFullRefresh: true);
+            EnsureMacroTimelineCutPoints();
+            InvalidateMacroTimeline();
             RenderDataViewerFrameChart();
 
             trkFrameTimeline.Minimum = 0;
@@ -3073,6 +3948,7 @@ namespace TeamApp
                     : System.Drawing.Color.DimGray;
             }
             ScrollThumbnailToCurrentFrame();
+            InvalidateMacroTimeline();
             UpdateStatusLabels();
             MaybeRequestPilotPredictionForCurrentFrame();
             BeginInvoke(new Action(AskFirstUseTutorial));
@@ -4310,6 +5186,7 @@ namespace TeamApp
         private void RefreshSelectionVisuals(bool renderChart = true, bool updateFilmstripNow = false)
         {
             pnlFrameThumbnailStrip.Invalidate();
+            InvalidateMacroTimeline();
             if (updateFilmstripNow)
                 pnlFrameThumbnailStrip.Update();
             if (renderChart)
@@ -4698,6 +5575,7 @@ namespace TeamApp
         {
             _pilotPredictionCts?.Cancel();
             StopPilotServer(showMessage: false);
+            ClearMacroTimelineThumbnailCache();
 
             if (!_hasUnsavedCleanupChanges) return;
 
@@ -5099,6 +5977,7 @@ namespace TeamApp
                 _hasUnsavedCleanupChanges = false;
                 _timelineViewStart = 0;
                 _previousThumbnailHighlightIndex = -1;
+                ResetMacroTimelineCuts();
                 // 초기 로드: 전체 프레임을 표시합니다.
                 RefreshFrameBinding();  // _visibleFrames 설정과 RefreshFrameView 호출
 
@@ -7250,6 +8129,8 @@ namespace TeamApp
             };
             _dataViewerFrameChart.UserInputProcessor.Disable();
             _dataViewerFrameChart.MouseDown += DataViewerFrameChart_MouseDown;
+            _dataViewerFrameChart.MouseMove += DataViewerFrameChart_MouseMove;
+            _dataViewerFrameChart.MouseLeave += (_, _) => HideTimelineHoverToolTip();
             _dataViewerFrameChart.MouseWheel += DataViewerFrameChart_MouseWheel;
             _dataViewerFrameChart.MouseEnter += (_, _) => _dataViewerFrameChart.Focus();
 
@@ -7269,21 +8150,79 @@ namespace TeamApp
             pnlDataViewerChartHost.Controls.Clear();
             pnlDataViewerChartHost.Controls.Add(_dataViewerFrameChart);
             pnlDataViewerChartHost.Controls.Add(_timelineScrollBar);
+            ConfigureTimelineReturnButton();
+        }
+
+        private void ConfigureTimelineReturnButton()
+        {
+            if (_btnReturnTimelineToCurrent == null)
+            {
+                _btnReturnTimelineToCurrent = new Button
+                {
+                    Name = "btnReturnTimelineToCurrent",
+                    Text = "선택 프레임",
+                    Size = new Size(112, 24),
+                    Visible = false,
+                    UseVisualStyleBackColor = false,
+                    BackColor = System.Drawing.Color.FromArgb(229, 241, 255)
+                };
+                _btnReturnTimelineToCurrent.Click += (_, _) => CenterTimelineOnCurrentFrame();
+                pnlDataViewerChartHost.Controls.Add(_btnReturnTimelineToCurrent);
+                pnlDataViewerChartHost.Resize += (_, _) => UpdateTimelineReturnButton();
+            }
+            else if (_btnReturnTimelineToCurrent.Parent != pnlDataViewerChartHost)
+            {
+                pnlDataViewerChartHost.Controls.Add(_btnReturnTimelineToCurrent);
+            }
+
+            UpdateTimelineReturnButton();
         }
 
         private void DataViewerFrameChart_MouseDown(object? sender, MouseEventArgs e)
         {
+            HideTimelineHoverToolTip();
             if (e.Button != MouseButtons.Left || _dataViewerFrameChart == null || _allFrames.Count == 0)
                 return;
 
+            Coordinates coordinates = GetDataViewerChartCoordinates(e.Location);
+            int targetIndex = GetNearestVisibleFrameIndexByImageNumber(coordinates.X);
+            if (e.Clicks >= 2)
+            {
+                int originalIndex = _visibleFrames[targetIndex].OriginalIndex >= 0
+                    ? _visibleFrames[targetIndex].OriginalIndex
+                    : targetIndex;
+                int segmentIndex = GetCutSegmentIndexForOriginalIndex(originalIndex);
+                var (start, end) = GetMacroTimelineSegmentBounds(segmentIndex);
+                SelectVisibleFramesByOriginalRange(start, end);
+                return;
+            }
+
+            ApplyFrameSelection(targetIndex, ModifierKeys);
+        }
+
+        private Coordinates GetDataViewerChartCoordinates(Point point)
+        {
+            if (_dataViewerFrameChart == null)
+                return new Coordinates(0, 0);
+
             // ScottPlot 5에서는 GetCoordinateX(e.X) 대신 Pixel 기반 GetCoordinates()를 사용합니다.
-            Coordinates coordinates = _dataViewerFrameChart.Plot.GetCoordinates(
-                new Pixel(e.X, e.Y),
+            return _dataViewerFrameChart.Plot.GetCoordinates(
+                new Pixel(point.X, point.Y),
                 _dataViewerFrameChart.Plot.Axes.Bottom,
                 _dataViewerFrameChart.Plot.Axes.Left);
+        }
 
+        private void DataViewerFrameChart_MouseMove(object? sender, MouseEventArgs e)
+        {
+            if (_dataViewerFrameChart == null || _visibleFrames == null || _visibleFrames.Count == 0)
+                return;
+
+            Coordinates coordinates = GetDataViewerChartCoordinates(e.Location);
             int targetIndex = GetNearestVisibleFrameIndexByImageNumber(coordinates.X);
-            ApplyFrameSelection(targetIndex, ModifierKeys);
+            int originalIndex = _visibleFrames[targetIndex].OriginalIndex >= 0
+                ? _visibleFrames[targetIndex].OriginalIndex
+                : targetIndex;
+            ScheduleTimelineHover(_dataViewerFrameChart, e.Location, GetCutSegmentInfoText(originalIndex));
         }
 
         private int GetNearestVisibleFrameIndexByImageNumber(double imageNumber)
@@ -7307,6 +8246,7 @@ namespace TeamApp
 
         private void DataViewerFrameChart_MouseWheel(object? sender, MouseEventArgs e)
         {
+            HideTimelineHoverToolTip();
             if (_dataViewerFrameChart == null || GetTimelineFrameCount() == 0)
                 return;
 
@@ -7381,6 +8321,39 @@ namespace TeamApp
 
             if (refresh)
                 ApplyDataViewerTimelineAxisLimits(refresh: true);
+            UpdateTimelineReturnButton();
+        }
+
+        private void CenterTimelineOnCurrentFrame()
+        {
+            if (_currentFrameIndex < 0 || GetTimelineFrameCount() == 0)
+                return;
+
+            int targetStart = Math.Clamp(
+                _currentFrameIndex - TimelineVisibleFrameWindow / 2,
+                0,
+                GetMaxTimelineViewStart());
+            SetTimelineViewStart(targetStart, syncScrollBar: true, refresh: true);
+            UpdateTimelineReturnButton();
+        }
+
+        private void UpdateTimelineReturnButton()
+        {
+            if (_btnReturnTimelineToCurrent == null)
+                return;
+
+            int count = GetTimelineFrameCount();
+            bool shouldShow = count > 0 &&
+                              _currentFrameIndex >= 0 &&
+                              (_currentFrameIndex < _timelineViewStart ||
+                               _currentFrameIndex > _timelineViewStart + TimelineVisibleFrameWindow);
+
+            _btnReturnTimelineToCurrent.Visible = shouldShow;
+            if (!shouldShow)
+                return;
+
+            _btnReturnTimelineToCurrent.Location = new Point(8, 8);
+            _btnReturnTimelineToCurrent.BringToFront();
         }
 
         private void ApplyDataViewerTimelineAxisLimits(bool refresh)
@@ -7402,6 +8375,7 @@ namespace TeamApp
 
             _dataViewerFrameChart.Plot.Axes.SetLimits(startX, endX, -1.3, 1.3);
             SyncTimelineScrollBarToView();
+            UpdateTimelineReturnButton();
 
             if (refresh)
                 _dataViewerFrameChart.Refresh();
@@ -7444,6 +8418,7 @@ namespace TeamApp
 
             _dataViewerPlayheadLine.X = GetTimelineXForVisibleIndex(_currentFrameIndex);
             ApplyDataViewerTimelineAxisLimits(refresh: true);
+            UpdateTimelineReturnButton();
         }
 
         // 기본 모드는 선 그래프, 필터 모드는 원본 인덱스 기준 점 그래프로 표시합니다.
@@ -7519,6 +8494,21 @@ namespace TeamApp
                 span.EnableAutoscale = false;
 
                 start = end = -1;
+            }
+        }
+
+        private void AddCutPointLinesToPlot(Plot plot)
+        {
+            if (_allFrames == null || _allFrames.Count == 0 || _cutPoints.Count <= 2)
+                return;
+
+            foreach (int cutPoint in _cutPoints.Skip(1).Take(Math.Max(0, _cutPoints.Count - 2)))
+            {
+                double x = GetTimelineXForOriginalIndex(cutPoint);
+                var cutLine = plot.Add.VerticalLine(x, 1.6f, ScottPlot.Color.FromHex("#F1C40F"));
+                cutLine.IsDraggable = false;
+                cutLine.LinePattern = LinePattern.Dashed;
+                cutLine.EnableAutoscale = false;
             }
         }
 
@@ -7601,6 +8591,8 @@ namespace TeamApp
             {
                 if (_showDeletedOnGraph)
                     AddDeletedFrameSpans(plot, chartFrames, xs);
+
+                AddCutPointLinesToPlot(plot);
 
                 foreach (var (start, end) in _isPlaybackRunning
                     ? Enumerable.Empty<(int Start, int End)>()
