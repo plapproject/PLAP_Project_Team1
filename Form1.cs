@@ -82,6 +82,7 @@ namespace TeamApp
         private int _filmstripDragStartIndex = -1;
         private int _lastFilmstripDragIndex = -1;
         private int _lastSelectedFrameIndex = -1;
+        private int _selectionAnchorIndex = -1;
         private bool _catalogDragMoved = false;
         private int _lastCatalogDragIndex = -1;
         private bool _catalogMouseDownWasSelected = false;
@@ -166,6 +167,7 @@ namespace TeamApp
         private int _currentTrainingTotalStepsForGraph = 0;
         private bool _isTrainingAutoDetectRunning = false;
         private const string DeletedFramesMetaFileName = "deleted_frames_meta.txt";
+        private const string CutPointsMetaFileName = "cut_points_meta.json";
         private const string TrainingSettingsFileName = "training_settings.json";
         private static readonly Regex AnsiEscapeRegex = new(@"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", RegexOptions.Compiled);
         private const string ScottPlotKoreanFontAlias = "TeamAppPretendard";
@@ -726,7 +728,9 @@ namespace TeamApp
             _isFrameFilterActive = true;
             _isChartDirty = true;
             RefreshFrameView();
-            SetIndex(0);
+            RenderDataViewerFrameChart();
+            RenderFrameChart();
+            SetIndex(0, forceTimelineFocus: true);
 
             MessageBox.Show(
                 $"검토 후보 {_visibleFrames.Count}개만 표시합니다.\n\n" +
@@ -906,6 +910,13 @@ namespace TeamApp
                     return;
                 }
 
+                if (e.Shift && e.KeyCode is Keys.Up or Keys.Down or Keys.Left or Keys.Right)
+                {
+                    HandleCatalogShiftArrow(e.KeyCode);
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                    return;
+                }
             }
 
             switch (e.KeyCode)
@@ -960,6 +971,24 @@ namespace TeamApp
                 focused = container.ActiveControl;
 
             return focused is TextBoxBase || focused is ComboBox || focused is NumericUpDown;
+        }
+
+        private void HandleCatalogShiftArrow(Keys keyCode)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return;
+
+            dgvFrameCatalog.Focus();
+            int current = dgvFrameCatalog.CurrentRow?.Index >= 0
+                ? dgvFrameCatalog.CurrentRow.Index
+                : Math.Max(0, _lastSelectedFrameIndex >= 0 ? _lastSelectedFrameIndex : _currentFrameIndex);
+            int delta = keyCode is Keys.Left or Keys.Up ? -1 : 1;
+            int target = Math.Clamp(current + delta, 0, _visibleFrames.Count - 1);
+
+            if (_selectionAnchorIndex < 0 || _selectionAnchorIndex >= _visibleFrames.Count)
+                _selectionAnchorIndex = current;
+
+            SelectFrameGridRange(_selectionAnchorIndex, target, centerCatalog: true, renderChart: true);
         }
 
         private string GetScottPlotKoreanFontName()
@@ -1729,11 +1758,26 @@ namespace TeamApp
         }
 
         private void ApplyFrameSelectionFromFilmstrip(int clickedIndex)
-            => ApplyFrameSelection(
-                clickedIndex,
-                ModifierKeys,
+            => SelectFrameViaCatalogEngine(clickedIndex, ModifierKeys, forceTimelineFocus: true);
+
+        private void SelectFrameViaCatalogEngine(int visibleIndex, Keys modifiers, bool forceTimelineFocus)
+        {
+            if (_visibleFrames == null || visibleIndex < 0 || visibleIndex >= _visibleFrames.Count)
+                return;
+
+            if (visibleIndex < dgvFrameCatalog.Rows.Count)
+            {
+                ScrollCatalogToFrameCentered(visibleIndex);
+                dgvFrameCatalog.Focus();
+            }
+
+            ApplyFrameSelection(
+                visibleIndex,
+                modifiers,
                 removeRangeOnShift: false,
-                ctrlSelectedBefore: IsVisibleIndexSelected(clickedIndex));
+                ctrlSelectedBefore: IsVisibleIndexSelected(visibleIndex),
+                forceTimelineFocus: forceTimelineFocus);
+        }
 
         private void ApplyFrameSelection(
             int clickedIndex,
@@ -1744,6 +1788,21 @@ namespace TeamApp
         {
             if (_visibleFrames == null || clickedIndex < 0 || clickedIndex >= _visibleFrames.Count)
                 return;
+
+            if ((modifiers & Keys.Shift) == Keys.Shift)
+            {
+                int anchorIndex = _selectionAnchorIndex;
+                if (anchorIndex < 0 || anchorIndex >= _visibleFrames.Count)
+                {
+                    anchorIndex = dgvFrameCatalog.CurrentRow?.Index >= 0
+                        ? dgvFrameCatalog.CurrentRow.Index
+                        : Math.Max(0, _lastSelectedFrameIndex >= 0 ? _lastSelectedFrameIndex : clickedIndex);
+                    _selectionAnchorIndex = anchorIndex;
+                }
+
+                SelectFrameGridRange(anchorIndex, clickedIndex, centerCatalog: true, renderChart: true);
+                return;
+            }
 
             _isFrameSelectionUpdating = true;
 
@@ -1776,6 +1835,7 @@ namespace TeamApp
             }
 
             _lastSelectedFrameIndex = clickedIndex;
+            _selectionAnchorIndex = clickedIndex;
             DisplayFrameAtIndex(clickedIndex, forceTimelineFocus);
             RefreshSelectionVisuals();
         }
@@ -1813,6 +1873,22 @@ namespace TeamApp
             catch (InvalidOperationException)
             {
                 // 바인딩 직후 아직 표시 가능한 행 계산이 끝나지 않은 짧은 순간을 방어합니다.
+            }
+        }
+
+        private void ScrollCatalogToFrameCentered(int rowIndex)
+        {
+            if (dgvFrameCatalog.Rows.Count == 0 || rowIndex < 0 || rowIndex >= dgvFrameCatalog.Rows.Count)
+                return;
+
+            int visibleRows = Math.Max(1, dgvFrameCatalog.DisplayedRowCount(includePartialRow: true));
+            int targetFirst = Math.Clamp(rowIndex - visibleRows / 2, 0, Math.Max(0, dgvFrameCatalog.Rows.Count - visibleRows));
+            try
+            {
+                dgvFrameCatalog.FirstDisplayedScrollingRowIndex = targetFirst;
+            }
+            catch (InvalidOperationException)
+            {
             }
         }
 
@@ -3570,6 +3646,7 @@ namespace TeamApp
                 PushUndoSnapshot();
                 _cutPoints.Add(cutIndex);
                 _cutPoints.Sort();
+                MarkCleanupStateChanged();
             }
 
             if (_pnlMacroTimeline != null && !_pnlMacroTimeline.Visible)
@@ -3659,6 +3736,7 @@ namespace TeamApp
 
             PushUndoSnapshot();
             _cutPoints.Remove(cutPoint);
+            MarkCleanupStateChanged();
             InvalidateMacroTimeline();
             pnlFrameThumbnailStrip.Invalidate();
             RenderDataViewerFrameChart();
@@ -4265,6 +4343,7 @@ namespace TeamApp
             idx = Math.Max(0, Math.Min(_visibleFrames.Count - 1, idx));
             _currentFrameIndex = idx;
             _lastSelectedFrameIndex = idx;
+            _selectionAnchorIndex = idx;
 
             // 선택 변경 이벤트가 중복 실행되지 않도록 잠시 막습니다.
             _isFrameSelectionUpdating = true;
@@ -5414,7 +5493,6 @@ namespace TeamApp
             if (!ValidateScenarioAngleRange(angleMin, angleMax))
                 return;
 
-            // 제외되지 않은 프레임 중 범위 조건에 맞는 항목만 남깁니다.
             _visibleFrames = _allFrames
                 .Where(f => !f.IsDeleted &&
                             f.Angle >= angleMin && f.Angle <= angleMax &&
@@ -5427,34 +5505,51 @@ namespace TeamApp
             _isChartDirty = true;
             _timelineViewStart = 0;
             RefreshFrameView();
-            if (_visibleFrames.Count > 0) SetIndex(0);
-            else ClearPreviewSelection();
+            RenderDataViewerFrameChart();
+            RenderFrameChart();
+            if (_visibleFrames.Count > 0)
+                SetIndex(0, forceTimelineFocus: true);
+            else
+            {
+                ClearPreviewSelection();
+                MessageBox.Show("조건에 맞는 프레임이 없습니다.",
+                    "필터 결과 없음", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
         }
 
         private bool TryReadFilterRanges(out double angleMin, out double angleMax,
                                           out double throttleMin, out double throttleMax)
         {
-            angleMin = angleMax = throttleMin = throttleMax = 0;
+            angleMin = double.NegativeInfinity;
+            angleMax = double.PositiveInfinity;
+            throttleMin = double.NegativeInfinity;
+            throttleMax = double.PositiveInfinity;
 
-            bool ok =
-                double.TryParse(txtAngleMinFilter.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out angleMin) &&
-                double.TryParse(txtAngleMaxFilter.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out angleMax) &&
-                double.TryParse(txtThrottleMinFilter.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMin) &&
-                double.TryParse(txtThrottleMaxFilter.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out throttleMax);
-
-            if (!ok)
+            if (!TryReadOptionalDouble(txtAngleMinFilter.Text, double.NegativeInfinity, out angleMin) ||
+                !TryReadOptionalDouble(txtAngleMaxFilter.Text, double.PositiveInfinity, out angleMax) ||
+                !TryReadOptionalDouble(txtThrottleMinFilter.Text, double.NegativeInfinity, out throttleMin) ||
+                !TryReadOptionalDouble(txtThrottleMaxFilter.Text, double.PositiveInfinity, out throttleMax))
             {
                 MessageBox.Show("조향각과 스로틀 범위는 숫자로 입력해 주세요.",
                     "입력 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
-            if (angleMin > angleMax || throttleMin > throttleMax)
-            {
-                MessageBox.Show("범위의 최소값은 최대값보다 클 수 없습니다.",
-                    "범위 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
-            }
+
+            if (angleMin > angleMax)
+                (angleMin, angleMax) = (angleMax, angleMin);
+            if (throttleMin > throttleMax)
+                (throttleMin, throttleMax) = (throttleMax, throttleMin);
+
             return true;
+        }
+
+        private static bool TryReadOptionalDouble(string text, double defaultValue, out double value)
+        {
+            value = defaultValue;
+            if (string.IsNullOrWhiteSpace(text))
+                return true;
+
+            return double.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
         }
 
         private TurnDirection GetSelectedTurnDirection()
@@ -5764,18 +5859,19 @@ namespace TeamApp
                     .ToList();
 
                 File.WriteAllLines(metaPath, deletedNames, Encoding.UTF8);
+                SaveCutPointsMeta(_currentDataFolderPath);
                 _hasUnsavedCleanupChanges = false;
                 UpdateCleanupSaveUi();
                 if (showSuccessMessage)
                 {
-                    MessageBox.Show("제외 상태가 저장되었습니다.",
+                    MessageBox.Show("제외/컷 편집 상태가 저장되었습니다.",
                         "상태 저장", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 return true;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("제외 상태 저장 중 오류가 발생했습니다.\n" + ex.Message,
+                MessageBox.Show("제외/컷 편집 상태 저장 중 오류가 발생했습니다.\n" + ex.Message,
                     "저장 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
@@ -5807,6 +5903,7 @@ namespace TeamApp
                 }
 
                 CopyDirectory(sourceFolder, cleanFolder);
+                RemoveCutMetadataFromCleanExport(cleanFolder);
 
                 var deletedNames = _allFrames
                     .Where(frame => frame.IsDeleted)
@@ -5862,6 +5959,13 @@ namespace TeamApp
             }
 
             return true;
+        }
+
+        private void RemoveCutMetadataFromCleanExport(string cleanFolder)
+        {
+            string cutMetaPath = Path.Combine(cleanFolder, CutPointsMetaFileName);
+            if (File.Exists(cutMetaPath))
+                File.Delete(cutMetaPath);
         }
 
         private void CopyDirectory(string sourceFolder, string targetFolder)
@@ -6446,6 +6550,42 @@ namespace TeamApp
                 frame.IsDeleted = deletedNames.Contains(frame.Name);
         }
 
+        private void SaveCutPointsMeta(string folderPath)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath) || _allFrames == null || _allFrames.Count == 0)
+                return;
+
+            EnsureMacroTimelineCutPoints();
+            string path = Path.Combine(folderPath, CutPointsMetaFileName);
+            var cutPoints = _cutPoints
+                .Where(point => point > 0 && point < _allFrames.Count)
+                .Distinct()
+                .OrderBy(point => point)
+                .ToList();
+            string json = JsonSerializer.Serialize(cutPoints, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json, Encoding.UTF8);
+        }
+
+        private void RestoreCutPointsMeta(string folderPath, int frameCount)
+        {
+            _cutPoints.Clear();
+            string path = Path.Combine(folderPath, CutPointsMetaFileName);
+            if (File.Exists(path))
+            {
+                try
+                {
+                    var cutPoints = JsonSerializer.Deserialize<List<int>>(File.ReadAllText(path, Encoding.UTF8)) ?? new List<int>();
+                    _cutPoints.AddRange(cutPoints.Where(point => point > 0 && point < frameCount));
+                }
+                catch
+                {
+                    _cutPoints.Clear();
+                }
+            }
+
+            EnsureMacroTimelineCutPoints();
+        }
+
         /// <summary>
         /// catalog_*.catalog 전체를 파일명 숫자 기준으로 정렬해 읽습니다.
         /// catalog가 없으면 이미지 파일 목록만으로 프레임을 구성합니다.
@@ -6494,6 +6634,7 @@ namespace TeamApp
             }
 
             RestoreDeletedFramesMeta(folderPath, frames);
+            RestoreCutPointsMeta(folderPath, frames.Count);
             return frames;
         }
 
@@ -8769,11 +8910,7 @@ namespace TeamApp
                 return;
             }
 
-            ApplyFrameSelection(
-                targetIndex,
-                ModifierKeys,
-                ctrlSelectedBefore: IsVisibleIndexSelected(targetIndex),
-                forceTimelineFocus: false);
+            SelectFrameViaCatalogEngine(targetIndex, ModifierKeys, forceTimelineFocus: false);
         }
 
         private void DataViewerFrameChart_MouseDoubleClick(object? sender, MouseEventArgs e)
@@ -9135,6 +9272,59 @@ namespace TeamApp
             }
         }
 
+        private void AddFilteredFrameSeries(
+            Plot plot,
+            List<FrameData> chartFrames,
+            double[] xs,
+            double[] ys,
+            ScottPlot.Color color,
+            string legendText)
+        {
+            bool legendShown = false;
+            foreach (var (start, end) in GetContinuousChartFrameRanges(chartFrames))
+            {
+                int count = end - start + 1;
+                var scatter = plot.Add.Scatter(
+                    xs.Skip(start).Take(count).ToArray(),
+                    ys.Skip(start).Take(count).ToArray());
+                scatter.Color = color;
+                scatter.LineWidth = count > 1 ? 1.8f : 0;
+                scatter.MarkerSize = count > 1 ? 3 : 6;
+                if (!legendShown)
+                {
+                    scatter.LegendText = legendText;
+                    legendShown = true;
+                }
+            }
+        }
+
+        private IEnumerable<(int Start, int End)> GetContinuousChartFrameRanges(List<FrameData> frames)
+        {
+            if (frames.Count == 0)
+                yield break;
+
+            int start = 0;
+            int previous = GetFrameOriginalIndex(frames[0], 0);
+            for (int i = 1; i < frames.Count; i++)
+            {
+                int current = GetFrameOriginalIndex(frames[i], i);
+                if (current == previous + 1)
+                {
+                    previous = current;
+                    continue;
+                }
+
+                yield return (start, i - 1);
+                start = i;
+                previous = current;
+            }
+
+            yield return (start, frames.Count - 1);
+        }
+
+        private static int GetFrameOriginalIndex(FrameData frame, int fallbackIndex)
+            => frame.OriginalIndex >= 0 ? frame.OriginalIndex : fallbackIndex;
+
         private void AddCutPointLinesToPlot(Plot plot)
         {
             if (_allFrames == null || _allFrames.Count == 0 || _cutPoints.Count <= 2)
@@ -9201,17 +9391,8 @@ namespace TeamApp
 
             if (_isFrameFilterActive)
             {
-                var angleScatter = plot.Add.Scatter(xs, angleYs);
-                angleScatter.Color = ScottPlot.Color.FromHex("#4FC3F7");
-                angleScatter.LineWidth = 0;
-                angleScatter.MarkerSize = 6;
-                angleScatter.LegendText = "조향";
-
-                var throttleScatter = plot.Add.Scatter(xs, throttleYs);
-                throttleScatter.Color = ScottPlot.Color.FromHex("#81C784");
-                throttleScatter.LineWidth = 0;
-                throttleScatter.MarkerSize = 6;
-                throttleScatter.LegendText = "스로틀";
+                AddFilteredFrameSeries(plot, chartFrames, xs, angleYs, ScottPlot.Color.FromHex("#4FC3F7"), "조향");
+                AddFilteredFrameSeries(plot, chartFrames, xs, throttleYs, ScottPlot.Color.FromHex("#81C784"), "스로틀");
             }
             else
             {
