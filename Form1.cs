@@ -309,7 +309,7 @@ namespace TeamApp
 
         private void BtnReloadData_Click(object sender, EventArgs e)
         {
-            if (!ConfirmUnsavedCleanupBeforeDataChange("현재 데이터 다시 불러오기")) return;
+            if (!ConfirmUnsavedCleanupBeforeDataChange("현재 데이터 초기화")) return;
 
             string path = _currentDataFolderPath;
             if (string.IsNullOrEmpty(path))
@@ -336,7 +336,7 @@ namespace TeamApp
             _buttonToolTip.ShowAlways = true;
 
             SetButtonToolTip(btnOpenDataFolder, "DonkeyCar Tub 데이터 폴더를 선택해서 프레임 목록과 이미지를 불러옵니다.");
-            SetButtonToolTip(btnReloadData, "현재 선택된 데이터 폴더를 다시 읽어 목록과 미리보기를 갱신합니다.");
+            SetButtonToolTip(btnReloadData, "현재 선택된 데이터 폴더를 다시 읽어 목록과 미리보기를 초기 상태로 갱신합니다.");
             SetButtonToolTip(btnToggleTheme, "화면 테마를 밝은 모드와 어두운 모드로 전환합니다.");
             SetButtonToolTip(btnGuide, "현재 작업 순서와 주요 기능 설명을 다시 확인합니다.");
             SetButtonToolTip(btnFirst, "현재 표시 목록의 첫 번째 프레임으로 이동합니다.");
@@ -550,7 +550,7 @@ namespace TeamApp
             return new List<TutorialStep>
             {
                 new TutorialStep("데이터 보기", "데이터 폴더 열기", "DonkeyCar tub 또는 mock data 폴더를 선택합니다. 이미지와 catalog_0.catalog를 읽어 프레임 목록을 만듭니다.", btnOpenDataFolder, tabPageDataViewer),
-                new TutorialStep("데이터 보기", "다시 불러오기", "현재 선택된 데이터 폴더를 다시 읽습니다. 파일을 추가하거나 catalog를 수정한 뒤 갱신할 때 사용합니다.", btnReloadData, tabPageDataViewer),
+                new TutorialStep("데이터 보기", "초기화", "현재 선택된 데이터 폴더를 다시 읽어 목록, 미리보기, 선택 상태를 초기 상태로 갱신합니다.", btnReloadData, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "테마 전환", "화면 색상을 밝은 테마와 어두운 테마로 전환합니다.", btnToggleTheme, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "단계별 가이드", "이 튜토리얼을 다시 실행합니다. 기능을 잊었을 때 언제든 다시 누르면 됩니다.", btnGuide, tabPageDataViewer),
                 new TutorialStep("데이터 보기", "프레임 목록", "왼쪽 목록에서 프레임을 선택합니다. 제외된 프레임은 다른 색과 [XXXX] 표시로 구분됩니다.", dgvFrameCatalog, tabPageDataViewer),
@@ -767,9 +767,27 @@ namespace TeamApp
             var selectedFrames = GetSelectedFrames();
             if (selectedFrames.Count == 0)
             {
-                MessageBox.Show("제외할 프레임을 하나 이상 선택해 주세요.",
-                    "선택 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                if (_isFrameFilterActive && _visibleFrames.Count > 0)
+                {
+                    var filterConfirm = MessageBox.Show(
+                        $"선택된 프레임이 없습니다.\n현재 필터링된 {_visibleFrames.Count}개 프레임을 모두 제외하시겠습니까?",
+                        "필터 결과 전체 제외", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    if (filterConfirm != DialogResult.Yes) return;
+
+                    selectedFrames = _visibleFrames.Where(frame => !frame.IsDeleted).ToList();
+                    if (selectedFrames.Count == 0)
+                    {
+                        MessageBox.Show("필터링된 프레임이 모두 이미 제외 상태입니다.",
+                            "제외할 프레임 없음", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("제외할 프레임을 하나 이상 선택해 주세요.",
+                        "선택 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
             }
 
             var confirm = MessageBox.Show(
@@ -830,6 +848,18 @@ namespace TeamApp
             }
         }
 
+        /// <summary>
+        /// 버튼, 콤보박스, 트랙바가 포커스를 가진 상태에서도 데이터 확인 탭 단축키가 먼저 동작하게 합니다.
+        /// TextBox 입력 중에는 글자 입력과 커서 이동을 방해하지 않습니다.
+        /// </summary>
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (HandleDataViewerShortcut(keyData))
+                return true;
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
         private void TrkFrameTimeline_Scroll(object sender, EventArgs e)
         {
             int idx = trkFrameTimeline.Value;
@@ -850,7 +880,8 @@ namespace TeamApp
         private void MoveToFirstFrame()
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
-            SetIndex(0, forceTimelineFocus: true);
+            var bounds = GetCurrentVisibleCutSegmentBounds();
+            SetIndex(bounds.Start, forceTimelineFocus: true);
         }
 
         private void MoveToPreviousFrame()
@@ -868,7 +899,58 @@ namespace TeamApp
         private void MoveToLastFrame()
         {
             if (_visibleFrames == null || _visibleFrames.Count == 0) return;
-            SetIndex(_visibleFrames.Count - 1, forceTimelineFocus: true);
+            var bounds = GetCurrentVisibleCutSegmentBounds();
+            SetIndex(bounds.End, forceTimelineFocus: true);
+        }
+
+        private (int Start, int End) GetCurrentVisibleCutSegmentBounds()
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return (0, 0);
+
+            int currentOriginalIndex = GetCurrentAllFrameIndex();
+            int segmentIndex = GetCutSegmentIndexForOriginalIndex(currentOriginalIndex);
+            var originalBounds = GetMacroTimelineSegmentBounds(segmentIndex);
+
+            int startVisible = FindFirstVisibleIndexInOriginalRange(originalBounds.Start, originalBounds.End);
+            int endVisible = FindLastVisibleIndexInOriginalRange(originalBounds.Start, originalBounds.End);
+
+            if (startVisible < 0 || endVisible < 0)
+                return (0, _visibleFrames.Count - 1);
+
+            return (startVisible, endVisible);
+        }
+
+        private int FindFirstVisibleIndexInOriginalRange(int startOriginalIndex, int endOriginalIndex)
+        {
+            if (_visibleFrames == null) return -1;
+
+            int from = Math.Min(startOriginalIndex, endOriginalIndex);
+            int to = Math.Max(startOriginalIndex, endOriginalIndex);
+            for (int i = 0; i < _visibleFrames.Count; i++)
+            {
+                int originalIndex = _visibleFrames[i].OriginalIndex >= 0 ? _visibleFrames[i].OriginalIndex : i;
+                if (originalIndex >= from && originalIndex <= to)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        private int FindLastVisibleIndexInOriginalRange(int startOriginalIndex, int endOriginalIndex)
+        {
+            if (_visibleFrames == null) return -1;
+
+            int from = Math.Min(startOriginalIndex, endOriginalIndex);
+            int to = Math.Max(startOriginalIndex, endOriginalIndex);
+            for (int i = _visibleFrames.Count - 1; i >= 0; i--)
+            {
+                int originalIndex = _visibleFrames[i].OriginalIndex >= 0 ? _visibleFrames[i].OriginalIndex : i;
+                if (originalIndex >= from && originalIndex <= to)
+                    return i;
+            }
+
+            return -1;
         }
 
         // 자동 재생 타이머 처리
@@ -892,76 +974,106 @@ namespace TeamApp
         // 키보드 단축키 처리
         private void Form1_KeyDown(object? sender, KeyEventArgs e)
         {
-            if (tabControlMain.SelectedTab == tabPageDataViewer && !IsTextInputFocused())
+            bool handled = HandleDataViewerShortcut(e.KeyData);
+            e.Handled = handled;
+            e.SuppressKeyPress = handled;
+        }
+
+        private bool HandleDataViewerShortcut(Keys keyData)
+        {
+            if (tabControlMain.SelectedTab != tabPageDataViewer)
+                return false;
+
+            Keys keyCode = keyData & Keys.KeyCode;
+            bool isShiftPressed = (keyData & Keys.Shift) == Keys.Shift;
+            bool isCtrlPressed = (keyData & Keys.Control) == Keys.Control;
+
+            if (isCtrlPressed && keyCode == Keys.Z)
             {
-                if (e.Control && e.KeyCode == Keys.Z)
-                {
-                    UndoEdit();
-                    e.Handled = true;
-                    e.SuppressKeyPress = true;
-                    return;
-                }
-
-                if (e.Control && e.KeyCode == Keys.Y)
-                {
-                    RedoEdit();
-                    e.Handled = true;
-                    e.SuppressKeyPress = true;
-                    return;
-                }
-
-                if (e.Shift && e.KeyCode is Keys.Up or Keys.Down or Keys.Left or Keys.Right)
-                {
-                    HandleCatalogShiftArrow(e.KeyCode);
-                    e.Handled = true;
-                    e.SuppressKeyPress = true;
-                    return;
-                }
+                UndoEdit();
+                return true;
             }
 
-            switch (e.KeyCode)
+            if (isCtrlPressed && keyCode == Keys.Y)
+            {
+                RedoEdit();
+                return true;
+            }
+
+            if (isCtrlPressed && keyCode == Keys.S)
+            {
+                BtnSaveCleanupState_Click(this, EventArgs.Empty);
+                return true;
+            }
+
+            bool textInputFocused = IsTextInputFocused();
+            if (textInputFocused && IsTextEditingKey(keyCode))
+                return false;
+
+            switch (keyCode)
             {
                 case Keys.Right:
-                    btnNext_Click(this, EventArgs.Empty);
-                    e.Handled = true;
-                    break;
+                case Keys.D:
+                    if (isShiftPressed) HandleCatalogShiftArrow(Keys.Right);
+                    else MovePreviewFocusByShortcut(1);
+                    return true;
+
                 case Keys.Left:
-                    btnPrev_Click(this, EventArgs.Empty);
-                    e.Handled = true;
-                    break;
+                case Keys.A:
+                    if (isShiftPressed) HandleCatalogShiftArrow(Keys.Left);
+                    else MovePreviewFocusByShortcut(-1);
+                    return true;
+
                 case Keys.Down:
-                    btnNext_Click(this, EventArgs.Empty);
-                    e.Handled = true;
-                    break;
+                    if (isShiftPressed) HandleCatalogShiftArrow(Keys.Down);
+                    else MovePreviewFocusByShortcut(1);
+                    return true;
+
                 case Keys.Up:
-                    btnPrev_Click(this, EventArgs.Empty);
-                    e.Handled = true;
-                    break;
-                case Keys.Space: TogglePlayPause(); e.Handled = true; break;
-                case Keys.Home: btnFirst_Click(this, EventArgs.Empty); e.Handled = true; break;
-                case Keys.End: btnLast_Click(this, EventArgs.Empty); e.Handled = true; break;
+                    if (isShiftPressed) HandleCatalogShiftArrow(Keys.Up);
+                    else MovePreviewFocusByShortcut(-1);
+                    return true;
+
+                case Keys.Space:
+                    TogglePlayPause();
+                    return true;
+
+                case Keys.Enter:
+                    AddCurrentFrameToSelection();
+                    return true;
+
+                case Keys.Escape:
+                    ClearCurrentFrameSelection();
+                    return true;
+
+                case Keys.Home:
+                    MoveToFirstFrame();
+                    return true;
+
+                case Keys.End:
+                    MoveToLastFrame();
+                    return true;
+
                 case Keys.Delete:
-                    if (tabControlMain.SelectedTab == tabPageDataViewer)
-                    {
-                        BtnExcludeSelectedFrames_Click(this, EventArgs.Empty);
-                        e.Handled = true;
-                    }
-                    break;
-                case Keys.S:
-                    if (e.Control && tabControlMain.SelectedTab == tabPageDataViewer)
-                    {
-                        BtnSaveCleanupState_Click(this, EventArgs.Empty);
-                        e.Handled = true;
-                    }
-                    break;
+                    BtnExcludeSelectedFrames_Click(this, EventArgs.Empty);
+                    return true;
+
                 case Keys.C:
-                    if (tabControlMain.SelectedTab == tabPageDataViewer && !IsTextInputFocused())
-                    {
-                        AddMacroTimelineCutAtCurrentFrame();
-                        e.Handled = true;
-                    }
-                    break;
+                    if (isCtrlPressed)
+                        return false;
+
+                    AddMacroTimelineCutAtCurrentFrame();
+                    return true;
             }
+
+            return false;
+        }
+
+        private static bool IsTextEditingKey(Keys keyCode)
+        {
+            return keyCode is Keys.Left or Keys.Right or Keys.Up or Keys.Down
+                or Keys.Home or Keys.End or Keys.Delete or Keys.Back
+                or Keys.Enter or Keys.A or Keys.C or Keys.D or Keys.Space;
         }
 
         private bool IsTextInputFocused()
@@ -970,7 +1082,7 @@ namespace TeamApp
             while (focused is ContainerControl container && container.ActiveControl != null)
                 focused = container.ActiveControl;
 
-            return focused is TextBoxBase || focused is ComboBox || focused is NumericUpDown;
+            return focused is TextBoxBase;
         }
 
         private void HandleCatalogShiftArrow(Keys keyCode)
@@ -989,6 +1101,96 @@ namespace TeamApp
                 _selectionAnchorIndex = current;
 
             SelectFrameGridRange(_selectionAnchorIndex, target, centerCatalog: true, renderChart: true);
+        }
+
+        private void MovePreviewFocusByShortcut(int direction)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return;
+
+            int current = _currentFrameIndex >= 0 ? _currentFrameIndex : 0;
+            int next = Math.Clamp(current + direction, 0, _visibleFrames.Count - 1);
+            MovePreviewFocusToFrame(next);
+        }
+
+        /// <summary>
+        /// 단축키로 프레임을 훑을 때 사용합니다.
+        /// SetIndex는 현재 선택을 초기화하므로, 여기서는 선택 목록을 유지한 채 미리보기만 이동합니다.
+        /// </summary>
+        private void MovePreviewFocusToFrame(int index)
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0)
+                return;
+
+            index = Math.Clamp(index, 0, _visibleFrames.Count - 1);
+            _currentFrameIndex = index;
+            _lastSelectedFrameIndex = index;
+            _selectionAnchorIndex = index;
+
+            ScrollCatalogToFrame(index);
+
+            if (trkFrameTimeline.Value != index)
+                trkFrameTimeline.Value = index;
+
+            DisplayFrameAtIndex(index, forceTimelineFocus: true);
+            RefreshSelectionVisuals();
+        }
+
+        private void AddCurrentFrameToSelection()
+        {
+            if (_visibleFrames == null || _visibleFrames.Count == 0 || _currentFrameIndex < 0)
+                return;
+
+            int rowIndex = Math.Clamp(_currentFrameIndex, 0, dgvFrameCatalog.Rows.Count - 1);
+            if (rowIndex < 0 || rowIndex >= dgvFrameCatalog.Rows.Count)
+                return;
+
+            if (dgvFrameCatalog.Rows[rowIndex].Selected)
+                return;
+
+            PushUndoSnapshot();
+            _isFrameSelectionUpdating = true;
+            try
+            {
+                dgvFrameCatalog.Rows[rowIndex].Selected = true;
+                dgvFrameCatalog.CurrentCell = dgvFrameCatalog.Rows[rowIndex].Cells[0];
+                _lastSelectedFrameIndex = rowIndex;
+                _selectionAnchorIndex = rowIndex;
+            }
+            finally
+            {
+                _isFrameSelectionUpdating = false;
+            }
+
+            ScrollCatalogToFrame(rowIndex);
+            RefreshSelectionVisuals();
+            UpdateUndoRedoButtons();
+        }
+
+        private void ClearCurrentFrameSelection()
+        {
+            if (dgvFrameCatalog.SelectedRows.Count == 0 &&
+                _dragPreviewSelectionStartIndex < 0 &&
+                _dragPreviewSelectionEndIndex < 0)
+            {
+                return;
+            }
+
+            PushUndoSnapshot();
+            _isFrameSelectionUpdating = true;
+            try
+            {
+                dgvFrameCatalog.ClearSelection();
+                _selectionAnchorIndex = _currentFrameIndex;
+                ClearDragSelectionPreview();
+            }
+            finally
+            {
+                _isFrameSelectionUpdating = false;
+            }
+
+            RefreshSelectionVisuals();
+            UpdateUndoRedoButtons();
         }
 
         private string GetScottPlotKoreanFontName()
@@ -1943,6 +2145,7 @@ namespace TeamApp
             lblModeFilter.Text = "주행 방식:";
             lblScenarioFilter.Text = "상황:";
             btnOpenDataFolder.Text = "데이터 폴더 열기";
+            btnReloadData.Text = "초기화";
             btnApplyFrameFilter.Text = "검색 적용";
             btnClearFrameFilter.Text = "검색 해제";
             btnExcludeFrameRange.Text = "구간 제외";
@@ -7239,6 +7442,8 @@ namespace TeamApp
                 "cd " + QuotePathForBash(wslMycarPath) + " && " +
                 "if [ ! -f config.py ] && [ ! -f manage.py ]; then echo " +
                 QuoteForBash("[error] Donkey 프로젝트 파일(config.py 또는 manage.py)을 찾을 수 없습니다: " + wslMycarPath) + "; exit 2; fi && " +
+                "mkdir -p /tmp/models && " +
+                "mkdir -p \"$(dirname " + QuotePathForBash(wslModelPath) + ")\" && " +
                 "if [ -f config.py ]; then cp config.py " + QuotePathForBash(wslTrainingConfigPath) + "; else : > " + QuotePathForBash(wslTrainingConfigPath) + "; fi && " +
                 "printf " + QuoteForBash("\n# TeamApp runtime training settings\nMAX_EPOCHS = " + epochCount.ToString(CultureInfo.InvariantCulture) + "\n") +
                 " >> " + QuotePathForBash(wslTrainingConfigPath) + " && " +
